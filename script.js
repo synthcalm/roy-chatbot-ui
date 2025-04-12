@@ -3,18 +3,19 @@ const sendBtn = document.getElementById('send-button');
 const inputEl = document.getElementById('user-input');
 const messagesEl = document.getElementById('messages');
 const audioEl = document.getElementById('roy-audio');
+const modeSelect = document.getElementById('responseMode');
 
 let isRecording = false;
 let mediaRecorder, stream, chunks = [];
 
-// Live Clock Display
+// Clock
 setInterval(() => {
   const now = new Date();
   document.getElementById('current-date').textContent = now.toISOString().split('T')[0];
   document.getElementById('current-time').textContent = now.toTimeString().split(' ')[0];
 }, 1000);
 
-// 🎙️ Microphone Button Logic
+// 🎙 Voice Input Toggle
 micBtn.addEventListener('click', async () => {
   if (!isRecording) {
     try {
@@ -43,7 +44,7 @@ micBtn.addEventListener('click', async () => {
       micBtn.textContent = '🛑 Stop';
       isRecording = true;
     } catch (err) {
-      console.error('Microphone access error:', err);
+      console.error('Mic error:', err);
     }
   } else {
     mediaRecorder.stop();
@@ -54,10 +55,12 @@ micBtn.addEventListener('click', async () => {
   }
 });
 
-// 📨 Send Button Logic
+// 📨 Handle Send Button
 sendBtn.addEventListener('click', async () => {
   const message = inputEl.value.trim();
   if (!message) return;
+
+  const mode = modeSelect.value;
 
   appendMessage('You', message);
   inputEl.value = '';
@@ -70,13 +73,22 @@ sendBtn.addEventListener('click', async () => {
 
   const data = await res.json();
 
-  appendMessage('Roy', data.text);
-  audioEl.src = `data:audio/mp3;base64,${data.audio}`;
-  audioEl.style.display = 'block';
-  audioEl.play();
+  // 🧁 Text + Voice logic
+  if (mode === 'both' || mode === 'text') {
+    appendMessage('Roy', data.text);
+  }
+
+  if (mode === 'both' || mode === 'voice') {
+    audioEl.src = `data:audio/mp3;base64,${data.audio}`;
+    audioEl.style.display = 'block';
+    audioEl.play();
+  } else {
+    audioEl.pause();
+    audioEl.style.display = 'none';
+  }
 });
 
-// 💬 Append Chat Message to UI
+// 💬 Append messages
 function appendMessage(sender, text) {
   const p = document.createElement('p');
   p.innerHTML = `<strong>${sender}:</strong> ${text}`;
