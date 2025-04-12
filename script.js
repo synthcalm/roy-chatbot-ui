@@ -93,6 +93,12 @@ micBtn.addEventListener('click', async () => {
           method: 'POST',
           body: formData
         });
+
+        if (!res.ok) {
+          console.error('Transcribe error:', await res.text());
+          return;
+        }
+
         const data = await res.json();
         inputEl.value = data.text || '';
       };
@@ -128,6 +134,12 @@ sendBtn.addEventListener('click', async () => {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ message, sessionId })
   });
+
+  if (!res.ok) {
+    console.error('Chat error:', await res.text());
+    return;
+  }
+
   const data = await res.json();
 
   if (mode === 'both' || mode === 'text') {
