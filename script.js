@@ -1,6 +1,8 @@
-// script.js – Frontend logic for Roy Chatbot (Auto transcription, mobile-friendly, dual waveform)
+// script.js – Roy Chatbot Modes: Converse, Speak-and-Send, Type-and-Read
+
 const micBtn = document.getElementById('mic-toggle');
 const sendBtn = document.getElementById('send-button');
+const converseBtn = document.getElementById('converse-button');
 const inputEl = document.getElementById('user-input');
 const messagesEl = document.getElementById('messages');
 const audioEl = document.getElementById('roy-audio');
@@ -15,18 +17,8 @@ let mediaRecorder, stream, chunks = [];
 let userAudioContext, userAnalyser, userDataArray, userSource;
 let royAudioContext, royAnalyser, royDataArray;
 
-const greetings = [
-  "Hello.",
-  "Hi there.",
-  "Welcome.",
-  "How are you today?",
-  "Glad you're here.",
-  "Nice to see you.",
-  "We begin whenever you're ready."
-];
-
 const sessionId = `session-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
-let autoSubmitToggle = true; // Enable auto submission after transcription
+const greetings = ["Hello.", "Hi there.", "Welcome.", "How are you today?", "Glad you're here.", "Nice to see you.", "We begin whenever you're ready."];
 
 function drawUserWaveform() {
   if (!userAnalyser) return;
@@ -70,11 +62,58 @@ function drawRoyWaveform() {
   royCtx.stroke();
 }
 
-micBtn.addEventListener('click', async () => {
-  autoSubmitToggle = !autoSubmitToggle; // Toggle between modes
-  micBtn.textContent = autoSubmitToggle ? 'Stop' : 'Speak';
-  micBtn.style.borderColor = autoSubmitToggle ? 'red' : '#0ff';
+function appendMessage(sender, text) {
+  const p = document.createElement('p');
+  p.innerHTML = `<strong>${sender}:</strong> ${text}`;
+  messagesEl.appendChild(p);
+  messagesEl.scrollTop = messagesEl.scrollHeight;
+}
 
+async function fetchRoyResponse(message) {
+  appendMessage('You', message);
+  inputEl.value = '';
+
+  const res = await fetch('https://roy-chatbo-backend.onrender.com/api/chat', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ message, sessionId })
+  });
+
+  if (!res.ok) {
+    console.error('Chat error:', await res.text());
+    return;
+  }
+
+  const data = await res.json();
+
+  if (modeSelect.value !== 'voice') appendMessage('Roy', data.text);
+
+  if (modeSelect.value !== 'text') {
+    audioEl.src = `data:audio/mp3;base64,${data.audio}`;
+    audioEl.style.display = 'block';
+    audioEl.play();
+
+    royAudioContext = new (window.AudioContext || window.webkitAudioContext)();
+    royAnalyser = royAudioContext.createAnalyser();
+    royAnalyser.fftSize = 2048;
+    royDataArray = new Uint8Array(royAnalyser.frequencyBinCount);
+
+    const source = royAudioContext.createMediaElementSource(audioEl);
+    source.connect(royAnalyser);
+    royAnalyser.connect(royAudioContext.destination);
+    drawRoyWaveform();
+  }
+}
+
+// Type-and-Read
+sendBtn.addEventListener('click', () => {
+  const message = inputEl.value.trim();
+  if (!message) return;
+  fetchRoyResponse(message);
+});
+
+// Speak-and-Send
+micBtn.addEventListener('click', async () => {
   if (!isRecording) {
     try {
       stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -94,6 +133,7 @@ micBtn.addEventListener('click', async () => {
         const blob = new Blob(chunks, { type: 'audio/webm' });
         const formData = new FormData();
         formData.append('audio', blob);
+
         const res = await fetch('https://roy-chatbo-backend.onrender.com/api/transcribe', {
           method: 'POST',
           body: formData
@@ -105,17 +145,13 @@ micBtn.addEventListener('click', async () => {
         }
 
         const data = await res.json();
-        inputEl.value = data.text || '';
-
-        if (autoSubmitToggle && inputEl.value.trim()) {
-          sendBtn.click();
-        } else {
-          micBtn.textContent = 'Speak';
-          micBtn.style.borderColor = '#0ff';
-        }
+        fetchRoyResponse(data.text || '');
       };
 
       mediaRecorder.start();
+      micBtn.classList.add('recording');
+      micBtn.textContent = 'Stop';
+      micBtn.style.borderColor = 'red';
       isRecording = true;
     } catch (err) {
       console.error('Mic error:', err);
@@ -123,63 +159,48 @@ micBtn.addEventListener('click', async () => {
   } else {
     mediaRecorder.stop();
     stream.getTracks().forEach(track => track.stop());
+    micBtn.classList.remove('recording');
+    micBtn.textContent = 'Speak';
+    micBtn.style.borderColor = '#0ff';
     isRecording = false;
   }
 });
 
-sendBtn.addEventListener('click', async () => {
-  const message = inputEl.value.trim();
-  if (!message) return;
+// Converse hands-free mode
+converseBtn.addEventListener('click', async () => {
+  stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  mediaRecorder = new MediaRecorder(stream);
+  chunks = [];
 
-  const mode = modeSelect.value;
-  appendMessage('You', message);
-  inputEl.value = '';
+  mediaRecorder.ondataavailable = e => chunks.push(e.data);
+  mediaRecorder.onstop = async () => {
+    const blob = new Blob(chunks, { type: 'audio/webm' });
+    const formData = new FormData();
+    formData.append('audio', blob);
 
-  const res = await fetch('https://roy-chatbo-backend.onrender.com/api/chat', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ message, sessionId })
-  });
+    const res = await fetch('https://roy-chatbo-backend.onrender.com/api/transcribe', {
+      method: 'POST',
+      body: formData
+    });
 
-  if (!res.ok) {
-    console.error('Chat error:', await res.text());
-    return;
-  }
+    const data = await res.json();
+    await fetchRoyResponse(data.text || '');
+    converseBtn.click(); // auto-restart hands-free loop
+  };
 
-  const data = await res.json();
-
-  if (mode === 'both' || mode === 'text') {
-    appendMessage('Roy', data.text);
-  }
-
-  if (mode === 'both' || mode === 'voice') {
-    audioEl.src = `data:audio/mp3;base64,${data.audio}`;
-    audioEl.style.display = 'block';
-    audioEl.play();
-
-    royAudioContext = new (window.AudioContext || window.webkitAudioContext)();
-    royAnalyser = royAudioContext.createAnalyser();
-    royAnalyser.fftSize = 2048;
-    royDataArray = new Uint8Array(royAnalyser.frequencyBinCount);
-
-    const source = royAudioContext.createMediaElementSource(audioEl);
-    source.connect(royAnalyser);
-    royAnalyser.connect(royAudioContext.destination);
-    drawRoyWaveform();
-  } else {
-    audioEl.pause();
-    audioEl.style.display = 'none';
-  }
+  mediaRecorder.start();
+  setTimeout(() => mediaRecorder.stop(), 5000); // record 5 seconds, adjust if needed
 });
 
-function appendMessage(sender, text) {
-  const p = document.createElement('p');
-  p.innerHTML = `<strong>${sender}:</strong> ${text}`;
-  messagesEl.appendChild(p);
-  messagesEl.scrollTop = messagesEl.scrollHeight;
-}
+// Clock
+setInterval(() => {
+  const now = new Date();
+  document.getElementById('current-date').textContent = now.toISOString().split('T')[0];
+  document.getElementById('current-time').textContent = now.toTimeString().split(' ')[0];
+}, 1000);
 
+// Initial Greeting
 window.addEventListener('DOMContentLoaded', () => {
   const greeting = greetings[Math.floor(Math.random() * greetings.length)];
-  appendMessage('Roy', `${greeting} You can either speak into the mic or type in the text box.`);
+  appendMessage('Roy', `${greeting} You can either speak, type, or start a hands-free conversation.`);
 });
