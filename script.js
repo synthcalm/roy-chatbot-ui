@@ -120,6 +120,7 @@ micBtn.addEventListener('click', async () => {
       mediaRecorder.start();
       micBtn.classList.add('recording');
       micBtn.textContent = 'Stop';
+      micBtn.style.borderColor = 'red';
       isRecording = true;
     } catch (err) {
       console.error('Mic error:', err);
@@ -129,6 +130,7 @@ micBtn.addEventListener('click', async () => {
     stream.getTracks().forEach(track => track.stop());
     micBtn.classList.remove('recording');
     micBtn.textContent = 'Press to Speak';
+    micBtn.style.borderColor = '#0ff';
     isRecording = false;
   }
 });
