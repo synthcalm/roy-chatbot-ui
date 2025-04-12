@@ -90,7 +90,7 @@ function appendMessage(sender, text) {
       } else {
         clearInterval(typeInterval);
       }
-    }, 15);
+    }, 10);
   } else {
     p.innerHTML += text;
     messagesEl.scrollTop = messagesEl.scrollHeight;
@@ -153,10 +153,8 @@ micBtn.addEventListener('click', async () => {
       userDataArray = new Uint8Array(userAnalyser.frequencyBinCount);
       drawUserWaveform();
 
-      const recorder = new MediaRecorder(stream);
-      let interimText = '';
-      recorder.ondataavailable = e => chunks.push(e.data);
-      recorder.onstop = async () => {
+      mediaRecorder.ondataavailable = e => chunks.push(e.data);
+      mediaRecorder.onstop = async () => {
         const blob = new Blob(chunks, { type: 'audio/webm' });
         const formData = new FormData();
         formData.append('audio', blob);
@@ -198,6 +196,7 @@ converseBtn.addEventListener('click', async () => {
   const isActive = converseBtn.classList.contains('recording');
   converseBtn.style.borderColor = isActive ? 'lime' : '#0ff';
   converseBtn.style.color = isActive ? 'lime' : '#0ff';
+  converseBtn.textContent = isActive ? 'Converse (On)' : 'Converse';
 
   if (!isActive) return;
 
