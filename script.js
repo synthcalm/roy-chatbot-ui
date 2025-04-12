@@ -1,4 +1,4 @@
-// script.js – Frontend logic for Roy Chatbot (No emojis, mobile-friendly, dual waveform)
+// script.js – Frontend logic for Roy Chatbot (Auto transcription, mobile-friendly, dual waveform)
 const micBtn = document.getElementById('mic-toggle');
 const sendBtn = document.getElementById('send-button');
 const inputEl = document.getElementById('user-input');
@@ -26,6 +26,7 @@ const greetings = [
 ];
 
 const sessionId = `session-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+const autoSubmitToggle = true;
 
 function drawUserWaveform() {
   if (!userAnalyser) return;
@@ -101,6 +102,10 @@ micBtn.addEventListener('click', async () => {
 
         const data = await res.json();
         inputEl.value = data.text || '';
+
+        if (autoSubmitToggle && inputEl.value.trim()) {
+          sendBtn.click();
+        }
       };
 
       mediaRecorder.start();
@@ -173,7 +178,6 @@ function appendMessage(sender, text) {
   messagesEl.scrollTop = messagesEl.scrollHeight;
 }
 
-// Ensure greeting happens after appendMessage is defined
 window.addEventListener('DOMContentLoaded', () => {
   const greeting = greetings[Math.floor(Math.random() * greetings.length)];
   appendMessage('Roy', `${greeting} You can either speak into the mic or type in the text box.`);
