@@ -43,9 +43,11 @@
       display: flex;
       gap: 8px;
       align-items: stretch;
+      width: 100%;
     }
     #user-input {
-      flex: 1;
+      width: 100%;
+      max-width: 100%;
       padding: 12px;
       font-size: 16px;
       border: 1px solid #0ff;
@@ -53,6 +55,7 @@
       color: white;
       font-family: 'Courier New', monospace;
       height: 96px;
+      box-sizing: border-box;
     }
     select.button, button.button {
       font-family: 'Courier New', monospace;
@@ -63,6 +66,12 @@
       border: 2px solid cyan;
       border-radius: 6px;
       cursor: pointer;
+      transition: all 0.3s ease;
+    }
+    button.button.active {
+      background-color: lime;
+      color: black;
+      border-color: lime;
     }
     .button-group {
       display: flex;
@@ -104,7 +113,7 @@
       </select>
 
       <div class="button-group">
-        <button id="converse-button" class="button">Converse</button>
+        <button id="converse-button" class="button" onclick="toggleConverseMode(this)">Converse</button>
         <button id="mic-toggle" class="button" data-mode="speak">Speak</button>
       </div>
     </div>
@@ -112,6 +121,43 @@
     <audio id="roy-audio" controls style="display:none;"></audio>
   </div>
 
+  <script>
+    let converseActive = false;
+    function toggleConverseMode(button) {
+      converseActive = !converseActive;
+      button.classList.toggle('active', converseActive);
+      if (converseActive) {
+        startConverseLoop();
+      }
+    }
+
+    async function startConverseLoop() {
+      if (!converseActive) return;
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mediaRecorder = new MediaRecorder(stream);
+      const chunks = [];
+
+      mediaRecorder.ondataavailable = e => chunks.push(e.data);
+      mediaRecorder.onstop = async () => {
+        const blob = new Blob(chunks, { type: 'audio/webm' });
+        const formData = new FormData();
+        formData.append('audio', blob);
+
+        const res = await fetch('https://roy-chatbo-backend.onrender.com/api/transcribe', {
+          method: 'POST',
+          body: formData
+        });
+
+        const data = await res.json();
+        await fetchRoyResponse(data.text || '');
+
+        if (converseActive) setTimeout(startConverseLoop, 200);
+      };
+
+      mediaRecorder.start();
+      setTimeout(() => mediaRecorder.stop(), 5000);
+    }
+  </script>
   <script src="script.js"></script>
 </body>
 </html>
