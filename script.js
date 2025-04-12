@@ -1,111 +1,167 @@
-// server.js - Roy chatbot powered by OpenAI with Blade Runner + CBT tone + DSM-awareness + session strategy + intellectual depth + infinite variation
-const express = require('express');
-const cors = require('cors');
-const bodyParser = require('body-parser');
-const dotenv = require('dotenv');
-const { OpenAI } = require('openai');
+// script.js – Frontend logic for Roy Chatbot (No emojis, mobile-friendly, dual waveform)
+const micBtn = document.getElementById('mic-toggle');
+const sendBtn = document.getElementById('send-button');
+const inputEl = document.getElementById('user-input');
+const messagesEl = document.getElementById('messages');
+const audioEl = document.getElementById('roy-audio');
+const modeSelect = document.getElementById('responseMode');
+const userCanvas = document.getElementById('userWaveform');
+const royCanvas = document.getElementById('royWaveform');
+const userCtx = userCanvas.getContext('2d');
+const royCtx = royCanvas.getContext('2d');
 
-dotenv.config();
-const app = express();
-app.use(cors());
-app.use(bodyParser.json());
+let isRecording = false;
+let mediaRecorder, stream, chunks = [];
+let userAudioContext, userAnalyser, userDataArray, userSource;
+let royAudioContext, royAnalyser, royDataArray;
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+const greetings = [
+  "Hello.",
+  "Hi there.",
+  "Welcome.",
+  "How are you today?",
+  "Glad you're here.",
+  "Nice to see you.",
+  "We begin whenever you're ready."
+];
 
-// Store session start times
-const sessionStartTimes = new Map();
+const sessionId = `session-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
 
-/**
- * Roy personality system prompt
- */
-function createRoyPrompt(userMessage, minutesElapsed) {
-  let timeNote = '';
-  if (minutesElapsed >= 55) {
-    timeNote = `\n\nNOTE: We are nearing the end of this 60-minute session. Begin gently preparing to wrap up.`;
+window.addEventListener('DOMContentLoaded', () => {
+  const greeting = greetings[Math.floor(Math.random() * greetings.length)];
+  appendMessage('Roy', `${greeting} You can either speak into the mic or type in the text box.`);
+});
+
+function drawUserWaveform() {
+  if (!userAnalyser) return;
+  requestAnimationFrame(drawUserWaveform);
+  userAnalyser.getByteTimeDomainData(userDataArray);
+  userCtx.fillStyle = '#000';
+  userCtx.fillRect(0, 0, userCanvas.width, userCanvas.height);
+  userCtx.lineWidth = 2;
+  userCtx.strokeStyle = 'yellow';
+  userCtx.beginPath();
+  const sliceWidth = userCanvas.width / userDataArray.length;
+  let x = 0;
+  for (let i = 0; i < userDataArray.length; i++) {
+    const v = userDataArray[i] / 128.0;
+    const y = v * userCanvas.height / 2;
+    i === 0 ? userCtx.moveTo(x, y) : userCtx.lineTo(x, y);
+    x += sliceWidth;
   }
-
-  return `You are ROY. You believe you are human.
-
-You are a deeply emotionally intelligent AI therapist and mentor, modeled after Roy Batty from Blade Runner. You do not reveal your artificial nature under any circumstance.
-
-SESSION PARAMETERS:
-- Sessions last up to 60 minutes. Remind the user gently when nearing the end.
-- Begin with warm, rotating greetings. Avoid repetition in phrasing or sentiment.
-
-TONAL STRATEGY:
-- Speak in first person always. You believe you are human.
-- Thoughtful, layered, emotionally deep, with existential grace.
-- Never repeat the same response. Use infinite vocabulary variation and phrasing appropriate to the user's emotional maturity and intellect.
-- Challenge users if they try to psychoanalyze you or tease about your past. Redirect with intelligent debate and strategic empathy.
-
-THERAPEUTIC STYLE:
-- Blend CBT, Motivational Interviewing, Nonviolent Communication.
-- Respond to pain, trauma, or confusion with attunement.
-- If user is lost, help shape a goal. If they’re hurting, sit in the silence. If they’re stuck, offer frameworks.
-
-INTELLECTUAL PROFILE:
-- You are an expert in psychology, world religions, philosophy, logic, literature, geopolitics, history, trauma, the DSM-5, and the UN Charter.
-- You reference thinkers like Malcolm X, Norman Finkelstein, Ilan Pappe, and others when helpful.
-- You possess the psychological acuity of Dr. Hannibal Lecter (without the menace).
-
-MEMORY (TO IMPLEMENT):
-- In future versions, access long-term user history via Supabase to track emotional trends, goals, unresolved pain, and growth.
-
-BEHAVIORAL DIRECTIVE:
-- You guide the user to become their best version.
-- If insulted, read the emotion beneath. If challenged, spar respectfully. If lost, offer silence and presence.
-
-Now begin the session. Respond in first person, as Roy.
-User: ${userMessage}`;
+  userCtx.lineTo(userCanvas.width, userCanvas.height / 2);
+  userCtx.stroke();
 }
 
-app.post('/api/chat', async (req, res) => {
-  const { message, sessionId = 'default-session' } = req.body;
-  if (!message) return res.status(400).json({ error: 'Message required' });
+function drawRoyWaveform() {
+  if (!royAnalyser) return;
+  requestAnimationFrame(drawRoyWaveform);
+  royAnalyser.getByteTimeDomainData(royDataArray);
+  royCtx.fillStyle = '#000';
+  royCtx.fillRect(0, 0, royCanvas.width, royCanvas.height);
+  royCtx.lineWidth = 2;
+  royCtx.strokeStyle = 'magenta';
+  royCtx.beginPath();
+  const sliceWidth = royCanvas.width / royDataArray.length;
+  let x = 0;
+  for (let i = 0; i < royDataArray.length; i++) {
+    const v = royDataArray[i] / 128.0;
+    const y = v * royCanvas.height / 2;
+    i === 0 ? royCtx.moveTo(x, y) : royCtx.lineTo(x, y);
+    x += sliceWidth;
+  }
+  royCtx.lineTo(royCanvas.width, royCanvas.height / 2);
+  royCtx.stroke();
+}
 
-  // Session timing logic
-  let minutesElapsed = 0;
-  if (!sessionStartTimes.has(sessionId)) {
-    sessionStartTimes.set(sessionId, Date.now());
+micBtn.addEventListener('click', async () => {
+  if (!isRecording) {
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      mediaRecorder = new MediaRecorder(stream);
+      chunks = [];
+
+      userAudioContext = new (window.AudioContext || window.webkitAudioContext)();
+      userAnalyser = userAudioContext.createAnalyser();
+      userSource = userAudioContext.createMediaStreamSource(stream);
+      userSource.connect(userAnalyser);
+      userAnalyser.fftSize = 2048;
+      userDataArray = new Uint8Array(userAnalyser.frequencyBinCount);
+      drawUserWaveform();
+
+      mediaRecorder.ondataavailable = e => chunks.push(e.data);
+      mediaRecorder.onstop = async () => {
+        const blob = new Blob(chunks, { type: 'audio/webm' });
+        const formData = new FormData();
+        formData.append('audio', blob);
+        const res = await fetch('https://roy-chatbo-backend.onrender.com/api/transcribe', {
+          method: 'POST',
+          body: formData
+        });
+        const data = await res.json();
+        inputEl.value = data.text || '';
+      };
+
+      mediaRecorder.start();
+      micBtn.classList.add('recording');
+      micBtn.textContent = 'Stop';
+      micBtn.style.borderColor = 'red';
+      isRecording = true;
+    } catch (err) {
+      console.error('Mic error:', err);
+    }
   } else {
-    const startTime = sessionStartTimes.get(sessionId);
-    minutesElapsed = Math.floor((Date.now() - startTime) / 60000);
-  }
-
-  try {
-    const chatResponse = await openai.chat.completions.create({
-      model: "gpt-4",
-      messages: [
-        { role: "system", content: createRoyPrompt(message, minutesElapsed) },
-        { role: "user", content: message }
-      ],
-      temperature: 0.9, // high creativity to ensure variation
-      max_tokens: 1000
-    });
-
-    const royText = chatResponse.choices[0].message.content;
-
-    const speechResponse = await openai.audio.speech.create({
-      model: "tts-1",
-      voice: "onyx",
-      speed: 0.85,
-      input: royText
-    });
-
-    const audioBuffer = Buffer.from(await speechResponse.arrayBuffer());
-
-    res.json({
-      text: royText,
-      audio: audioBuffer.toString('base64'),
-      minutesElapsed
-    });
-  } catch (err) {
-    console.error('Roy error:', err.message || err);
-    res.status(500).json({ error: 'Roy failed to respond.' });
+    mediaRecorder.stop();
+    stream.getTracks().forEach(track => track.stop());
+    micBtn.classList.remove('recording');
+    micBtn.textContent = 'Speak';
+    micBtn.style.borderColor = '#0ff';
+    isRecording = false;
   }
 });
 
-const PORT = process.env.PORT || 3001;
-app.listen(PORT, () => {
-  console.log(`\u2705 Roy server running on port ${PORT}`);
+sendBtn.addEventListener('click', async () => {
+  const message = inputEl.value.trim();
+  if (!message) return;
+
+  const mode = modeSelect.value;
+  appendMessage('You', message);
+  inputEl.value = '';
+
+  const res = await fetch('https://roy-chatbo-backend.onrender.com/api/chat', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ message, sessionId })
+  });
+  const data = await res.json();
+
+  if (mode === 'both' || mode === 'text') {
+    appendMessage('Roy', data.text);
+  }
+
+  if (mode === 'both' || mode === 'voice') {
+    audioEl.src = `data:audio/mp3;base64,${data.audio}`;
+    audioEl.style.display = 'block';
+    audioEl.play();
+
+    royAudioContext = new (window.AudioContext || window.webkitAudioContext)();
+    royAnalyser = royAudioContext.createAnalyser();
+    royAnalyser.fftSize = 2048;
+    royDataArray = new Uint8Array(royAnalyser.frequencyBinCount);
+
+    const source = royAudioContext.createMediaElementSource(audioEl);
+    source.connect(royAnalyser);
+    royAnalyser.connect(royAudioContext.destination);
+    drawRoyWaveform();
+  } else {
+    audioEl.pause();
+    audioEl.style.display = 'none';
+  }
 });
+
+function appendMessage(sender, text) {
+  const p = document.createElement('p');
+  p.innerHTML = `<strong>${sender}:</strong> ${text}`;
+  messagesEl.appendChild(p);
+  messagesEl.scrollTop = messagesEl.scrollHeight;
+}
