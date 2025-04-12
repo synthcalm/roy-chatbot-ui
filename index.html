@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Roy // SynthCalm</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="container">
+    <div class="title-bar">
+      <span id="current-date"></span>
+      <span id="current-time"></span>
+    </div>
+    <div id="messages"></div>
+    <div class="input-area">
+      <input type="text" id="user-input" placeholder="Say or type something..." />
+      <button id="send-button" class="button">Send</button>
+    </div>
+    <button id="mic-toggle" class="button">🎙️ Speak</button>
+    <audio id="roy-audio" controls style="display:none;"></audio>
+  </div>
+  <script src="script.js"></script>
+</body>
+</html>

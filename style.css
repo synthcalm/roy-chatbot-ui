@@ -1,0 +1,79 @@
+body {
+  margin: 0;
+  background-color: #000;
+  color: #0ff;
+  font-family: 'Courier New', monospace;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+  overflow: hidden;
+}
+.container {
+  width: 90%;
+  max-width: 650px;
+  padding: 20px;
+  border: 2px solid #0ff;
+  border-radius: 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  background-color: #111;
+  box-shadow: 0 0 20px rgba(0,255,255,0.2);
+}
+.title-bar {
+  display: flex;
+  justify-content: space-between;
+  font-size: 14px;
+  margin-bottom: 10px;
+  color: #ff0;
+}
+#messages {
+  height: 260px;
+  overflow-y: auto;
+  background-color: #000;
+  border: 1px solid #0ff;
+  padding: 10px;
+  margin-bottom: 12px;
+  font-size: 14px;
+  line-height: 1.4;
+}
+.input-area {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+#user-input {
+  flex: 1;
+  padding: 10px;
+  background: #000;
+  border: 1px solid #0ff;
+  color: #0ff;
+  font-family: inherit;
+}
+.button {
+  background: #000;
+  border: 1px solid #0ff;
+  color: #0ff;
+  padding: 10px;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.button:hover {
+  background-color: #0ff;
+  color: #000;
+}
+#mic-toggle.recording {
+  border-color: red;
+  color: red;
+  animation: blink 1s infinite;
+}
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+audio {
+  margin-top: 8px;
+  width: 100%;
+}
