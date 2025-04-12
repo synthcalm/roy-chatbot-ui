@@ -12,14 +12,27 @@
       <span id="current-date"></span>
       <span id="current-time"></span>
     </div>
+
     <div id="messages"></div>
+
     <div class="input-area">
       <input type="text" id="user-input" placeholder="Say or type something..." />
       <button id="send-button" class="button">Send</button>
     </div>
+
+    <div class="input-area">
+      <label for="responseMode" style="color:#0ff; font-size:12px;">Roy Response Mode:</label>
+      <select id="responseMode" class="button" style="padding: 6px; font-size: 14px; color: #0ff; background: #000; border: 1px solid #0ff; font-family: 'Courier New';">
+        <option value="both">🧁 Text + Voice</option>
+        <option value="text">🔇 Text Only</option>
+        <option value="voice">🔊 Voice Only</option>
+      </select>
+    </div>
+
     <button id="mic-toggle" class="button">🎙️ Speak</button>
     <audio id="roy-audio" controls style="display:none;"></audio>
   </div>
+
   <script src="script.js"></script>
 </body>
 </html>
