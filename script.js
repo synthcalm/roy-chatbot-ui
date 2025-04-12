@@ -26,7 +26,7 @@ const greetings = [
 ];
 
 const sessionId = `session-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
-const autoSubmitToggle = true;
+let autoSubmitToggle = true; // Enable auto submission after transcription
 
 function drawUserWaveform() {
   if (!userAnalyser) return;
@@ -71,6 +71,10 @@ function drawRoyWaveform() {
 }
 
 micBtn.addEventListener('click', async () => {
+  autoSubmitToggle = !autoSubmitToggle; // Toggle between modes
+  micBtn.textContent = autoSubmitToggle ? 'Stop' : 'Speak';
+  micBtn.style.borderColor = autoSubmitToggle ? 'red' : '#0ff';
+
   if (!isRecording) {
     try {
       stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -105,13 +109,13 @@ micBtn.addEventListener('click', async () => {
 
         if (autoSubmitToggle && inputEl.value.trim()) {
           sendBtn.click();
+        } else {
+          micBtn.textContent = 'Speak';
+          micBtn.style.borderColor = '#0ff';
         }
       };
 
       mediaRecorder.start();
-      micBtn.classList.add('recording');
-      micBtn.textContent = 'Stop';
-      micBtn.style.borderColor = 'red';
       isRecording = true;
     } catch (err) {
       console.error('Mic error:', err);
@@ -119,9 +123,6 @@ micBtn.addEventListener('click', async () => {
   } else {
     mediaRecorder.stop();
     stream.getTracks().forEach(track => track.stop());
-    micBtn.classList.remove('recording');
-    micBtn.textContent = 'Speak';
-    micBtn.style.borderColor = '#0ff';
     isRecording = false;
   }
 });
