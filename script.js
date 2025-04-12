@@ -64,6 +64,7 @@ function drawRoyWaveform() {
 
 function appendMessage(sender, text) {
   const p = document.createElement('p');
+  p.classList.add(sender.toLowerCase() === 'you' ? 'user' : 'roy');
   p.innerHTML = `<strong>${sender}:</strong> ${text}`;
   messagesEl.appendChild(p);
   messagesEl.scrollTop = messagesEl.scrollHeight;
@@ -185,21 +186,19 @@ converseBtn.addEventListener('click', async () => {
 
     const data = await res.json();
     await fetchRoyResponse(data.text || '');
-    converseBtn.click(); // auto-restart hands-free loop
+    converseBtn.click();
   };
 
   mediaRecorder.start();
-  setTimeout(() => mediaRecorder.stop(), 5000); // record 5 seconds, adjust if needed
+  setTimeout(() => mediaRecorder.stop(), 5000);
 });
 
-// Clock
 setInterval(() => {
   const now = new Date();
   document.getElementById('current-date').textContent = now.toISOString().split('T')[0];
   document.getElementById('current-time').textContent = now.toTimeString().split(' ')[0];
 }, 1000);
 
-// Initial Greeting
 window.addEventListener('DOMContentLoaded', () => {
   const greeting = greetings[Math.floor(Math.random() * greetings.length)];
   appendMessage('Roy', `${greeting} You can either speak, type, or start a hands-free conversation.`);
