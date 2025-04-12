@@ -20,12 +20,30 @@ let royAudioContext, royAnalyser, royDataArray;
 const sessionId = `session-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
 const greetings = ["Hello.", "Hi there.", "Welcome.", "How are you today?", "Glad you're here.", "Nice to see you.", "We begin whenever you're ready."];
 
+function drawGrid(ctx, width, height, color) {
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 0.5;
+  for (let x = 0; x < width; x += 20) {
+    ctx.beginPath();
+    ctx.moveTo(x, 0);
+    ctx.lineTo(x, height);
+    ctx.stroke();
+  }
+  for (let y = 0; y < height; y += 20) {
+    ctx.beginPath();
+    ctx.moveTo(0, y);
+    ctx.lineTo(width, y);
+    ctx.stroke();
+  }
+}
+
 function drawUserWaveform() {
   if (!userAnalyser) return;
   requestAnimationFrame(drawUserWaveform);
   userAnalyser.getByteTimeDomainData(userDataArray);
   userCtx.fillStyle = '#000';
   userCtx.fillRect(0, 0, userCanvas.width, userCanvas.height);
+  drawGrid(userCtx, userCanvas.width, userCanvas.height, 'rgba(255,255,0,0.3)');
   userCtx.lineWidth = 2;
   userCtx.strokeStyle = 'yellow';
   userCtx.beginPath();
@@ -47,6 +65,7 @@ function drawRoyWaveform() {
   royAnalyser.getByteTimeDomainData(royDataArray);
   royCtx.fillStyle = '#000';
   royCtx.fillRect(0, 0, royCanvas.width, royCanvas.height);
+  drawGrid(royCtx, royCanvas.width, royCanvas.height, 'rgba(255,0,255,0.3)');
   royCtx.lineWidth = 2;
   royCtx.strokeStyle = 'magenta';
   royCtx.beginPath();
@@ -106,14 +125,12 @@ async function fetchRoyResponse(message) {
   }
 }
 
-// Type-and-Read
 sendBtn.addEventListener('click', () => {
   const message = inputEl.value.trim();
   if (!message) return;
   fetchRoyResponse(message);
 });
 
-// Speak-and-Send
 micBtn.addEventListener('click', async () => {
   if (!isRecording) {
     try {
@@ -167,8 +184,11 @@ micBtn.addEventListener('click', async () => {
   }
 });
 
-// Converse hands-free mode
 converseBtn.addEventListener('click', async () => {
+  converseBtn.classList.add('recording');
+  converseBtn.style.borderColor = 'lime';
+  converseBtn.style.color = 'lime';
+
   stream = await navigator.mediaDevices.getUserMedia({ audio: true });
   mediaRecorder = new MediaRecorder(stream);
   chunks = [];
