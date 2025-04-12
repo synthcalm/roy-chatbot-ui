@@ -15,6 +15,14 @@ let mediaRecorder, stream, chunks = [];
 let userAudioContext, userAnalyser, userDataArray, userSource;
 let royAudioContext, royAnalyser, royDataArray, roySource;
 
+const greetings = [
+  "Hello.",
+  "Hi there.",
+  "Welcome.",
+  "How are you today?",
+  "Glad you're here."
+];
+
 // Clock
 setInterval(() => {
   const now = new Date();
@@ -74,6 +82,12 @@ function drawRoyWaveform() {
   royCtx.stroke();
 }
 
+// === Initial Greeting ===
+window.addEventListener('DOMContentLoaded', () => {
+  const greeting = greetings[Math.floor(Math.random() * greetings.length)];
+  appendMessage('Roy', `${greeting} You can either speak into the mic or type in the text box.`);
+});
+
 // === Mic Button Toggle ===
 micBtn.addEventListener('click', async () => {
   if (!isRecording) {
@@ -105,7 +119,7 @@ micBtn.addEventListener('click', async () => {
 
       mediaRecorder.start();
       micBtn.classList.add('recording');
-      micBtn.textContent = '🛑 Stop';
+      micBtn.textContent = 'Stop';
       isRecording = true;
     } catch (err) {
       console.error('Mic error:', err);
@@ -114,7 +128,7 @@ micBtn.addEventListener('click', async () => {
     mediaRecorder.stop();
     stream.getTracks().forEach(track => track.stop());
     micBtn.classList.remove('recording');
-    micBtn.textContent = '🎙️ Speak';
+    micBtn.textContent = 'Press to Speak';
     isRecording = false;
   }
 });
