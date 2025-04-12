@@ -1,4 +1,4 @@
-// script.js – Roy Chatbot Modes: Converse, Speak-and-Send, Type-and-Read
+// script.js – Roy Chatbot Modes: Converse, Speak-and-Send, Type-and-Read with Real-Time Transcription, Typing Effect, Fast Response
 
 const micBtn = document.getElementById('mic-toggle');
 const sendBtn = document.getElementById('send-button');
@@ -24,16 +24,10 @@ function drawGrid(ctx, width, height, color) {
   ctx.strokeStyle = color;
   ctx.lineWidth = 0.5;
   for (let x = 0; x < width; x += 20) {
-    ctx.beginPath();
-    ctx.moveTo(x, 0);
-    ctx.lineTo(x, height);
-    ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, height); ctx.stroke();
   }
   for (let y = 0; y < height; y += 20) {
-    ctx.beginPath();
-    ctx.moveTo(0, y);
-    ctx.lineTo(width, y);
-    ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(width, y); ctx.stroke();
   }
 }
 
@@ -84,9 +78,23 @@ function drawRoyWaveform() {
 function appendMessage(sender, text) {
   const p = document.createElement('p');
   p.classList.add(sender.toLowerCase() === 'you' ? 'user' : 'roy');
-  p.innerHTML = `<strong>${sender}:</strong> ${text}`;
+  p.innerHTML = `<strong>${sender}:</strong> `;
   messagesEl.appendChild(p);
-  messagesEl.scrollTop = messagesEl.scrollHeight;
+
+  if (sender === 'Roy') {
+    let i = 0;
+    const typeInterval = setInterval(() => {
+      if (i < text.length) {
+        p.innerHTML += text.charAt(i++);
+        messagesEl.scrollTop = messagesEl.scrollHeight;
+      } else {
+        clearInterval(typeInterval);
+      }
+    }, 15);
+  } else {
+    p.innerHTML += text;
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+  }
 }
 
 async function fetchRoyResponse(message) {
@@ -105,7 +113,6 @@ async function fetchRoyResponse(message) {
   }
 
   const data = await res.json();
-
   if (modeSelect.value !== 'voice') appendMessage('Roy', data.text);
 
   if (modeSelect.value !== 'text') {
@@ -146,8 +153,10 @@ micBtn.addEventListener('click', async () => {
       userDataArray = new Uint8Array(userAnalyser.frequencyBinCount);
       drawUserWaveform();
 
-      mediaRecorder.ondataavailable = e => chunks.push(e.data);
-      mediaRecorder.onstop = async () => {
+      const recorder = new MediaRecorder(stream);
+      let interimText = '';
+      recorder.ondataavailable = e => chunks.push(e.data);
+      recorder.onstop = async () => {
         const blob = new Blob(chunks, { type: 'audio/webm' });
         const formData = new FormData();
         formData.append('audio', blob);
@@ -185,9 +194,12 @@ micBtn.addEventListener('click', async () => {
 });
 
 converseBtn.addEventListener('click', async () => {
-  converseBtn.classList.add('recording');
-  converseBtn.style.borderColor = 'lime';
-  converseBtn.style.color = 'lime';
+  converseBtn.classList.toggle('recording');
+  const isActive = converseBtn.classList.contains('recording');
+  converseBtn.style.borderColor = isActive ? 'lime' : '#0ff';
+  converseBtn.style.color = isActive ? 'lime' : '#0ff';
+
+  if (!isActive) return;
 
   stream = await navigator.mediaDevices.getUserMedia({ audio: true });
   mediaRecorder = new MediaRecorder(stream);
@@ -206,11 +218,11 @@ converseBtn.addEventListener('click', async () => {
 
     const data = await res.json();
     await fetchRoyResponse(data.text || '');
-    converseBtn.click();
+    if (converseBtn.classList.contains('recording')) converseBtn.click();
   };
 
   mediaRecorder.start();
-  setTimeout(() => mediaRecorder.stop(), 5000);
+  setTimeout(() => mediaRecorder.stop(), 3000);
 });
 
 setInterval(() => {
