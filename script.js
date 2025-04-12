@@ -27,11 +27,6 @@ const greetings = [
 
 const sessionId = `session-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
 
-window.addEventListener('DOMContentLoaded', () => {
-  const greeting = greetings[Math.floor(Math.random() * greetings.length)];
-  appendMessage('Roy', `${greeting} You can either speak into the mic or type in the text box.`);
-});
-
 function drawUserWaveform() {
   if (!userAnalyser) return;
   requestAnimationFrame(drawUserWaveform);
@@ -165,3 +160,9 @@ function appendMessage(sender, text) {
   messagesEl.appendChild(p);
   messagesEl.scrollTop = messagesEl.scrollHeight;
 }
+
+// Ensure greeting happens after appendMessage is defined
+window.addEventListener('DOMContentLoaded', () => {
+  const greeting = greetings[Math.floor(Math.random() * greetings.length)];
+  appendMessage('Roy', `${greeting} You can either speak into the mic or type in the text box.`);
+});
