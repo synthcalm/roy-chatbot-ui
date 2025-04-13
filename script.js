@@ -1,4 +1,4 @@
-// script.js – Roy Chatbot Modes: Fixed Converse Mode, Filtered Transcription, Real-Time Typing, and Prompt Tone Control
+// script.js – Roy Chatbot Modes: Enhanced TTS Style, Converse Mode, Prompt Tone Control
 
 let isRecording = false;
 let mediaRecorder, stream, chunks = [];
@@ -6,7 +6,9 @@ let userAudioContext, userAnalyser, userDataArray, userSource;
 let royAudioContext, royAnalyser, royDataArray;
 
 const sessionId = `session-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
-const greetings = ["Welcome. I'm Roy. You may speak using 'Hands Free' or 'Speak' mode, or type below."];
+const greetings = [
+  "Welcome. I'm Roy. You may speak using 'Hands Free' or 'Speak' mode, or type below."
+];
 
 window.addEventListener('DOMContentLoaded', () => {
   const micBtn = document.getElementById('mic-toggle');
@@ -110,7 +112,7 @@ window.addEventListener('DOMContentLoaded', () => {
       body: JSON.stringify({
         message,
         sessionId,
-        tone: "Brief, warm, emotionally intelligent. Avoid monologues. Reply like a therapist who knows when to pause. Never repeat yourself. Always guide with short, reflective responses."
+        tone: "Short, human-like, emotional intelligence. Add natural expressions like 'Mmhh', 'Correct...', or 'That's what we want'. Be sometimes fast, sometimes slow or loud. Emphasize naturally. Avoid robotic tone."
       })
     });
 
@@ -138,8 +140,6 @@ window.addEventListener('DOMContentLoaded', () => {
       drawRoyWaveform();
     }
   }
-
-  // ... (rest of the code remains unchanged)
 
   const greeting = greetings[Math.floor(Math.random() * greetings.length)];
   appendMessage('Roy', greeting);
