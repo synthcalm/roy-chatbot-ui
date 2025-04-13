@@ -28,20 +28,45 @@ window.addEventListener('DOMContentLoaded', () => {
   function appendMessage(sender, text) {
     const p = document.createElement('p');
     p.classList.add(sender.toLowerCase());
-    p.innerHTML = `<strong>${sender}:</strong> ${text}`;
+    p.innerHTML = `<strong>${sender}:</strong> `;
     messagesEl.appendChild(p);
-    messagesEl.scrollTop = messagesEl.scrollHeight;
+
+    if (sender === 'Roy') {
+      let i = 0;
+      const typeInterval = setInterval(() => {
+        if (i < text.length) {
+          p.innerHTML += text.charAt(i++);
+          messagesEl.scrollTop = messagesEl.scrollHeight;
+        } else {
+          clearInterval(typeInterval);
+        }
+      }, 12);
+    } else {
+      p.innerHTML += text;
+      messagesEl.scrollTop = messagesEl.scrollHeight;
+    }
   }
 
   async function fetchRoyResponse(message) {
     appendMessage('You', message);
     inputEl.value = '';
 
+    const thinking = document.createElement('p');
+    thinking.textContent = 'Roy is thinking...';
+    thinking.className = 'roy';
+    messagesEl.appendChild(thinking);
+
     const res = await fetch('https://roy-chatbo-backend.onrender.com/api/chat', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ message, sessionId })
+      body: JSON.stringify({
+        message,
+        sessionId,
+        tone: "Casual, concise, and emotionally intelligent. Include human expressions like 'Mmm', 'Sure thing', 'Exactly', etc. Avoid sounding robotic or overly formal."
+      })
     });
+
+    thinking.remove();
 
     const data = await res.json();
 
