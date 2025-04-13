@@ -1,4 +1,4 @@
-window.addEventListener('DOMContentLoaded', () => {
+window.addEventListener('DOMContentLoaded', async () => {
     const micBtn = document.getElementById('mic-toggle');
     const inputEl = document.getElementById('user-input');
     const messagesEl = document.getElementById('messages');
@@ -8,8 +8,8 @@ window.addEventListener('DOMContentLoaded', () => {
     let thinkingEl = null;
     let socket;
     let audioContext;
-    let processor;
     let source;
+    let workletNode;
 
     const ASSEMBLYAI_SOCKET_URL = 'wss://api.assemblyai.com/v2/realtime/ws?sample_rate=16000';
     const ASSEMBLYAI_API_KEY = 'eeee5d1982444610a670bd17152a8e4a';
@@ -20,20 +20,32 @@ window.addEventListener('DOMContentLoaded', () => {
         try {
             stream = await navigator.mediaDevices.getUserMedia({ audio: true });
             audioContext = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 16000 });
-            source = audioContext.createMediaStreamSource(stream);
-            processor = audioContext.createScriptProcessor(4096, 1, 1);
+            await audioContext.audioWorklet.addModule('data:application/javascript;base64,' + btoa(`
+                class PCMProcessor extends AudioWorkletProcessor {
+                    process(inputs) {
+                        const input = inputs[0][0];
+                        if (!input) return true;
+                        const int16 = new Int16Array(input.length);
+                        for (let i = 0; i < input.length; i++) {
+                            int16[i] = Math.max(-1, Math.min(1, input[i])) * 0x7fff;
+                        }
+                        this.port.postMessage(int16.buffer);
+                        return true;
+                    }
+                }
+                registerProcessor('pcm-processor', PCMProcessor);
+            `));
 
-            processor.onaudioprocess = (event) => {
-                const inputData = event.inputBuffer.getChannelData(0);
-                const int16Data = convertFloat32ToInt16(inputData);
+            source = audioContext.createMediaStreamSource(stream);
+            workletNode = new AudioWorkletNode(audioContext, 'pcm-processor');
+
+            workletNode.port.onmessage = (e) => {
                 if (socket && socket.readyState === WebSocket.OPEN) {
-                    socket.send(int16Data);
+                    socket.send(e.data);
                 }
             };
 
-            source.connect(processor);
-            processor.connect(audioContext.destination);
-
+            source.connect(workletNode).connect(audioContext.destination);
             connectToAssemblyAI();
 
             liveTranscriptEl = document.createElement('p');
@@ -46,15 +58,6 @@ window.addEventListener('DOMContentLoaded', () => {
             appendMessage('Roy', 'Could not access the microphone.');
             stopRecording();
         }
-    }
-
-    function convertFloat32ToInt16(buffer) {
-        let l = buffer.length;
-        const buf = new Int16Array(l);
-        while (l--) {
-            buf[l] = Math.min(1, buffer[l]) * 0x7FFF;
-        }
-        return buf.buffer;
     }
 
     function connectToAssemblyAI() {
@@ -81,7 +84,7 @@ window.addEventListener('DOMContentLoaded', () => {
     }
 
     function stopRecording() {
-        if (processor) processor.disconnect();
+        if (workletNode) workletNode.disconnect();
         if (source) source.disconnect();
         if (audioContext) audioContext.close();
         if (stream) {
@@ -125,8 +128,39 @@ window.addEventListener('DOMContentLoaded', () => {
     }
 
     async function fetchRoyResponse(text) {
-        console.log('Fetching Roy response for:', text);
-        // Implement API fetch to backend here.
+        const apiBase = 'https://roy-chatbo-backend.onrender.com';
+
+        try {
+            const res = await fetch(`${apiBase}/api/chat/text`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    message: text,
+                    sessionId: `session-${Date.now()}`,
+                    tone: `You are Roy Batty, a therapeutic counselor. Your voice burns with poetic defiance. Speak with imagery, insight, and vivid human emotion.`
+                })
+            });
+
+            if (!res.ok) throw new Error(`Text response failed: ${res.status}`);
+            const data = await res.json();
+
+            appendMessage('Roy', data.text);
+
+            const audioRes = await fetch(`${apiBase}/api/chat/audio`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ text: data.text })
+            });
+
+            if (!audioRes.ok) throw new Error(`Audio response failed: ${audioRes.status}`);
+            const audioData = await audioRes.json();
+
+            const audioEl = new Audio(`data:audio/mp3;base64,${audioData.audio}`);
+            audioEl.play();
+        } catch (err) {
+            console.error(err);
+            appendMessage('Roy', 'Something disrupted my voice. Try again.');
+        }
     }
 
     micBtn.addEventListener('click', () => {
