@@ -1,4 +1,4 @@
-/* Updated script.js – Fixed audio cutoff (InvalidStateError), real-time STT, delayed "Roy is thinking" */
+/* Updated script.js – Fixed audio cutoff by creating new audio element, real-time STT, delayed "Roy is thinking" */
 
 window.addEventListener('DOMContentLoaded', () => {
   const micBtn = document.getElementById('mic-toggle');
@@ -6,7 +6,6 @@ window.addEventListener('DOMContentLoaded', () => {
   const saveBtn = document.getElementById('save-log');
   const inputEl = document.getElementById('user-input');
   const messagesEl = document.getElementById('messages');
-  const audioEl = document.getElementById('roy-audio');
   const modeSelect = document.getElementById('responseMode');
   const dateSpan = document.getElementById('current-date');
   const timeSpan = document.getElementById('current-time');
@@ -28,6 +27,8 @@ window.addEventListener('DOMContentLoaded', () => {
   let sessionStart = Date.now();
   let liveTranscriptEl = null;
   let finalTranscript = '';
+  let isAudioPlaying = false;
+  let currentAudioEl = null;
 
   const userCanvas = document.getElementById('userWaveform');
   const userCtx = userCanvas.getContext('2d');
@@ -68,6 +69,41 @@ window.addEventListener('DOMContentLoaded', () => {
     }
   }
 
+  async function cleanupAudioResources() {
+    console.log('Cleaning up audio resources...');
+    if (currentAudioEl) {
+      currentAudioEl.pause();
+      currentAudioEl.src = '';
+      currentAudioEl.load();
+      currentAudioEl.remove();
+      currentAudioEl = null;
+    }
+    if (roySource) {
+      try {
+        roySource.disconnect();
+      } catch (e) {
+        console.warn('Error disconnecting roySource:', e);
+      }
+      roySource = null;
+    }
+    if (royAnalyser) {
+      try {
+        royAnalyser.disconnect();
+      } catch (e) {
+        console.warn('Error disconnecting royAnalyser:', e);
+      }
+      royAnalyser = null;
+    }
+    if (royAudioContext) {
+      try {
+        await royAudioContext.close();
+      } catch (e) {
+        console.warn('Error closing royAudioContext:', e);
+      }
+      royAudioContext = null;
+    }
+  }
+
   async function fetchRoyResponse(message) {
     try {
       const res = await fetch('https://roy-chatbo-backend.onrender.com/api/chat', {
@@ -91,46 +127,35 @@ window.addEventListener('DOMContentLoaded', () => {
 
       // Handle audio if mode is not text and audio data exists
       if (modeSelect.value !== 'text' && data.audio) {
-        // Clean up previous audio resources
-        console.log('Cleaning up audio resources...');
-        if (roySource) {
-          try {
-            roySource.disconnect();
-          } catch (e) {
-            console.warn('Error disconnecting roySource:', e);
-          }
-          roySource = null;
-        }
-        if (royAnalyser) {
-          try {
-            royAnalyser.disconnect();
-          } catch (e) {
-            console.warn('Error disconnecting royAnalyser:', e);
-          }
-          royAnalyser = null;
-        }
-        if (royAudioContext) {
-          try {
-            royAudioContext.close();
-          } catch (e) {
-            console.warn('Error closing royAudioContext:', e);
-          }
-          royAudioContext = null;
+        // Wait for current audio to finish
+        if (isAudioPlaying) {
+          console.log('Audio still playing, waiting...');
+          await new Promise(resolve => {
+            currentAudioEl.onended = () => {
+              isAudioPlaying = false;
+              currentAudioEl.onended = null;
+              resolve();
+            };
+          });
         }
 
-        // Reset audio element
-        audioEl.pause();
-        audioEl.currentTime = 0;
-        audioEl.src = '';
-        audioEl.load(); // Force reset of media element
+        // Clean up previous audio resources
+        await cleanupAudioResources();
+
+        // Create new audio element
+        console.log('Creating new audio element...');
+        currentAudioEl = document.createElement('audio');
+        currentAudioEl.style.display = 'none';
+        document.body.appendChild(currentAudioEl);
 
         // Create new AudioContext
         console.log('Creating new AudioContext...');
         royAudioContext = new (window.AudioContext || window.webkitAudioContext)();
 
         try {
-          audioEl.src = `data:audio/mp3;base64,${data.audio}`;
-          roySource = royAudioContext.createMediaElementSource(audioEl);
+          console.log('Setting up audio playback...');
+          currentAudioEl.src = `data:audio/mp3;base64,${data.audio}`;
+          roySource = royAudioContext.createMediaElementSource(currentAudioEl);
           const gainNode = royAudioContext.createGain();
           gainNode.gain.value = 2.0;
           royAnalyser = royAudioContext.createAnalyser();
@@ -140,16 +165,25 @@ window.addEventListener('DOMContentLoaded', () => {
           gainNode.connect(royAnalyser);
           royAnalyser.connect(royAudioContext.destination);
           drawRoyWaveform();
-          await audioEl.play();
+          isAudioPlaying = true;
+          await currentAudioEl.play();
           console.log('Audio playback started successfully');
+          currentAudioEl.onended = () => {
+            isAudioPlaying = false;
+            cleanupAudioResources();
+          };
         } catch (audioError) {
           console.error('Audio playback error:', audioError);
+          isAudioPlaying = false;
           appendMessage('Roy', 'My voice stumbles in the ether, but my words endure.');
+          await cleanupAudioResources();
         }
       }
     } catch (error) {
       appendMessage('Roy', 'A storm clouds my voice. Please speak again.');
       console.error('Fetch error:', error.message);
+      isAudioPlaying = false;
+      await cleanupAudioResources();
     }
   }
 
@@ -304,7 +338,7 @@ window.addEventListener('DOMContentLoaded', () => {
     royCtx.beginPath();
     const sliceWidth = royCanvas.width / royDataArray.length;
     let x = 0;
-    for (let i = 0; i < royDataArray.length; i++) {
+    for (let i = 0; i < ronDataArray.length; i++) {
       const y = (royDataArray[i] / 128.0) * royCanvas.height / 2;
       i === 0 ? royCtx.moveTo(x, y) : royCtx.lineTo(x, y);
       x += sliceWidth;
@@ -362,5 +396,10 @@ window.addEventListener('DOMContentLoaded', () => {
 
   saveBtn.addEventListener('click', () => {
     console.log('TODO: Save chat log to Supabase.');
+  });
+
+  // Clean up on page unload
+  window.addEventListener('unload', () => {
+    cleanupAudioResources();
   });
 });
