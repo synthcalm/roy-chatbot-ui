@@ -1,8 +1,8 @@
 // DOM Elements
 const messagesDiv = document.getElementById('messages'); // Messages container
-const userInput = document.getElementById('message-input'); // User input field (corrected from user-input to match index.html)
+const userInput = document.getElementById('message-input'); // User input field
 const sendButton = document.getElementById('send-button'); // Send button
-const startSpeechButton = document.getElementById('start-speech'); // Speech button (to be added in index.html)
+const startSpeechButton = document.getElementById('start-speech'); // Speech button
 
 // Check for SpeechRecognition API support
 const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -16,11 +16,13 @@ if (SpeechRecognition) {
 
     // Handle transcription results
     recognition.onresult = (event) => {
+        console.log('Speech recognition result received:', event.results); // Debug log
         let interimTranscript = '';
         let finalTranscript = '';
 
         for (let i = event.resultIndex; i < event.results.length; i++) {
             const transcript = event.results[i][0].transcript;
+            console.log(`Transcript [${i}]: ${transcript}, isFinal: ${event.results[i].isFinal}`); // Debug log
             if (event.results[i].isFinal) {
                 finalTranscript += transcript;
             } else {
@@ -29,7 +31,12 @@ if (SpeechRecognition) {
         }
 
         // Update the textbox with the transcription
-        userInput.value = finalTranscript || interimTranscript;
+        const newValue = finalTranscript || interimTranscript;
+        if (newValue) {
+            userInput.value = newValue;
+            userInput.dispatchEvent(new Event('input')); // Trigger input event for reactivity
+            console.log('Updated userInput.value:', newValue); // Debug log
+        }
     };
 
     // Handle errors
@@ -42,6 +49,16 @@ if (SpeechRecognition) {
     // Handle end of recognition
     recognition.onend = () => {
         console.log('Speech recognition ended');
+        if (startSpeechButton) {
+            startSpeechButton.classList.remove('active'); // Reset button state
+        }
+    };
+
+    // Handle no speech detected
+    recognition.onnomatch = () => {
+        console.log('No speech detected');
+        messagesDiv.innerHTML += `<p class="message bot"><strong>Notice:</strong> No speech detected. Please try again.</p>`;
+        messagesDiv.scrollTop = messagesDiv.scrollHeight;
     };
 } else {
     console.warn('SpeechRecognition API not supported in this browser.');
@@ -50,25 +67,41 @@ if (SpeechRecognition) {
 // Add event listener for speech recognition (if supported)
 if (startSpeechButton && recognition) {
     startSpeechButton.addEventListener('click', () => {
+        // Toggle active state for visual feedback
+        if (startSpeechButton.classList.contains('active')) {
+            recognition.stop();
+            startSpeechButton.classList.remove('active');
+            console.log('Speech recognition stopped manually');
+            return;
+        }
+
         navigator.permissions.query({ name: 'microphone' })
             .then(permissionStatus => {
                 if (permissionStatus.state === 'denied') {
-                    messagesDiv.innerHTML += `<p class="message bot"><strong>Error:</strong> Please allow microphone access.</p>`;
+                    messagesDiv.innerHTML += `<p class="message bot"><strong>Error:</strong> Please allow microphone access in your browser settings.</p>`;
                     messagesDiv.scrollTop = messagesDiv.scrollHeight;
                     return;
                 }
-                recognition.start();
-                console.log('Speech recognition started');
+                try {
+                    recognition.start();
+                    startSpeechButton.classList.add('active'); // Indicate recording
+                    console.log('Speech recognition started');
+                } catch (err) {
+                    console.error('Error starting recognition:', err);
+                    messagesDiv.innerHTML += `<p class="message bot"><strong>Error:</strong> Failed to start speech recognition: ${err.message}</p>`;
+                    messagesDiv.scrollTop = messagesDiv.scrollHeight;
+                }
             })
             .catch(err => {
                 console.error('Permission query error:', err);
-                messagesDiv.innerHTML += `<p class="message bot"><strong>Error:</strong> Unable to access microphone permissions.</p>`;
+                messagesDiv.innerHTML += `<p class="message bot"><strong>Error:</strong> Unable to access microphone permissions: ${err.message}</p>`;
                 messagesDiv.scrollTop = messagesDiv.scrollHeight;
             });
     });
 } else if (startSpeechButton) {
     startSpeechButton.disabled = true;
-    messagesDiv.innerHTML += `<p class="message bot"><strong>Warning:</strong> Speech recognition is not supported in this browser.</p>`;
+    startSpeechButton.title = 'Speech recognition not supported';
+    messagesDiv.innerHTML += `<p class="message bot"><strong>Warning:</strong> Speech recognition is not supported in this browser. Please use text input.</p>`;
     messagesDiv.scrollTop = messagesDiv.scrollHeight;
 }
 
