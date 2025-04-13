@@ -1,4 +1,4 @@
-// script.js for Roy // SynthCalm
+// script.js for Roy – Bulletproof Version
 
 window.addEventListener('DOMContentLoaded', () => {
   const micBtn = document.getElementById('mic-toggle');
@@ -14,8 +14,7 @@ window.addEventListener('DOMContentLoaded', () => {
 
   const sessionId = `session-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
   const greetings = ["Welcome. I'm Roy. You may speak using 'Speak' mode or type below."];
-  let isRecording = false;
-  let socket, userAudioContext, userAnalyser, userDataArray, stream;
+  let isRecording = false, mediaRecorder, stream, userAudioContext, userAnalyser, userDataArray;
   let sessionStart = Date.now();
 
   const userCanvas = document.getElementById('userWaveform');
@@ -24,7 +23,6 @@ window.addEventListener('DOMContentLoaded', () => {
   const royCtx = royCanvas.getContext('2d');
   let royAudioContext, royAnalyser, royDataArray;
 
-  userCanvas.style.border = '1px solid cyan';
   appendMessage('Roy', greetings[0]);
   updateClockAndTimer();
   setInterval(updateClockAndTimer, 1000);
@@ -33,11 +31,9 @@ window.addEventListener('DOMContentLoaded', () => {
     const now = new Date();
     const elapsed = Math.floor((Date.now() - sessionStart) / 1000);
     const remaining = Math.max(0, 3600 - elapsed);
-    const min = String(Math.floor(remaining / 60)).padStart(2, '0');
-    const sec = String(remaining % 60).padStart(2, '0');
     dateSpan.textContent = now.toISOString().split('T')[0];
     timeSpan.textContent = now.toTimeString().split(' ')[0];
-    timerSpan.textContent = `Session Ends In: ${min}:${sec}`;
+    timerSpan.textContent = `Session Ends In: ${String(Math.floor(remaining / 60)).padStart(2, '0')}:${String(remaining % 60).padStart(2, '0')}`;
   }
 
   function appendMessage(sender, text) {
@@ -58,7 +54,6 @@ window.addEventListener('DOMContentLoaded', () => {
       }, 12);
     } else {
       p.innerHTML += `<span style="color: yellow">${text}</span>`;
-      messagesEl.scrollTop = messagesEl.scrollHeight;
     }
   }
 
@@ -73,7 +68,11 @@ window.addEventListener('DOMContentLoaded', () => {
     const res = await fetch('https://roy-chatbo-backend.onrender.com/api/chat', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ message, sessionId })
+      body: JSON.stringify({
+        message,
+        sessionId,
+        tone: "Short, grounded, emotionally intelligent. Vary expression with things like 'Right', 'Hmm', 'Exactly', etc."
+      })
     });
 
     thinking.remove();
@@ -101,13 +100,28 @@ window.addEventListener('DOMContentLoaded', () => {
   async function startRecording() {
     stream = await navigator.mediaDevices.getUserMedia({ audio: true });
     userAudioContext = new (window.AudioContext || window.webkitAudioContext)();
-    await userAudioContext.resume();
     const source = userAudioContext.createMediaStreamSource(stream);
     userAnalyser = userAudioContext.createAnalyser();
     source.connect(userAnalyser);
     userAnalyser.fftSize = 2048;
     userDataArray = new Uint8Array(userAnalyser.frequencyBinCount);
     drawUserWaveform();
+
+    mediaRecorder = new MediaRecorder(stream);
+    const chunks = [];
+    mediaRecorder.ondataavailable = e => chunks.push(e.data);
+    mediaRecorder.onstop = async () => {
+      stream.getTracks().forEach(t => t.stop());
+      const blob = new Blob(chunks, { type: 'audio/webm' });
+      const formData = new FormData();
+      formData.append('audio', blob);
+      const res = await fetch('https://roy-chatbo-backend.onrender.com/api/transcribe', {
+        method: 'POST', body: formData
+      });
+      const data = await res.json();
+      if (data.text) fetchRoyResponse(data.text);
+    };
+    mediaRecorder.start();
   }
 
   function drawUserWaveform() {
@@ -118,7 +132,7 @@ window.addEventListener('DOMContentLoaded', () => {
     userCtx.fillRect(0, 0, userCanvas.width, userCanvas.height);
     drawGrid(userCtx, userCanvas.width, userCanvas.height, 'rgba(0,255,255,0.2)');
     userCtx.strokeStyle = 'yellow';
-    userCtx.lineWidth = 1.8;
+    userCtx.lineWidth = 1.5;
     userCtx.beginPath();
     const sliceWidth = userCanvas.width / userDataArray.length;
     let x = 0;
@@ -139,7 +153,7 @@ window.addEventListener('DOMContentLoaded', () => {
     royCtx.fillRect(0, 0, royCanvas.width, royCanvas.height);
     drawGrid(royCtx, royCanvas.width, royCanvas.height, 'rgba(0,255,255,0.2)');
     royCtx.strokeStyle = 'magenta';
-    royCtx.lineWidth = 1.8;
+    royCtx.lineWidth = 1.5;
     royCtx.beginPath();
     const sliceWidth = royCanvas.width / royDataArray.length;
     let x = 0;
@@ -163,28 +177,19 @@ window.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  micBtn.addEventListener('click', async () => {
-    if (!isRecording) {
-      micBtn.textContent = 'Stop';
-      micBtn.classList.add('active');
-      isRecording = true;
-      await startRecording();
-    } else {
-      micBtn.textContent = 'Speak';
-      micBtn.classList.remove('active');
-      isRecording = false;
-      stream.getTracks().forEach(t => t.stop());
-      const finalText = inputEl.value.trim();
-      if (finalText) fetchRoyResponse(finalText);
-    }
-  });
-
   sendBtn.addEventListener('click', () => {
     const msg = inputEl.value.trim();
     if (msg) fetchRoyResponse(msg);
   });
 
-  saveBtn.addEventListener('click', () => {
-    console.log('TODO: Save log to Supabase');
-  });
-});
+  micBtn.addEventListener('click', () => {
+    if (!isRecording) {
+      micBtn.textContent = 'Stop';
+      micBtn.classList.add('active');
+      isRecording = true;
+      startRecording();
+    } else {
+      micBtn.textContent = 'Speak';
+      micBtn.classList.remove('active');
+      isRecording = false;
+      mediaRecorde
