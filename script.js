@@ -1,20 +1,40 @@
 window.addEventListener('DOMContentLoaded', () => {
-    // [All other variable declarations remain unchanged...]
-
+    const micBtn = document.getElementById('mic-toggle');
+    const inputEl = document.getElementById('user-input');
+    const messagesEl = document.getElementById('messages');
+    let isRecording = false;
+    let recognition = null;
+    let stream = null;
+    let userAudioContext = null;
+    let userAnalyser = null;
+    let userDataArray = null;
+    let liveTranscriptEl = null;
+    let finalTranscript = '';
+    let thinkingEl = null;
     let silenceTimeout;
 
     async function startRecording() {
         try {
+            const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
             stream = await navigator.mediaDevices.getUserMedia({ audio: true });
             userAudioContext = new (window.AudioContext || window.webkitAudioContext)();
+
+            if (userAudioContext.state === 'suspended') {
+                await userAudioContext.resume();
+            }
+
             const source = userAudioContext.createMediaStreamSource(stream);
             userAnalyser = userAudioContext.createAnalyser();
             source.connect(userAnalyser);
             userAnalyser.fftSize = 2048;
             userDataArray = new Uint8Array(userAnalyser.frequencyBinCount);
-            drawUserWaveform();
 
             const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            if (!SpeechRecognition) {
+                appendMessage('Roy', 'Speech recognition is not supported in this browser.');
+                return;
+            }
+
             recognition = new SpeechRecognition();
             recognition.lang = 'en-US';
             recognition.interimResults = true;
@@ -43,7 +63,6 @@ window.addEventListener('DOMContentLoaded', () => {
                 const transcriptSpan = liveTranscriptEl.querySelector('span');
                 transcriptSpan.textContent = interimTranscript || finalTranscript || '...';
                 messagesEl.scrollTop = messagesEl.scrollHeight;
-                console.log('Transcript update:', { finalTranscript, interimTranscript });
 
                 clearTimeout(silenceTimeout);
                 silenceTimeout = setTimeout(() => {
@@ -52,7 +71,6 @@ window.addEventListener('DOMContentLoaded', () => {
             };
 
             recognition.onend = () => {
-                console.log('Recognition ended. Final transcript:', finalTranscript);
                 try {
                     if (stream) {
                         stream.getTracks().forEach(t => t.stop());
@@ -110,13 +128,6 @@ window.addEventListener('DOMContentLoaded', () => {
                 recognition.stop();
             };
 
-            setTimeout(() => {
-                if (isRecording && recognition) {
-                    console.warn('iOS mic timeout safeguard triggered. Forcing stop.');
-                    recognition.stop();
-                }
-            }, 10000); // 10 seconds max limit for iOS mic
-
             recognition.start();
         } catch (error) {
             console.error('Recording error:', error);
@@ -131,5 +142,30 @@ window.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // The rest of the script stays unchanged
+    function appendMessage(sender, text) {
+        const p = document.createElement('p');
+        p.classList.add(sender.toLowerCase());
+        p.innerHTML = `<strong>${sender}:</strong> ${text}`;
+        messagesEl.appendChild(p);
+        messagesEl.scrollTop = messagesEl.scrollHeight;
+    }
+
+    async function fetchRoyResponse(text) {
+        console.log('Fetching Roy response for:', text);
+        // This should call your backend API.
+    }
+
+    micBtn.addEventListener('click', () => {
+        if (!isRecording) {
+            micBtn.textContent = 'Stop';
+            micBtn.classList.add('active');
+            isRecording = true;
+            startRecording();
+        } else {
+            micBtn.textContent = 'Speak';
+            micBtn.classList.remove('active');
+            isRecording = false;
+            if (recognition) recognition.stop();
+        }
+    });
 });
