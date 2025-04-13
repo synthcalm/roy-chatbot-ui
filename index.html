@@ -3,8 +3,6 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
-  <meta name="description" content="Chat with Roy on SynthCalm with text or voice." />
   <title>Roy // SynthCalm</title>
   <link rel="stylesheet" href="style.css" />
   <style>
@@ -15,7 +13,6 @@
       font-family: 'Courier New', monospace;
       display: flex;
       justify-content: center;
-      min-height: 100vh;
     }
     .container {
       width: 90%;
@@ -23,7 +20,6 @@
       padding: 10px;
       border: 2px solid cyan;
       border-radius: 12px;
-      box-sizing: border-box;
     }
     canvas {
       background-color: black;
@@ -31,20 +27,6 @@
                         linear-gradient(to bottom, rgba(0, 255, 255, 0.3) 1px, transparent 1px);
       background-size: 20px 20px;
       border: 1px solid cyan;
-      width: 100%;
-    }
-    #userWaveform {
-      margin-bottom: 10px;
-    }
-    #royWaveform {
-      margin-top: 10px;
-    }
-    #messages {
-      height: 150px;
-      overflow-y: auto;
-      border: 1px solid cyan;
-      padding: 8px;
-      box-sizing: border-box;
     }
     #messages p.roy strong { color: cyan; }
     #messages p.user strong { color: white; }
@@ -60,7 +42,7 @@
       align-items: stretch;
       width: 100%;
     }
-    #message-input {
+    #user-input {
       width: 100%;
       max-width: 100%;
       padding: 12px;
@@ -71,7 +53,6 @@
       font-family: 'Courier New', monospace;
       height: 96px;
       box-sizing: border-box;
-      resize: none;
     }
     select.button, button.button {
       font-family: 'Courier New', monospace;
@@ -103,61 +84,41 @@
       color: yellow;
       margin-bottom: 10px;
     }
-    label[for="responseMode"] {
-      color: #0ff;
-      font-size: 12px;
-      margin-top: 5px;
-    }
-    @media (max-width: 768px) {
-      .container {
-        width: 95%;
-        padding: 8px;
-      }
-      #message-input {
-        font-size: 14px;
-        height: 80px;
-      }
-      select.button, button.button {
-        font-size: 12px;
-        padding: 8px 12px;
-        height: 40px;
-      }
-    }
   </style>
 </head>
 <body>
-  <div class="container" role="main">
-    <div class="title-bar" aria-live="polite">
+  <div class="container">
+    <div class="title-bar">
       <span id="current-date"></span>
       <span id="current-time"></span>
       <span id="countdown-timer"></span>
     </div>
 
-    <canvas id="userWaveform" height="60" aria-label="User audio waveform"></canvas>
-    <div id="messages" role="log" aria-live="polite"></div>
-    <canvas id="royWaveform" height="60" aria-label="Roy audio waveform"></canvas>
+    <canvas id="userWaveform" height="60" style="width:100%; margin-bottom:10px;"></canvas>
+    <div id="messages" style="height:150px; overflow-y:auto; border:1px solid cyan; padding: 8px;"></div>
+    <canvas id="royWaveform" height="60" style="width:100%; margin-top:10px;"></canvas>
 
     <div class="input-area">
       <div class="input-group">
-        <textarea id="message-input" placeholder="Say or type something..." aria-label="Message input"></textarea>
-        <button id="send-button" class="button" aria-label="Send message">Send</button>
+        <input type="text" id="user-input" placeholder="Say or type something..." />
+        <button id="send-button" class="button">Send</button>
       </div>
 
-      <label for="responseMode">Roy Response Mode:</label>
-      <select id="responseMode" class="button" aria-label="Select response mode">
+      <label for="responseMode" style="color:#0ff; font-size:12px; margin-top:5px;">Roy Response Mode:</label>
+      <select id="responseMode" class="button">
         <option value="both">Text + Voice</option>
         <option value="text">Text Only</option>
         <option value="voice">Voice Only</option>
       </select>
 
       <div class="button-group">
-        <button id="start-speech" class="button" aria-label="Start or stop speech recognition">Speak</button>
-        <button id="save-log" class="button" aria-label="Save chat log">Save Log</button>
-        <button class="button" id="home-btn" aria-label="Go to SynthCalm home" onclick="window.location.href='https://synthcalm.com'">SynthCalm Home</button>
+        <button id="mic-toggle" class="button">Speak</button>
+        <button id="save-log" class="button">Save Log</button>
+        <button class="button" id="home-btn" onclick="window.location.href='https://synthcalm.com'">SynthCalm Home</button>
       </div>
     </div>
 
-    <audio id="roy-audio" style="display:none;" aria-hidden="true"></audio>
+    <audio id="roy-audio" controls style="display:none;"></audio>
   </div>
 
   <script src="script.js"></script>
