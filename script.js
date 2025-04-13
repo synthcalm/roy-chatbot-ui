@@ -180,6 +180,7 @@ window.addEventListener('DOMContentLoaded', () => {
     async function fetchRoyResponse(message) {
         const startTime = Date.now();
         let thinkingInterval = null;
+        const renderUrl = 'https://roy-chatbo-backend.onrender.com'; // Your Render URL
 
         try {
             const normalizedMessage = message.toLowerCase().trim();
@@ -202,7 +203,7 @@ window.addEventListener('DOMContentLoaded', () => {
                 }, 1000);
             }
 
-            const res = await fetch('http://localhost:3001/api/chat', {
+            const res = await fetch(`${renderUrl}/api/chat`, { // Use your Render URL
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
