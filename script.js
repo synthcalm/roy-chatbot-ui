@@ -119,7 +119,7 @@ window.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    async function fetchAudio(royText, audioData) { // Added audio data parameter.
+    async function fetchAudio(royText, audioData) {
         if (isAudioPlaying) {
             console.log('Audio still playing, waiting...');
             await new Promise(resolve => {
@@ -148,8 +148,8 @@ window.addEventListener('DOMContentLoaded', () => {
         royAudioContext = new (window.AudioContext || window.webkitAudioContext)();
 
         try {
-            if (currentAudioEl && audioData) { // Check that audio data exists
-                currentAudioEl.src = `data:audio/mp3;base64,${audioData}`; // Use passed audio data
+            if (currentAudioEl && audioData) {
+                currentAudioEl.src = `data:audio/mp3;base64,${audioData}`;
                 roySource = royAudioContext.createMediaElementSource(currentAudioEl);
                 const gainNode = royAudioContext.createGain();
                 gainNode.gain.value = 2.0;
@@ -189,7 +189,7 @@ window.addEventListener('DOMContentLoaded', () => {
                     appendMessage('Roy', responseCache[normalizedMessage].text);
                 }
                 if (modeSelect.value !== 'text' && !responseCache[normalizedMessage].audio) {
-                    fetchAudio(responseCache[normalizedMessage].text);
+                    fetchAudio(responseCache[normalizedMessage].text, responseCache[normalizedMessage].audio);
                 }
                 return;
             }
@@ -202,13 +202,13 @@ window.addEventListener('DOMContentLoaded', () => {
                 }, 1000);
             }
 
-            const res = await fetch('http://localhost:3001/api/chat', { // Corrected endpoint
+            const res = await fetch('http://localhost:3001/api/chat', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     message,
                     sessionId,
-                    tone: `You are Roy Batty, a therapeutic counselor whose voice burns with poetic defiance. You speak not in clichés, but in vivid metaphor and emotional precision. Avoid repetition and weak phrasing. Your speech is electric with imagery — grounded in humanity, forged from pain. You do not mention Blade Runner or artificial life. Speak as if every word might be your last.`
+                    tone: `You are Roy Batty, a therapeutic counselor. You speak encouragingly and supportively, using occasional descriptive language to create a vivid atmosphere. Focus on understanding and validating the user's feelings. Prompt the user to speak about their thoughts and feelings. Use one line of poetic imagery per response, and avoid excessive repetition of phrases.`
                 })
             });
 
@@ -220,11 +220,11 @@ window.addEventListener('DOMContentLoaded', () => {
             }
 
             if (modeSelect.value !== 'text') {
-                await fetchAudio(data.text, data.audio); // Pass the audio data
+                await fetchAudio(data.text, data.audio);
             }
 
         } catch (error) {
-            appendMessage('Roy', 'A storm clouds my voice. Please speak again.');
+            appendMessage('Roy', 'It seems I momentarily lost my way. Please speak again.');
             console.error('Fetch error:', error.message);
             isAudioPlaying = false;
             await cleanupAudioResources();
