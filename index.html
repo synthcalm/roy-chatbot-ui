@@ -47,7 +47,6 @@
     }
     #user-input {
       width: 100%;
-      max-width: 100%;
       padding: 12px;
       font-size: 16px;
       border: 1px solid #0ff;
@@ -69,9 +68,9 @@
       transition: all 0.3s ease;
     }
     button.button.active {
-      background-color: lime;
-      color: black;
-      border-color: lime;
+      background-color: red;
+      color: white;
+      border-color: red;
     }
     .button-group {
       display: flex;
@@ -97,7 +96,7 @@
 
     <canvas id="userWaveform" height="60" style="width:100%; border:1px solid yellow; margin-bottom:10px;"></canvas>
     <div id="messages" style="height:150px; overflow-y:auto; border:1px solid cyan; padding: 8px;"></div>
-    <canvas id="royWaveform" height="60" style="width:100%; border:1px solid magenta; margin-top:10px;"></canvas>
+    <canvas id="royWaveform" height="60" style="width:100%; border:1px solid cyan; margin-top:10px;"></canvas>
 
     <div class="input-area">
       <div class="input-group">
@@ -113,21 +112,28 @@
       </select>
 
       <div class="button-group">
-        <button id="converse-button" class="button" onclick="toggleConverseMode(this)">Converse</button>
+        <button id="converse-button" class="button" onclick="toggleConverseMode(this)">Hands Free</button>
         <button id="mic-toggle" class="button" data-mode="speak">Speak</button>
+        <button id="save-log" class="button">Save Log</button>
       </div>
     </div>
-
-    <audio id="roy-audio" controls style="display:none;"></audio>
   </div>
 
   <script>
     let converseActive = false;
+    let micBtn = document.getElementById('mic-toggle');
+    let converseBtn = document.getElementById('converse-button');
+
     function toggleConverseMode(button) {
       converseActive = !converseActive;
       button.classList.toggle('active', converseActive);
       if (converseActive) {
+        button.textContent = 'Session On';
+        button.style.color = 'red';
         startConverseLoop();
+      } else {
+        button.textContent = 'Hands Free';
+        button.style.color = 'cyan';
       }
     }
 
@@ -151,12 +157,22 @@
         const data = await res.json();
         await fetchRoyResponse(data.text || '');
 
-        if (converseActive) setTimeout(startConverseLoop, 200);
+        if (converseActive) setTimeout(startConverseLoop, 500);
       };
 
       mediaRecorder.start();
-      setTimeout(() => mediaRecorder.stop(), 5000);
+      setTimeout(() => mediaRecorder.stop(), 4000);
     }
+
+    micBtn.addEventListener('click', function () {
+      if (micBtn.textContent === 'Speak') {
+        micBtn.textContent = 'Stop';
+        micBtn.classList.add('active');
+      } else {
+        micBtn.textContent = 'Speak';
+        micBtn.classList.remove('active');
+      }
+    });
   </script>
   <script src="script.js"></script>
 </body>
