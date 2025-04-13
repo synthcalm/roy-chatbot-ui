@@ -6,14 +6,16 @@ window.addEventListener('DOMContentLoaded', () => {
   const messagesEl = document.getElementById('messages');
   const audioEl = document.getElementById('roy-audio');
   const modeSelect = document.getElementById('responseMode');
+  const dateSpan = document.getElementById('current-date');
+  const timeSpan = document.getElementById('current-time');
+  const timerSpan = document.getElementById('countdown-timer');
 
   const sessionId = `session-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
-  const greetings = [
-    "Welcome. I'm Roy. You may speak using 'Speak' mode or type below."
-  ];
+  const greetings = ["Welcome. I'm Roy. You may speak using 'Speak' mode or type below."];
 
   let isRecording = false;
   let stream, mediaRecorder, chunks = [];
+  let sessionStart = Date.now();
 
   const userCanvas = document.getElementById('userWaveform');
   const userCtx = userCanvas.getContext('2d');
@@ -25,11 +27,24 @@ window.addEventListener('DOMContentLoaded', () => {
 
   appendMessage('Roy', greetings[0]);
 
+  function updateClockAndTimer() {
+    const now = new Date();
+    const elapsed = Math.floor((Date.now() - sessionStart) / 1000);
+    const remaining = Math.max(0, 3600 - elapsed);
+    const min = String(Math.floor(remaining / 60)).padStart(2, '0');
+    const sec = String(remaining % 60).padStart(2, '0');
+    dateSpan.textContent = now.toISOString().split('T')[0];
+    timeSpan.textContent = now.toTimeString().split(' ')[0];
+    timerSpan.textContent = `Session Ends In: ${min}:${sec}`;
+  }
+  setInterval(updateClockAndTimer, 1000);
+
   function appendMessage(sender, text) {
     const p = document.createElement('p');
     p.classList.add(sender.toLowerCase());
     p.innerHTML = `<strong>${sender}:</strong> `;
     messagesEl.appendChild(p);
+    messagesEl.scrollTop = messagesEl.scrollHeight;
 
     if (sender === 'Roy') {
       let i = 0;
@@ -62,7 +77,7 @@ window.addEventListener('DOMContentLoaded', () => {
       body: JSON.stringify({
         message,
         sessionId,
-        tone: "Casual, concise, and emotionally intelligent. Include human expressions like 'Mmm', 'Sure thing', 'Exactly', etc. Avoid sounding robotic or overly formal."
+        tone: "Short, grounded, emotionally intelligent with variation. Use natural interjections like 'Right', 'Hmm', 'Exactly', 'That's what I thought', etc. Avoid overusing any single phrase."
       })
     });
 
