@@ -121,7 +121,7 @@ window.addEventListener('DOMContentLoaded', () => {
 
     socket = new WebSocket('wss://api.assemblyai.com/v2/realtime/ws?sample_rate=16000');
     socket.onopen = () => {
-      const mediaStream = new MediaRecorder(stream, { mimeType: 'audio/webm' });
+      const mediaStream = new MediaRecorder(stream, { mimeType: 'audio/webm;codecs=opus' });
       mediaStream.ondataavailable = async (e) => {
         if (socket.readyState === 1) {
           const reader = new FileReader();
@@ -145,7 +145,7 @@ window.addEventListener('DOMContentLoaded', () => {
     userCtx.fillStyle = '#000';
     userCtx.fillRect(0, 0, userCanvas.width, userCanvas.height);
     drawGrid(userCtx, userCanvas.width, userCanvas.height, 'rgba(0,255,255,0.2)');
-    userCtx.strokeStyle = '#00FFFF';
+    userCtx.strokeStyle = 'yellow';
     userCtx.lineWidth = 1.8;
     userCtx.beginPath();
     const sliceWidth = userCanvas.width / userDataArray.length;
@@ -199,7 +199,7 @@ window.addEventListener('DOMContentLoaded', () => {
     homeBtn.style.flex = '1';
     homeBtn.style.padding = '10px 18px';
     homeBtn.style.fontSize = '14px';
-    homeBtn.style.height = '100%';
+    homeBtn.style.height = '40px';
     homeBtn.onclick = () => window.location.href = 'https://synthcalm.com';
     document.querySelector('.button-group').appendChild(homeBtn);
   }
