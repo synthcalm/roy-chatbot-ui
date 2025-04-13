@@ -121,8 +121,28 @@ window.addEventListener('DOMContentLoaded', () => {
     userDataArray = new Uint8Array(userAnalyser.frequencyBinCount);
     drawUserWaveform();
 
+    const recognition = new (window.webkitSpeechRecognition || window.SpeechRecognition)();
+    recognition.lang = 'en-US';
+    recognition.interimResults = true;
+    recognition.continuous = true;
+
+    recognition.onresult = (event) => {
+      let interimTranscript = '';
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        interimTranscript += event.results[i][0].transcript;
+      }
+      inputEl.value = interimTranscript;
+    };
+
+    recognition.onend = () => {
+      mediaRecorder.stop();
+    };
+
+    recognition.start();
+
     mediaRecorder.ondataavailable = e => chunks.push(e.data);
     mediaRecorder.onstop = async () => {
+      stream.getTracks().forEach(t => t.stop());
       const blob = new Blob(chunks, { type: 'audio/webm' });
       const formData = new FormData();
       formData.append('audio', blob);
@@ -213,7 +233,6 @@ window.addEventListener('DOMContentLoaded', () => {
       micBtn.classList.remove('active');
       isRecording = false;
       mediaRecorder.stop();
-      stream.getTracks().forEach(t => t.stop());
     }
   });
 
