@@ -1,200 +1,106 @@
-// script.js – Bulletproof logic for Roy chatbot
+// DOM Elements
+const messagesDiv = document.getElementById('messages'); // Messages container
+const userInput = document.getElementById('message-input'); // User input field (corrected from user-input to match index.html)
+const sendButton = document.getElementById('send-button'); // Send button
+const startSpeechButton = document.getElementById('start-speech'); // Speech button (to be added in index.html)
 
-window.addEventListener('DOMContentLoaded', () => {
-  const micBtn = document.getElementById('mic-toggle');
-  const sendBtn = document.getElementById('send-button');
-  const saveBtn = document.getElementById('save-log');
-  const inputEl = document.getElementById('user-input');
-  const messagesEl = document.getElementById('messages');
-  const audioEl = document.getElementById('roy-audio');
-  const modeSelect = document.getElementById('responseMode');
-  const dateSpan = document.getElementById('current-date');
-  const timeSpan = document.getElementById('current-time');
-  const timerSpan = document.getElementById('countdown-timer');
+// Check for SpeechRecognition API support
+const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+let recognition = null;
 
-  const sessionId = `session-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
-  const greetings = ["Welcome. I'm Roy. You may speak using 'Speak' mode or type below."];
+if (SpeechRecognition) {
+    recognition = new SpeechRecognition();
+    recognition.continuous = false; // Stop after one utterance
+    recognition.interimResults = true; // Show interim results
+    recognition.lang = 'en-US'; // Set language
 
-  let isRecording = false;
-  let socket, userAudioContext, userAnalyser, userDataArray, stream;
-  let sessionStart = Date.now();
+    // Handle transcription results
+    recognition.onresult = (event) => {
+        let interimTranscript = '';
+        let finalTranscript = '';
 
-  const userCanvas = document.getElementById('userWaveform');
-  const userCtx = userCanvas.getContext('2d');
-
-  const royCanvas = document.getElementById('royWaveform');
-  const royCtx = royCanvas.getContext('2d');
-  let royAudioContext, royAnalyser, royDataArray;
-
-  userCanvas.style.border = '1px solid cyan';
-  appendMessage('Roy', greetings[0]);
-  setInterval(updateClockAndTimer, 1000);
-
-  function updateClockAndTimer() {
-    const now = new Date();
-    const elapsed = Math.floor((Date.now() - sessionStart) / 1000);
-    const remaining = Math.max(0, 3600 - elapsed);
-    const min = String(Math.floor(remaining / 60)).padStart(2, '0');
-    const sec = String(remaining % 60).padStart(2, '0');
-    dateSpan.textContent = now.toISOString().split('T')[0];
-    timeSpan.textContent = now.toTimeString().split(' ')[0];
-    timerSpan.textContent = `Session Ends In: ${min}:${sec}`;
-  }
-
-  function appendMessage(sender, text) {
-    const p = document.createElement('p');
-    p.classList.add(sender.toLowerCase());
-    p.innerHTML = `<strong>${sender}:</strong> `;
-    messagesEl.appendChild(p);
-    messagesEl.scrollTop = messagesEl.scrollHeight;
-
-    if (sender === 'Roy') {
-      let i = 0;
-      const typeInterval = setInterval(() => {
-        if (i < text.length) {
-          p.innerHTML += text.charAt(i++);
-          messagesEl.scrollTop = messagesEl.scrollHeight;
-        } else {
-          clearInterval(typeInterval);
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+            const transcript = event.results[i][0].transcript;
+            if (event.results[i].isFinal) {
+                finalTranscript += transcript;
+            } else {
+                interimTranscript += transcript;
+            }
         }
-      }, 12);
-    } else {
-      p.innerHTML += `<span style="color: yellow">${text}</span>`;
-      messagesEl.scrollTop = messagesEl.scrollHeight;
-    }
-  }
 
-  async function fetchRoyResponse(message) {
-    appendMessage('You', message);
-    inputEl.value = '';
+        // Update the textbox with the transcription
+        userInput.value = finalTranscript || interimTranscript;
+    };
 
-    const thinking = document.createElement('p');
-    thinking.textContent = 'Roy is thinking...';
-    thinking.className = 'roy';
-    messagesEl.appendChild(thinking);
+    // Handle errors
+    recognition.onerror = (event) => {
+        console.error('Speech recognition error:', event.error);
+        messagesDiv.innerHTML += `<p class="message bot"><strong>Error:</strong> Speech recognition failed: ${event.error}</p>`;
+        messagesDiv.scrollTop = messagesDiv.scrollHeight;
+    };
 
-    const res = await fetch('https://roy-chatbo-backend.onrender.com/api/chat', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        message,
-        sessionId,
-        tone: "Short, grounded, emotionally intelligent with variation. Use natural interjections like 'Right', 'Hmm', 'Exactly', 'That's what I thought', etc. Avoid overusing any single phrase."
-      })
+    // Handle end of recognition
+    recognition.onend = () => {
+        console.log('Speech recognition ended');
+    };
+} else {
+    console.warn('SpeechRecognition API not supported in this browser.');
+}
+
+// Add event listener for speech recognition (if supported)
+if (startSpeechButton && recognition) {
+    startSpeechButton.addEventListener('click', () => {
+        navigator.permissions.query({ name: 'microphone' })
+            .then(permissionStatus => {
+                if (permissionStatus.state === 'denied') {
+                    messagesDiv.innerHTML += `<p class="message bot"><strong>Error:</strong> Please allow microphone access.</p>`;
+                    messagesDiv.scrollTop = messagesDiv.scrollHeight;
+                    return;
+                }
+                recognition.start();
+                console.log('Speech recognition started');
+            })
+            .catch(err => {
+                console.error('Permission query error:', err);
+                messagesDiv.innerHTML += `<p class="message bot"><strong>Error:</strong> Unable to access microphone permissions.</p>`;
+                messagesDiv.scrollTop = messagesDiv.scrollHeight;
+            });
     });
+} else if (startSpeechButton) {
+    startSpeechButton.disabled = true;
+    messagesDiv.innerHTML += `<p class="message bot"><strong>Warning:</strong> Speech recognition is not supported in this browser.</p>`;
+    messagesDiv.scrollTop = messagesDiv.scrollHeight;
+}
 
-    thinking.remove();
-    const data = await res.json();
+// Add event listener to the send button
+sendButton.addEventListener('click', () => {
+    const message = userInput.value.trim(); // Get the user's message and trim whitespace
 
-    if (modeSelect.value !== 'voice') appendMessage('Roy', data.text);
+    if (message) {
+        // Append user's message to the messages container
+        messagesDiv.innerHTML += `<p class="message user"><strong>You:</strong> ${message}</p>`;
 
-    if (modeSelect.value !== 'text') {
-      audioEl.src = `data:audio/mp3;base64,${data.audio}`;
-      audioEl.play();
+        // Send the message to the server via a POST request
+        fetch('/api/chat', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ userId: 'guest', message: message }) // Added userId to match server expectation
+        })
+        .then(response => response.json()) // Parse the response as JSON
+        .then(data => {
+            // Append the bot's response to the messages container
+            messagesDiv.innerHTML += `<p class="message bot"><strong>Roy:</strong> ${data.message}</p>`;
+            messagesDiv.scrollTop = messagesDiv.scrollHeight; // Auto-scroll to the bottom
+        })
+        .catch(error => {
+            console.error('Error communicating with the server:', error);
+            messagesDiv.innerHTML += `<p class="message bot"><strong>Error:</strong> An error occurred while processing your request.</p>`;
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        });
 
-      audioEl.onplay = () => {
-        royAudioContext = new (window.AudioContext || window.webkitAudioContext)();
-        const gainNode = royAudioContext.createGain();
-        gainNode.gain.value = 2.0;
-        royAnalyser = royAudioContext.createAnalyser();
-        royAnalyser.fftSize = 2048;
-        royDataArray = new Uint8Array(royAnalyser.frequencyBinCount);
-        const source = royAudioContext.createMediaElementSource(audioEl);
-        source.connect(gainNode);
-        gainNode.connect(royAnalyser);
-        royAnalyser.connect(royAudioContext.destination);
-        drawRoyWaveform();
-      };
+        // Clear the input field after sending the message
+        userInput.value = '';
     }
-  }
-
-  async function startRecording() {
-    stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    userAudioContext = new (window.AudioContext || window.webkitAudioContext)();
-    await userAudioContext.resume();
-    const source = userAudioContext.createMediaStreamSource(stream);
-    userAnalyser = userAudioContext.createAnalyser();
-    source.connect(userAnalyser);
-    userAnalyser.fftSize = 2048;
-    userDataArray = new Uint8Array(userAnalyser.frequencyBinCount);
-    drawUserWaveform();
-  }
-
-  function drawUserWaveform() {
-    if (!userAnalyser) return;
-    requestAnimationFrame(drawUserWaveform);
-    userAnalyser.getByteTimeDomainData(userDataArray);
-    userCtx.fillStyle = '#000';
-    userCtx.fillRect(0, 0, userCanvas.width, userCanvas.height);
-    drawGrid(userCtx, userCanvas.width, userCanvas.height, 'rgba(0,255,255,0.2)');
-    userCtx.strokeStyle = 'yellow';
-    userCtx.lineWidth = 1.8;
-    userCtx.beginPath();
-    const sliceWidth = userCanvas.width / userDataArray.length;
-    let x = 0;
-    for (let i = 0; i < userDataArray.length; i++) {
-      const y = (userDataArray[i] / 128.0) * userCanvas.height / 2;
-      i === 0 ? userCtx.moveTo(x, y) : userCtx.lineTo(x, y);
-      x += sliceWidth;
-    }
-    userCtx.lineTo(userCanvas.width, userCanvas.height / 2);
-    userCtx.stroke();
-  }
-
-  function drawRoyWaveform() {
-    if (!royAnalyser) return;
-    requestAnimationFrame(drawRoyWaveform);
-    royAnalyser.getByteTimeDomainData(royDataArray);
-    royCtx.fillStyle = '#000';
-    royCtx.fillRect(0, 0, royCanvas.width, royCanvas.height);
-    drawGrid(royCtx, royCanvas.width, royCanvas.height, 'rgba(0,255,255,0.2)');
-    royCtx.strokeStyle = 'magenta';
-    royCtx.lineWidth = 1.8;
-    royCtx.beginPath();
-    const sliceWidth = royCanvas.width / royDataArray.length;
-    let x = 0;
-    for (let i = 0; i < royDataArray.length; i++) {
-      const y = (royDataArray[i] / 128.0) * royCanvas.height / 2;
-      i === 0 ? royCtx.moveTo(x, y) : royCtx.lineTo(x, y);
-      x += sliceWidth;
-    }
-    royCtx.lineTo(royCanvas.width, royCanvas.height / 2);
-    royCtx.stroke();
-  }
-
-  function drawGrid(ctx, width, height, color) {
-    ctx.strokeStyle = color;
-    ctx.lineWidth = 0.3;
-    for (let x = 0; x < width; x += 20) {
-      ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, height); ctx.stroke();
-    }
-    for (let y = 0; y < height; y += 20) {
-      ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(width, y); ctx.stroke();
-    }
-  }
-
-  sendBtn.addEventListener('click', () => {
-    const msg = inputEl.value.trim();
-    if (msg) fetchRoyResponse(msg);
-  });
-
-  micBtn.addEventListener('click', () => {
-    if (!isRecording) {
-      micBtn.textContent = 'Stop';
-      micBtn.classList.add('active');
-      isRecording = true;
-      startRecording();
-    } else {
-      micBtn.textContent = 'Speak';
-      micBtn.classList.remove('active');
-      isRecording = false;
-      stream.getTracks().forEach(track => track.stop());
-      const finalText = inputEl.value.trim();
-      if (finalText) fetchRoyResponse(finalText);
-    }
-  });
-
-  saveBtn.addEventListener('click', () => {
-    console.log('TODO: Save log to Supabase');
-  });
 });
