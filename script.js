@@ -1,4 +1,4 @@
-/* Updated script.js – Fix duplication + ensure Roy only responds once when STOP is pressed */
+/* Updated script.js – Fixed audio cutoff and added robust error handling */
 
 window.addEventListener('DOMContentLoaded', () => {
   const micBtn = document.getElementById('mic-toggle');
@@ -17,7 +17,10 @@ window.addEventListener('DOMContentLoaded', () => {
 
   let isRecording = false;
   let recognition, userAudioContext, userAnalyser, userDataArray, stream;
-  let royAudioContext, royAnalyser, royDataArray, roySource;
+  let royAudioContext = null; // Initialize globally to reuse
+  let royAnalyser = null;
+  let royDataArray = null;
+  let roySource = null;
   let sessionStart = Date.now();
   let finalTranscript = '';
 
@@ -68,69 +71,121 @@ window.addEventListener('DOMContentLoaded', () => {
     thinking.className = 'roy';
     messagesEl.appendChild(thinking);
 
-    const res = await fetch('https://roy-chatbo-backend.onrender.com/api/chat', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        message,
-        sessionId,
-        tone: `You are Roy Batty, a therapeutic counselor whose voice burns with poetic defiance. You speak not in clichés, but in vivid metaphor and emotional precision. Avoid repetition and weak phrasing. Your speech is electric with imagery — grounded in humanity, forged from pain. You do not mention Blade Runner or artificial life. Speak as if every word might be your last.`
-      })
-    });
+    try {
+      const res = await fetch('https://roy-chatbo-backend.onrender.com/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message,
+          sessionId,
+          tone: `You are Roy Batty, a therapeutic counselor whose voice burns with poetic defiance. You speak not in clichés, but in vivid metaphor and emotional precision. Avoid repetition and weak phrasing. Your speech is electric with imagery — grounded in humanity, forged from pain. You do not mention Blade Runner or artificial life. Speak as if every word might be your last.`
+        })
+      });
 
-    thinking.remove();
-    const data = await res.json();
-    if (modeSelect.value !== 'voice') appendMessage('Roy', data.text);
+      if (!res.ok) {
+        throw new Error(`HTTP error! Status: ${res.status}`);
+      }
 
-    if (modeSelect.value !== 'text') {
-      if (!royAudioContext) royAudioContext = new (window.AudioContext || window.webkitAudioContext)();
-      if (roySource) roySource.disconnect();
-      audioEl.src = `data:audio/mp3;base64,${data.audio}`;
-      roySource = royAudioContext.createMediaElementSource(audioEl);
-      const gainNode = royAudioContext.createGain();
-      gainNode.gain.value = 2.0;
-      royAnalyser = royAudioContext.createAnalyser();
-      royAnalyser.fftSize = 2048;
-      royDataArray = new Uint8Array(royAnalyser.frequencyBinCount);
-      roySource.connect(gainNode);
-      gainNode.connect(royAnalyser);
-      royAnalyser.connect(royAudioContext.destination);
-      drawRoyWaveform();
-      audioEl.play();
+      const data = await res.json();
+      thinking.remove();
+
+      // Always append text response
+      appendMessage('Roy', data.text);
+
+      // Handle audio if mode is not text and audio data exists
+      if (modeSelect.value !== 'text' && data.audio) {
+        // Clean up previous audio nodes
+        if (roySource) {
+          roySource.disconnect();
+          roySource = null;
+        }
+        if (royAnalyser) {
+          royAnalyser.disconnect();
+          royAnalyser = null;
+        }
+        // Reset audio element
+        audioEl.pause();
+        audioEl.currentTime = 0;
+        audioEl.src = '';
+
+        // Initialize or reuse AudioContext
+        if (!royAudioContext || royAudioContext.state === 'closed') {
+          royAudioContext = new (window.AudioContext || window.webkitAudioContext)();
+        }
+
+        try {
+          audioEl.src = `data:audio/mp3;base64,${data.audio}`;
+          roySource = royAudioContext.createMediaElementSource(audioEl);
+          const gainNode = royAudioContext.createGain();
+          gainNode.gain.value = 2.0;
+          royAnalyser = royAudioContext.createAnalyser();
+          royAnalyser.fftSize = 2048;
+          royDataArray = new Uint8Array(royAnalyser.frequencyBinCount);
+          roySource.connect(gainNode);
+          gainNode.connect(royAnalyser);
+          royAnalyser.connect(royAudioContext.destination);
+          drawRoyWaveform();
+          await audioEl.play();
+        } catch (audioError) {
+          console.error('Audio playback error:', audioError);
+          appendMessage('Roy', 'My voice falters in song, but my words endure.');
+        }
+      }
+    } catch (error) {
+      thinking.remove();
+      appendMessage('Roy', 'A storm clouds my voice. Please speak again.');
+      console.error('Fetch error:', error.message);
     }
   }
 
   async function startRecording() {
-    stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    userAudioContext = new (window.AudioContext || window.webkitAudioContext)();
-    const source = userAudioContext.createMediaStreamSource(stream);
-    userAnalyser = userAudioContext.createAnalyser();
-    source.connect(userAnalyser);
-    userAnalyser.fftSize = 2048;
-    userDataArray = new Uint8Array(userAnalyser.frequencyBinCount);
-    drawUserWaveform();
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      userAudioContext = new (window.AudioContext || window.webkitAudioContext)();
+      const source = userAudioContext.createMediaStreamSource(stream);
+      userAnalyser = userAudioContext.createAnalyser();
+      source.connect(userAnalyser);
+      userAnalyser.fftSize = 2048;
+      userDataArray = new Uint8Array(userAnalyser.frequencyBinCount);
+      drawUserWaveform();
 
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    recognition = new SpeechRecognition();
-    recognition.lang = 'en-US';
-    recognition.interimResults = true;
-    recognition.continuous = false;
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      recognition = new SpeechRecognition();
+      recognition.lang = 'en-US';
+      recognition.interimResults = true;
+      recognition.continuous = false;
 
-    finalTranscript = '';
-
-    recognition.onresult = (event) => {
       finalTranscript = '';
-      for (let i = event.resultIndex; i < event.results.length; ++i) {
-        finalTranscript += event.results[i][0].transcript;
-      }
-    };
 
-    recognition.onend = () => {
-      stream.getTracks().forEach(t => t.stop());
-      if (finalTranscript.trim()) fetchRoyResponse(finalTranscript.trim());
-    };
+      recognition.onresult = (event) => {
+        finalTranscript = '';
+        for (let i = event.resultIndex; i < event.results.length; ++i) {
+          finalTranscript += event.results[i][0].transcript;
+        }
+      };
 
-    recognition.start();
+      recognition.onend = () => {
+        if (stream) {
+          stream.getTracks().forEach(t => t.stop());
+          stream = null;
+        }
+        if (userAudioContext) {
+          userAudioContext.close();
+          userAudioContext = null;
+        }
+        if (finalTranscript.trim()) {
+          fetchRoyResponse(finalTranscript.trim());
+        }
+      };
+
+      recognition.start();
+    } catch (error) {
+      console.error('Recording error:', error);
+      appendMessage('Roy', 'The winds steal my ears. Try speaking again.');
+      micBtn.textContent = 'Speak';
+      micBtn.classList.remove('active');
+      isRecording = false;
+    }
   }
 
   function drawUserWaveform() {
@@ -179,10 +234,16 @@ window.addEventListener('DOMContentLoaded', () => {
     ctx.strokeStyle = color;
     ctx.lineWidth = 0.3;
     for (let x = 0; x < width; x += 20) {
-      ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, height); ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(x, 0);
+      ctx.lineTo(x, height);
+      ctx.stroke();
     }
     for (let y = 0; y < height; y += 20) {
-      ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(width, y); ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(0, y);
+      ctx.lineTo(width, y);
+      ctx.stroke();
     }
   }
 
@@ -201,7 +262,7 @@ window.addEventListener('DOMContentLoaded', () => {
       micBtn.textContent = 'Speak';
       micBtn.classList.remove('active');
       isRecording = false;
-      recognition.stop();
+      if (recognition) recognition.stop();
     }
   });
 
