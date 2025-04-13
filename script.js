@@ -1,4 +1,4 @@
-/* Updated script.js – Fix 404 audio node error + Roy triggered on STOP only + no repeated MediaElementSource */
+/* Updated script.js – Fix duplication + ensure Roy only responds once when STOP is pressed */
 
 window.addEventListener('DOMContentLoaded', () => {
   const micBtn = document.getElementById('mic-toggle');
@@ -19,7 +19,7 @@ window.addEventListener('DOMContentLoaded', () => {
   let recognition, userAudioContext, userAnalyser, userDataArray, stream;
   let royAudioContext, royAnalyser, royDataArray, roySource;
   let sessionStart = Date.now();
-  let fullTranscript = '';
+  let finalTranscript = '';
 
   const userCanvas = document.getElementById('userWaveform');
   const userCtx = userCanvas.getContext('2d');
@@ -83,11 +83,8 @@ window.addEventListener('DOMContentLoaded', () => {
     if (modeSelect.value !== 'voice') appendMessage('Roy', data.text);
 
     if (modeSelect.value !== 'text') {
-      if (!royAudioContext) {
-        royAudioContext = new (window.AudioContext || window.webkitAudioContext)();
-      }
+      if (!royAudioContext) royAudioContext = new (window.AudioContext || window.webkitAudioContext)();
       if (roySource) roySource.disconnect();
-
       audioEl.src = `data:audio/mp3;base64,${data.audio}`;
       roySource = royAudioContext.createMediaElementSource(audioEl);
       const gainNode = royAudioContext.createGain();
@@ -119,17 +116,18 @@ window.addEventListener('DOMContentLoaded', () => {
     recognition.interimResults = true;
     recognition.continuous = false;
 
-    fullTranscript = '';
+    finalTranscript = '';
 
     recognition.onresult = (event) => {
+      finalTranscript = '';
       for (let i = event.resultIndex; i < event.results.length; ++i) {
-        fullTranscript += event.results[i][0].transcript;
+        finalTranscript += event.results[i][0].transcript;
       }
     };
 
     recognition.onend = () => {
       stream.getTracks().forEach(t => t.stop());
-      if (fullTranscript.trim()) fetchRoyResponse(fullTranscript.trim());
+      if (finalTranscript.trim()) fetchRoyResponse(finalTranscript.trim());
     };
 
     recognition.start();
