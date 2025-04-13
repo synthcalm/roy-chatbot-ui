@@ -112,7 +112,7 @@ window.addEventListener('DOMContentLoaded', () => {
 
   async function startRecording() {
     stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/ogg; codecs=opus' });
+    mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
     chunks = [];
 
     userAudioContext = new (window.AudioContext || window.webkitAudioContext)();
@@ -146,7 +146,7 @@ window.addEventListener('DOMContentLoaded', () => {
     mediaRecorder.ondataavailable = e => chunks.push(e.data);
     mediaRecorder.onstop = async () => {
       stream.getTracks().forEach(t => t.stop());
-      const blob = new Blob(chunks, { type: 'audio/ogg; codecs=opus' });
+      const blob = new Blob(chunks, { type: 'audio/webm' });
       const formData = new FormData();
       formData.append('audio', blob);
       const res = await fetch('https://roy-chatbo-backend.onrender.com/api/transcribe', {
@@ -219,6 +219,8 @@ window.addEventListener('DOMContentLoaded', () => {
     homeBtn.textContent = 'SynthCalm Home';
     homeBtn.style.marginTop = '10px';
     homeBtn.style.flex = '1';
+    homeBtn.style.padding = '10px 18px';
+    homeBtn.style.fontSize = '14px';
     homeBtn.onclick = () => window.location.href = 'https://synthcalm.com';
     document.querySelector('.button-group').appendChild(homeBtn);
   }
@@ -238,7 +240,7 @@ window.addEventListener('DOMContentLoaded', () => {
       micBtn.textContent = 'Speak';
       micBtn.classList.remove('active');
       isRecording = false;
-      recognition.stop(); // stop transcription
+      recognition.stop();
     }
   });
 
