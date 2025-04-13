@@ -26,7 +26,7 @@ window.addEventListener('DOMContentLoaded', () => {
   const royCtx = royCanvas.getContext('2d');
   let royAudioContext, royAnalyser, royDataArray;
 
-  userCanvas.style.border = '1px solid cyan'; // Fix user waveform border
+  userCanvas.style.border = '1px solid cyan';
   appendMessage('Roy', greetings[0]);
   appendHomeButton();
   setInterval(updateClockAndTimer, 1000);
@@ -193,6 +193,10 @@ window.addEventListener('DOMContentLoaded', () => {
   }
 
   function appendHomeButton() {
+    const existing = document.querySelectorAll('.button-group .button');
+    const alreadyAppended = [...existing].some(btn => btn.textContent === 'SynthCalm Home');
+    if (alreadyAppended) return;
+
     const homeBtn = document.createElement('button');
     homeBtn.className = 'button';
     homeBtn.textContent = 'SynthCalm Home';
@@ -202,10 +206,7 @@ window.addEventListener('DOMContentLoaded', () => {
     homeBtn.style.fontSize = '14px';
     homeBtn.style.height = '40px';
     homeBtn.onclick = () => window.location.href = 'https://synthcalm.com';
-    const existing = document.querySelectorAll('.button-group .button');
-    if (![...existing].some(btn => btn.textContent === 'SynthCalm Home')) {
-      document.querySelector('.button-group').appendChild(homeBtn);
-    }
+    document.querySelector('.button-group').appendChild(homeBtn);
   }
 
   sendBtn.addEventListener('click', () => {
