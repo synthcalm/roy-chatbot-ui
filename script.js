@@ -18,6 +18,7 @@ window.addEventListener('DOMContentLoaded', () => {
   let isRecording = false;
   let recognition, userAudioContext, userAnalyser, userDataArray, stream;
   let sessionStart = Date.now();
+  let fullTranscript = '';
 
   const userCanvas = document.getElementById('userWaveform');
   const userCtx = userCanvas.getContext('2d');
@@ -116,14 +117,17 @@ window.addEventListener('DOMContentLoaded', () => {
     recognition.interimResults = true;
     recognition.continuous = false;
 
-    recognition.onresult = (e) => {
-      let finalTranscript = '';
-      for (let i = e.resultIndex; i < e.results.length; ++i) {
-        finalTranscript += e.results[i][0].transcript;
+    fullTranscript = '';
+
+    recognition.onresult = (event) => {
+      for (let i = event.resultIndex; i < event.results.length; ++i) {
+        fullTranscript += event.results[i][0].transcript;
       }
-      if (finalTranscript.trim()) appendMessage('You', finalTranscript);
-      inputEl.value = ''; // Clear typing box
-      fetchRoyResponse(finalTranscript);
+    };
+
+    recognition.onend = () => {
+      stream.getTracks().forEach(t => t.stop());
+      if (fullTranscript.trim()) fetchRoyResponse(fullTranscript.trim());
     };
 
     recognition.start();
@@ -197,7 +201,7 @@ window.addEventListener('DOMContentLoaded', () => {
       micBtn.textContent = 'Speak';
       micBtn.classList.remove('active');
       isRecording = false;
-      recognition.stop(); // triggers fetchRoyResponse via onresult
+      recognition.stop();
     }
   });
 
