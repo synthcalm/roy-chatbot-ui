@@ -107,12 +107,13 @@ window.addEventListener('DOMContentLoaded', () => {
     userDataArray = new Uint8Array(userAnalyser.frequencyBinCount);
     drawUserWaveform();
 
-    mediaRecorder = new MediaRecorder(stream);
+    const mimeType = MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 'audio/mp4';
+    mediaRecorder = new MediaRecorder(stream, { mimeType });
     const chunks = [];
     mediaRecorder.ondataavailable = e => chunks.push(e.data);
     mediaRecorder.onstop = async () => {
       stream.getTracks().forEach(t => t.stop());
-      const blob = new Blob(chunks, { type: 'audio/webm' });
+      const blob = new Blob(chunks, { type: mimeType });
       const formData = new FormData();
       formData.append('audio', blob);
       const res = await fetch('https://roy-chatbo-backend.onrender.com/api/transcribe', {
@@ -192,4 +193,11 @@ window.addEventListener('DOMContentLoaded', () => {
       micBtn.textContent = 'Speak';
       micBtn.classList.remove('active');
       isRecording = false;
-      mediaRecorde
+      mediaRecorder.stop();
+    }
+  });
+
+  saveBtn.addEventListener('click', () => {
+    console.log('TODO: Save chat log to Supabase.');
+  });
+});
