@@ -1,4 +1,4 @@
-// script.js for Roy – Bulletproof Version
+// script.js for Roy – Bulletproof Version with Real-Time Transcription
 
 window.addEventListener('DOMContentLoaded', () => {
   const micBtn = document.getElementById('mic-toggle');
@@ -14,7 +14,7 @@ window.addEventListener('DOMContentLoaded', () => {
 
   const sessionId = `session-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
   const greetings = ["Welcome. I'm Roy. You may speak using 'Speak' mode or type below."];
-  let isRecording = false, mediaRecorder, stream, userAudioContext, userAnalyser, userDataArray;
+  let isRecording = false, mediaRecorder, stream, socket, userAudioContext, userAnalyser, userDataArray;
   let sessionStart = Date.now();
 
   const userCanvas = document.getElementById('userWaveform');
@@ -71,7 +71,7 @@ window.addEventListener('DOMContentLoaded', () => {
       body: JSON.stringify({
         message,
         sessionId,
-        tone: "Short, grounded, emotionally intelligent. Vary expression with things like 'Right', 'Hmm', 'Exactly', etc."
+        tone: "Short, emotionally intelligent, layered like Roy Batty. Avoid therapy disclaimers. Use poetry, contradiction, tension."
       })
     });
 
@@ -107,22 +107,24 @@ window.addEventListener('DOMContentLoaded', () => {
     userDataArray = new Uint8Array(userAnalyser.frequencyBinCount);
     drawUserWaveform();
 
-    const mimeType = MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 'audio/mp4';
-    mediaRecorder = new MediaRecorder(stream, { mimeType });
-    const chunks = [];
-    mediaRecorder.ondataavailable = e => chunks.push(e.data);
-    mediaRecorder.onstop = async () => {
-      stream.getTracks().forEach(t => t.stop());
-      const blob = new Blob(chunks, { type: mimeType });
-      const formData = new FormData();
-      formData.append('audio', blob);
-      const res = await fetch('https://roy-chatbo-backend.onrender.com/api/transcribe', {
-        method: 'POST', body: formData
-      });
-      const data = await res.json();
-      if (data.text) fetchRoyResponse(data.text);
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    const recognition = new SpeechRecognition();
+    recognition.lang = 'en-US';
+    recognition.interimResults = true;
+    recognition.continuous = true;
+    recognition.onresult = (e) => {
+      let transcript = '';
+      for (let i = e.resultIndex; i < e.results.length; ++i) {
+        transcript += e.results[i][0].transcript;
+      }
+      inputEl.value = transcript;
     };
-    mediaRecorder.start();
+    recognition.onend = () => {
+      stream.getTracks().forEach(t => t.stop());
+      const msg = inputEl.value.trim();
+      if (msg) fetchRoyResponse(msg);
+    };
+    recognition.start();
   }
 
   function drawUserWaveform() {
@@ -193,7 +195,6 @@ window.addEventListener('DOMContentLoaded', () => {
       micBtn.textContent = 'Speak';
       micBtn.classList.remove('active');
       isRecording = false;
-      mediaRecorder.stop();
     }
   });
 
