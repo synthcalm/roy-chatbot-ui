@@ -1,200 +1,126 @@
-// script.js – Bulletproof logic for Roy chatbot
-
-window.addEventListener('DOMContentLoaded', () => {
-  const micBtn = document.getElementById('mic-toggle');
-  const sendBtn = document.getElementById('send-button');
-  const saveBtn = document.getElementById('save-log');
-  const inputEl = document.getElementById('user-input');
-  const messagesEl = document.getElementById('messages');
-  const audioEl = document.getElementById('roy-audio');
-  const modeSelect = document.getElementById('responseMode');
-  const dateSpan = document.getElementById('current-date');
-  const timeSpan = document.getElementById('current-time');
-  const timerSpan = document.getElementById('countdown-timer');
-
-  const sessionId = `session-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
-  const greetings = ["Welcome. I'm Roy. You may speak using 'Speak' mode or type below."];
-
-  let isRecording = false;
-  let socket, userAudioContext, userAnalyser, userDataArray, stream;
-  let sessionStart = Date.now();
-
-  const userCanvas = document.getElementById('userWaveform');
-  const userCtx = userCanvas.getContext('2d');
-
-  const royCanvas = document.getElementById('royWaveform');
-  const royCtx = royCanvas.getContext('2d');
-  let royAudioContext, royAnalyser, royDataArray;
-
-  userCanvas.style.border = '1px solid cyan';
-  appendMessage('Roy', greetings[0]);
-  setInterval(updateClockAndTimer, 1000);
-
-  function updateClockAndTimer() {
-    const now = new Date();
-    const elapsed = Math.floor((Date.now() - sessionStart) / 1000);
-    const remaining = Math.max(0, 3600 - elapsed);
-    const min = String(Math.floor(remaining / 60)).padStart(2, '0');
-    const sec = String(remaining % 60).padStart(2, '0');
-    dateSpan.textContent = now.toISOString().split('T')[0];
-    timeSpan.textContent = now.toTimeString().split(' ')[0];
-    timerSpan.textContent = `Session Ends In: ${min}:${sec}`;
-  }
-
-  function appendMessage(sender, text) {
-    const p = document.createElement('p');
-    p.classList.add(sender.toLowerCase());
-    p.innerHTML = `<strong>${sender}:</strong> `;
-    messagesEl.appendChild(p);
-    messagesEl.scrollTop = messagesEl.scrollHeight;
-
-    if (sender === 'Roy') {
-      let i = 0;
-      const typeInterval = setInterval(() => {
-        if (i < text.length) {
-          p.innerHTML += text.charAt(i++);
-          messagesEl.scrollTop = messagesEl.scrollHeight;
-        } else {
-          clearInterval(typeInterval);
-        }
-      }, 12);
-    } else {
-      p.innerHTML += `<span style="color: yellow">${text}</span>`;
-      messagesEl.scrollTop = messagesEl.scrollHeight;
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Roy // SynthCalm</title>
+  <link rel="stylesheet" href="style.css" />
+  <style>
+    body {
+      margin: 0;
+      background: black;
+      color: white;
+      font-family: 'Courier New', monospace;
+      display: flex;
+      justify-content: center;
     }
-  }
-
-  async function fetchRoyResponse(message) {
-    appendMessage('You', message);
-    inputEl.value = '';
-
-    const thinking = document.createElement('p');
-    thinking.textContent = 'Roy is thinking...';
-    thinking.className = 'roy';
-    messagesEl.appendChild(thinking);
-
-    const res = await fetch('https://roy-chatbo-backend.onrender.com/api/chat', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        message,
-        sessionId,
-        tone: "Short, grounded, emotionally intelligent with variation. Use natural interjections like 'Right', 'Hmm', 'Exactly', 'That's what I thought', etc. Avoid overusing any single phrase."
-      })
-    });
-
-    thinking.remove();
-    const data = await res.json();
-
-    if (modeSelect.value !== 'voice') appendMessage('Roy', data.text);
-
-    if (modeSelect.value !== 'text') {
-      audioEl.src = `data:audio/mp3;base64,${data.audio}`;
-      audioEl.play();
-
-      audioEl.onplay = () => {
-        royAudioContext = new (window.AudioContext || window.webkitAudioContext)();
-        const gainNode = royAudioContext.createGain();
-        gainNode.gain.value = 2.0;
-        royAnalyser = royAudioContext.createAnalyser();
-        royAnalyser.fftSize = 2048;
-        royDataArray = new Uint8Array(royAnalyser.frequencyBinCount);
-        const source = royAudioContext.createMediaElementSource(audioEl);
-        source.connect(gainNode);
-        gainNode.connect(royAnalyser);
-        royAnalyser.connect(royAudioContext.destination);
-        drawRoyWaveform();
-      };
+    .container {
+      width: 90%;
+      max-width: 600px;
+      padding: 10px;
+      border: 2px solid cyan;
+      border-radius: 12px;
     }
-  }
-
-  async function startRecording() {
-    stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    userAudioContext = new (window.AudioContext || window.webkitAudioContext)();
-    await userAudioContext.resume();
-    const source = userAudioContext.createMediaStreamSource(stream);
-    userAnalyser = userAudioContext.createAnalyser();
-    source.connect(userAnalyser);
-    userAnalyser.fftSize = 2048;
-    userDataArray = new Uint8Array(userAnalyser.frequencyBinCount);
-    drawUserWaveform();
-  }
-
-  function drawUserWaveform() {
-    if (!userAnalyser) return;
-    requestAnimationFrame(drawUserWaveform);
-    userAnalyser.getByteTimeDomainData(userDataArray);
-    userCtx.fillStyle = '#000';
-    userCtx.fillRect(0, 0, userCanvas.width, userCanvas.height);
-    drawGrid(userCtx, userCanvas.width, userCanvas.height, 'rgba(0,255,255,0.2)');
-    userCtx.strokeStyle = 'yellow';
-    userCtx.lineWidth = 1.8;
-    userCtx.beginPath();
-    const sliceWidth = userCanvas.width / userDataArray.length;
-    let x = 0;
-    for (let i = 0; i < userDataArray.length; i++) {
-      const y = (userDataArray[i] / 128.0) * userCanvas.height / 2;
-      i === 0 ? userCtx.moveTo(x, y) : userCtx.lineTo(x, y);
-      x += sliceWidth;
+    canvas {
+      background-color: black;
+      background-image: linear-gradient(to right, rgba(0, 255, 255, 0.3) 1px, transparent 1px),
+                        linear-gradient(to bottom, rgba(0, 255, 255, 0.3) 1px, transparent 1px);
+      background-size: 20px 20px;
+      border: 1px solid cyan;
     }
-    userCtx.lineTo(userCanvas.width, userCanvas.height / 2);
-    userCtx.stroke();
-  }
-
-  function drawRoyWaveform() {
-    if (!royAnalyser) return;
-    requestAnimationFrame(drawRoyWaveform);
-    royAnalyser.getByteTimeDomainData(royDataArray);
-    royCtx.fillStyle = '#000';
-    royCtx.fillRect(0, 0, royCanvas.width, royCanvas.height);
-    drawGrid(royCtx, royCanvas.width, royCanvas.height, 'rgba(0,255,255,0.2)');
-    royCtx.strokeStyle = 'magenta';
-    royCtx.lineWidth = 1.8;
-    royCtx.beginPath();
-    const sliceWidth = royCanvas.width / royDataArray.length;
-    let x = 0;
-    for (let i = 0; i < royDataArray.length; i++) {
-      const y = (royDataArray[i] / 128.0) * royCanvas.height / 2;
-      i === 0 ? royCtx.moveTo(x, y) : royCtx.lineTo(x, y);
-      x += sliceWidth;
+    #messages p.roy strong { color: cyan; }
+    #messages p.user strong { color: white; }
+    .input-area {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-top: 10px;
     }
-    royCtx.lineTo(royCanvas.width, royCanvas.height / 2);
-    royCtx.stroke();
-  }
-
-  function drawGrid(ctx, width, height, color) {
-    ctx.strokeStyle = color;
-    ctx.lineWidth = 0.3;
-    for (let x = 0; x < width; x += 20) {
-      ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, height); ctx.stroke();
+    .input-group {
+      display: flex;
+      gap: 8px;
+      align-items: stretch;
+      width: 100%;
     }
-    for (let y = 0; y < height; y += 20) {
-      ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(width, y); ctx.stroke();
+    #user-input {
+      width: 100%;
+      max-width: 100%;
+      padding: 12px;
+      font-size: 16px;
+      border: 1px solid #0ff;
+      background: black;
+      color: white;
+      font-family: 'Courier New', monospace;
+      height: 96px;
+      box-sizing: border-box;
     }
-  }
-
-  sendBtn.addEventListener('click', () => {
-    const msg = inputEl.value.trim();
-    if (msg) fetchRoyResponse(msg);
-  });
-
-  micBtn.addEventListener('click', () => {
-    if (!isRecording) {
-      micBtn.textContent = 'Stop';
-      micBtn.classList.add('active');
-      isRecording = true;
-      startRecording();
-    } else {
-      micBtn.textContent = 'Speak';
-      micBtn.classList.remove('active');
-      isRecording = false;
-      stream.getTracks().forEach(track => track.stop());
-      const finalText = inputEl.value.trim();
-      if (finalText) fetchRoyResponse(finalText);
+    select.button, button.button {
+      font-family: 'Courier New', monospace;
+      font-size: 14px;
+      padding: 10px 18px;
+      background: black;
+      color: cyan;
+      border: 2px solid cyan;
+      border-radius: 6px;
+      cursor: pointer;
+      height: 44px;
+      flex: 1;
     }
-  });
+    button.button.active {
+      background-color: red;
+      color: white;
+      border-color: red;
+    }
+    .button-group {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      margin-top: 10px;
+    }
+    .title-bar {
+      display: flex;
+      justify-content: space-between;
+      font-size: 14px;
+      color: yellow;
+      margin-bottom: 10px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="title-bar">
+      <span id="current-date"></span>
+      <span id="current-time"></span>
+      <span id="countdown-timer"></span>
+    </div>
 
-  saveBtn.addEventListener('click', () => {
-    console.log('TODO: Save log to Supabase');
-  });
-});
+    <canvas id="userWaveform" height="60" style="width:100%; margin-bottom:10px;"></canvas>
+    <div id="messages" style="height:150px; overflow-y:auto; border:1px solid cyan; padding: 8px;"></div>
+    <canvas id="royWaveform" height="60" style="width:100%; margin-top:10px;"></canvas>
+
+    <div class="input-area">
+      <div class="input-group">
+        <input type="text" id="user-input" placeholder="Say or type something..." />
+        <button id="send-button" class="button">Send</button>
+      </div>
+
+      <label for="responseMode" style="color:#0ff; font-size:12px; margin-top:5px;">Roy Response Mode:</label>
+      <select id="responseMode" class="button">
+        <option value="both">Text + Voice</option>
+        <option value="text">Text Only</option>
+        <option value="voice">Voice Only</option>
+      </select>
+
+      <div class="button-group">
+        <button id="mic-toggle" class="button">Speak</button>
+        <button id="save-log" class="button">Save Log</button>
+        <button class="button" id="home-btn" onclick="window.location.href='https://synthcalm.com'">SynthCalm Home</button>
+      </div>
+    </div>
+
+    <audio id="roy-audio" controls style="display:none;"></audio>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
