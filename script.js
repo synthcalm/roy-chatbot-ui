@@ -1,3 +1,5 @@
+// AssemblyAI-powered real-time transcription setup for Roy
+
 window.addEventListener('DOMContentLoaded', () => {
   const micBtn = document.getElementById('mic-toggle');
   const sendBtn = document.getElementById('send-button');
@@ -11,18 +13,14 @@ window.addEventListener('DOMContentLoaded', () => {
   const timerSpan = document.getElementById('countdown-timer');
 
   const sessionId = `session-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
-  const greetings = [
-    "Welcome. I'm Roy. You may speak using 'Speak' mode or type below."
-  ];
+  const greetings = ["Welcome. I'm Roy. You may speak using 'Speak' mode or type below."];
 
   let isRecording = false;
-  let stream, mediaRecorder, chunks = [];
+  let socket, userAudioContext, userAnalyser, userDataArray, stream;
   let sessionStart = Date.now();
-  let recognition;
 
   const userCanvas = document.getElementById('userWaveform');
   const userCtx = userCanvas.getContext('2d');
-  let userAudioContext, userAnalyser, userDataArray;
 
   const royCanvas = document.getElementById('royWaveform');
   const royCtx = royCanvas.getContext('2d');
@@ -30,6 +28,7 @@ window.addEventListener('DOMContentLoaded', () => {
 
   appendMessage('Roy', greetings[0]);
   appendHomeButton();
+  setInterval(updateClockAndTimer, 1000);
 
   function updateClockAndTimer() {
     const now = new Date();
@@ -41,7 +40,6 @@ window.addEventListener('DOMContentLoaded', () => {
     timeSpan.textContent = now.toTimeString().split(' ')[0];
     timerSpan.textContent = `Session Ends In: ${min}:${sec}`;
   }
-  setInterval(updateClockAndTimer, 1000);
 
   function appendMessage(sender, text) {
     const p = document.createElement('p');
@@ -112,52 +110,32 @@ window.addEventListener('DOMContentLoaded', () => {
 
   async function startRecording() {
     stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
-    chunks = [];
-
     userAudioContext = new (window.AudioContext || window.webkitAudioContext)();
     await userAudioContext.resume();
-    userAnalyser = userAudioContext.createAnalyser();
     const source = userAudioContext.createMediaStreamSource(stream);
+    userAnalyser = userAudioContext.createAnalyser();
     source.connect(userAnalyser);
     userAnalyser.fftSize = 2048;
     userDataArray = new Uint8Array(userAnalyser.frequencyBinCount);
     drawUserWaveform();
 
-    recognition = new (window.webkitSpeechRecognition || window.SpeechRecognition)();
-    recognition.lang = 'en-US';
-    recognition.interimResults = true;
-    recognition.continuous = true;
-
-    recognition.onresult = (event) => {
-      let interimTranscript = '';
-      for (let i = event.resultIndex; i < event.results.length; i++) {
-        interimTranscript += event.results[i][0].transcript;
-      }
-      inputEl.placeholder = interimTranscript;
+    socket = new WebSocket('wss://api.assemblyai.com/v2/realtime/ws?sample_rate=16000');
+    socket.onopen = () => {
+      const mediaStream = new MediaRecorder(stream, { mimeType: 'audio/webm' });
+      mediaStream.ondataavailable = async (e) => {
+        if (socket.readyState === 1) {
+          const reader = new FileReader();
+          reader.onload = () => socket.send(reader.result);
+          reader.readAsArrayBuffer(e.data);
+        }
+      };
+      mediaStream.start(250);
     };
 
-    recognition.onend = () => {
-      mediaRecorder.stop();
+    socket.onmessage = async (msg) => {
+      const res = JSON.parse(msg.data);
+      if (res.text) inputEl.value = res.text;
     };
-
-    recognition.start();
-
-    mediaRecorder.ondataavailable = e => chunks.push(e.data);
-    mediaRecorder.onstop = async () => {
-      stream.getTracks().forEach(t => t.stop());
-      const blob = new Blob(chunks, { type: 'audio/webm' });
-      const formData = new FormData();
-      formData.append('audio', blob);
-      const res = await fetch('https://roy-chatbo-backend.onrender.com/api/transcribe', {
-        method: 'POST',
-        body: formData
-      });
-      const data = await res.json();
-      if (data.text) await fetchRoyResponse(data.text);
-    };
-
-    mediaRecorder.start();
   }
 
   function drawUserWaveform() {
@@ -241,7 +219,9 @@ window.addEventListener('DOMContentLoaded', () => {
       micBtn.textContent = 'Speak';
       micBtn.classList.remove('active');
       isRecording = false;
-      recognition.stop();
+      if (socket && socket.readyState === 1) socket.close();
+      const finalText = inputEl.value.trim();
+      if (finalText) fetchRoyResponse(finalText);
     }
   });
 
