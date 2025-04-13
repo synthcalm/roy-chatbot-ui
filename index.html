@@ -13,6 +13,8 @@
       font-family: 'Courier New', monospace;
       display: flex;
       justify-content: center;
+      align-items: center;
+      min-height: 100vh;
     }
     .container {
       width: 90%;
@@ -20,13 +22,21 @@
       padding: 10px;
       border: 2px solid cyan;
       border-radius: 12px;
+      display: flex;
+      flex-direction: column;
     }
     canvas {
       background-color: black;
-      background-image: linear-gradient(to right, rgba(0, 255, 255, 0.3) 1px, transparent 1px),
-                        linear-gradient(to bottom, rgba(0, 255, 255, 0.3) 1px, transparent 1px);
+      background-image: linear-gradient(to right, rgba(0,255,255,0.3) 1px, transparent 1px),
+                        linear-gradient(to bottom, rgba(0,255,255,0.3) 1px, transparent 1px);
       background-size: 20px 20px;
       border: 1px solid cyan;
+    }
+    #messages {
+      height: 150px;
+      overflow-y: auto;
+      border: 1px solid cyan;
+      padding: 8px;
     }
     #messages p.roy strong { color: cyan; }
     #messages p.user strong { color: white; }
@@ -40,11 +50,9 @@
       display: flex;
       gap: 8px;
       align-items: stretch;
-      width: 100%;
     }
     #user-input {
       width: 100%;
-      max-width: 100%;
       padding: 12px;
       font-size: 16px;
       border: 1px solid #0ff;
@@ -75,7 +83,6 @@
       display: flex;
       justify-content: space-between;
       gap: 10px;
-      margin-top: 10px;
     }
     .title-bar {
       display: flex;
@@ -89,13 +96,13 @@
 <body>
   <div class="container">
     <div class="title-bar">
-      <span id="current-date"></span>
-      <span id="current-time"></span>
-      <span id="countdown-timer"></span>
+      <span id="current-date">0000-00-00</span>
+      <span id="current-time">00:00:00</span>
+      <span id="countdown-timer">Session Ends In: 60:00</span>
     </div>
 
     <canvas id="userWaveform" height="60" style="width:100%; margin-bottom:10px;"></canvas>
-    <div id="messages" style="height:150px; overflow-y:auto; border:1px solid cyan; padding: 8px;"></div>
+    <div id="messages"></div>
     <canvas id="royWaveform" height="60" style="width:100%; margin-top:10px;"></canvas>
 
     <div class="input-area">
@@ -104,7 +111,7 @@
         <button id="send-button" class="button">Send</button>
       </div>
 
-      <label for="responseMode" style="color:#0ff; font-size:12px; margin-top:5px;">Roy Response Mode:</label>
+      <label for="responseMode" style="color:#0ff; font-size:12px;">Roy Response Mode:</label>
       <select id="responseMode" class="button">
         <option value="both">Text + Voice</option>
         <option value="text">Text Only</option>
@@ -114,13 +121,13 @@
       <div class="button-group">
         <button id="mic-toggle" class="button">Speak</button>
         <button id="save-log" class="button">Save Log</button>
-        <button class="button" id="home-btn" onclick="window.location.href='https://synthcalm.com'">SynthCalm Home</button>
+        <button id="home-btn" class="button" onclick="window.location.href='https://synthcalm.com'">SynthCalm Home</button>
       </div>
     </div>
 
     <audio id="roy-audio" controls style="display:none;"></audio>
   </div>
 
-  <script src="script.js"></script>
+  <script src="script.js" defer></script>
 </body>
 </html>
