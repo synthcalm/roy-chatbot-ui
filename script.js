@@ -240,6 +240,6 @@ setInterval(() => {
 }, 1000);
 
 window.addEventListener('DOMContentLoaded', () => {
-  const greeting = greetings[Math.floor(Math.random() * greetings.length)];
+  const greeting = `Welcome. I'm Roy. You may speak using 'Hands Free' or 'Speak' mode, or type below.`;
   appendMessage('Roy', greeting);
 });
