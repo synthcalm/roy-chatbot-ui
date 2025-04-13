@@ -1,4 +1,4 @@
-/* Updated script.js – Fixed STT clearing issue, real-time STT display, delayed "Roy is thinking", fixed audio cutoff */
+/* Updated script.js – Fixed audio cutoff (InvalidStateError), real-time STT, delayed "Roy is thinking" */
 
 window.addEventListener('DOMContentLoaded', () => {
   const micBtn = document.getElementById('mic-toggle');
@@ -91,24 +91,42 @@ window.addEventListener('DOMContentLoaded', () => {
 
       // Handle audio if mode is not text and audio data exists
       if (modeSelect.value !== 'text' && data.audio) {
-        // Clean up previous audio nodes
+        // Clean up previous audio resources
+        console.log('Cleaning up audio resources...');
         if (roySource) {
-          roySource.disconnect();
+          try {
+            roySource.disconnect();
+          } catch (e) {
+            console.warn('Error disconnecting roySource:', e);
+          }
           roySource = null;
         }
         if (royAnalyser) {
-          royAnalyser.disconnect();
+          try {
+            royAnalyser.disconnect();
+          } catch (e) {
+            console.warn('Error disconnecting royAnalyser:', e);
+          }
           royAnalyser = null;
         }
+        if (royAudioContext) {
+          try {
+            royAudioContext.close();
+          } catch (e) {
+            console.warn('Error closing royAudioContext:', e);
+          }
+          royAudioContext = null;
+        }
+
         // Reset audio element
         audioEl.pause();
         audioEl.currentTime = 0;
         audioEl.src = '';
+        audioEl.load(); // Force reset of media element
 
-        // Initialize or reuse AudioContext
-        if (!royAudioContext || royAudioContext.state === 'closed') {
-          royAudioContext = new (window.AudioContext || window.webkitAudioContext)();
-        }
+        // Create new AudioContext
+        console.log('Creating new AudioContext...');
+        royAudioContext = new (window.AudioContext || window.webkitAudioContext)();
 
         try {
           audioEl.src = `data:audio/mp3;base64,${data.audio}`;
@@ -123,9 +141,10 @@ window.addEventListener('DOMContentLoaded', () => {
           royAnalyser.connect(royAudioContext.destination);
           drawRoyWaveform();
           await audioEl.play();
+          console.log('Audio playback started successfully');
         } catch (audioError) {
           console.error('Audio playback error:', audioError);
-          appendMessage('Roy', 'My voice falters in song, but my words endure.');
+          appendMessage('Roy', 'My voice stumbles in the ether, but my words endure.');
         }
       }
     } catch (error) {
