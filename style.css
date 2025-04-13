@@ -1,4 +1,4 @@
-/* Updated style.css for Roy Chatbot UI - Revised for Poetic Batty Voice */
+/* Updated style.css for Roy Chatbot UI - Enhanced for Real-Time STT and Poetic Batty Voice */
 
 body {
   margin: 0;
@@ -37,14 +37,32 @@ canvas {
   font-size: 14px;
   line-height: 1.6;
   color: white;
+  scroll-behavior: smooth; /* Added for smoother scrolling */
+}
+
+#messages p {
+  margin: 0 0 8px 0; /* Ensure consistent spacing */
 }
 
 #messages p.roy strong {
   color: cyan;
 }
 
-#messages p.user strong {
+#messages p.you strong {
   color: yellow;
+}
+
+#messages p.live-transcript {
+  font-style: italic; /* Distinguish live transcript */
+  opacity: 0.7; /* Slightly dimmer for temporary feel */
+}
+
+#messages p.live-transcript strong {
+  color: yellow; /* Match user style */
+}
+
+#messages p.live-transcript span {
+  color: #ffd700; /* Slightly darker yellow for contrast */
 }
 
 .input-area {
