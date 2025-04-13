@@ -1,5 +1,13 @@
 // script.js – Roy Chatbot Modes: Converse, Speak-and-Send, Type-and-Read with Real-Time Transcription, Typing Effect, Fast Response
 
+let isRecording = false;
+let mediaRecorder, stream, chunks = [];
+let userAudioContext, userAnalyser, userDataArray, userSource;
+let royAudioContext, royAnalyser, royDataArray;
+
+const sessionId = `session-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+const greetings = ["Welcome. I'm Roy. You may speak using 'Hands Free' or 'Speak' mode, or type below."];
+
 const micBtn = document.getElementById('mic-toggle');
 const sendBtn = document.getElementById('send-button');
 const converseBtn = document.getElementById('converse-button');
@@ -12,14 +20,6 @@ const userCanvas = document.getElementById('userWaveform');
 const royCanvas = document.getElementById('royWaveform');
 const userCtx = userCanvas.getContext('2d');
 const royCtx = royCanvas.getContext('2d');
-
-let isRecording = false;
-let mediaRecorder, stream, chunks = [];
-let userAudioContext, userAnalyser, userDataArray, userSource;
-let royAudioContext, royAnalyser, royDataArray;
-
-const sessionId = `session-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
-const greetings = ["Welcome. I'm Roy. You may speak using 'Hands Free' or 'Speak' mode, or type below."];
 
 function drawGrid(ctx, width, height, color) {
   ctx.strokeStyle = color;
@@ -239,7 +239,7 @@ setInterval(() => {
   document.getElementById('current-time').textContent = now.toTimeString().split(' ')[0];
 }, 1000);
 
-window.addEventListener('DOMContentLoaded', () => {
+window.addEventListener('load', () => {
   const greeting = `Welcome. I'm Roy. You may speak using 'Hands Free' or 'Speak' mode, or type below.`;
   appendMessage('Roy', greeting);
 });
