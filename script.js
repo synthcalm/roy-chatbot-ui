@@ -60,7 +60,7 @@ window.addEventListener('DOMContentLoaded', () => {
         }
       }, 12);
     } else {
-      p.innerHTML += text;
+      p.innerHTML += `<span style="color: yellow">${text}</span>`;
       messagesEl.scrollTop = messagesEl.scrollHeight;
     }
   }
@@ -85,7 +85,6 @@ window.addEventListener('DOMContentLoaded', () => {
     });
 
     thinking.remove();
-
     const data = await res.json();
 
     if (modeSelect.value !== 'voice') appendMessage('Roy', data.text);
@@ -96,11 +95,14 @@ window.addEventListener('DOMContentLoaded', () => {
 
       audioEl.onplay = () => {
         royAudioContext = new (window.AudioContext || window.webkitAudioContext)();
+        const gainNode = royAudioContext.createGain();
+        gainNode.gain.value = 2.0;
         royAnalyser = royAudioContext.createAnalyser();
         royAnalyser.fftSize = 2048;
         royDataArray = new Uint8Array(royAnalyser.frequencyBinCount);
         const source = royAudioContext.createMediaElementSource(audioEl);
-        source.connect(royAnalyser);
+        source.connect(gainNode);
+        gainNode.connect(royAnalyser);
         royAnalyser.connect(royAudioContext.destination);
         drawRoyWaveform();
       };
@@ -163,8 +165,9 @@ window.addEventListener('DOMContentLoaded', () => {
     userAnalyser.getByteTimeDomainData(userDataArray);
     userCtx.fillStyle = '#000';
     userCtx.fillRect(0, 0, userCanvas.width, userCanvas.height);
-    drawGrid(userCtx, userCanvas.width, userCanvas.height, 'rgba(0,255,255,0.3)');
-    userCtx.strokeStyle = 'yellow';
+    drawGrid(userCtx, userCanvas.width, userCanvas.height, 'rgba(0,255,255,0.2)');
+    userCtx.strokeStyle = '#FFD700';
+    userCtx.lineWidth = 1.8;
     userCtx.beginPath();
     const sliceWidth = userCanvas.width / userDataArray.length;
     let x = 0;
@@ -183,8 +186,9 @@ window.addEventListener('DOMContentLoaded', () => {
     royAnalyser.getByteTimeDomainData(royDataArray);
     royCtx.fillStyle = '#000';
     royCtx.fillRect(0, 0, royCanvas.width, royCanvas.height);
-    drawGrid(royCtx, royCanvas.width, royCanvas.height, 'rgba(0,255,255,0.3)');
+    drawGrid(royCtx, royCanvas.width, royCanvas.height, 'rgba(0,255,255,0.2)');
     royCtx.strokeStyle = 'magenta';
+    royCtx.lineWidth = 1.8;
     royCtx.beginPath();
     const sliceWidth = royCanvas.width / royDataArray.length;
     let x = 0;
@@ -199,7 +203,7 @@ window.addEventListener('DOMContentLoaded', () => {
 
   function drawGrid(ctx, width, height, color) {
     ctx.strokeStyle = color;
-    ctx.lineWidth = 0.5;
+    ctx.lineWidth = 0.3;
     for (let x = 0; x < width; x += 20) {
       ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, height); ctx.stroke();
     }
@@ -213,6 +217,7 @@ window.addEventListener('DOMContentLoaded', () => {
     homeBtn.className = 'button';
     homeBtn.textContent = 'SynthCalm Home';
     homeBtn.style.marginTop = '10px';
+    homeBtn.style.flex = '1';
     homeBtn.onclick = () => window.location.href = 'https://synthcalm.com';
     document.querySelector('.button-group').appendChild(homeBtn);
   }
