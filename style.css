@@ -70,6 +70,11 @@
       height: 44px;
       flex: 1;
     }
+    button.button.active {
+      background-color: red;
+      color: white;
+      border-color: red;
+    }
     .button-group {
       display: flex;
       justify-content: space-between;
@@ -113,13 +118,16 @@
       <div class="button-group">
         <button id="mic-toggle" class="button">Speak</button>
         <button id="save-log" class="button">Save Log</button>
-        <button class="button" id="home-btn" onclick="window.location.href='https://synthcalm.com'">SynthCalm Home</button>
+        <button id="home-btn" class="button">SynthCalm Home</button>
       </div>
     </div>
 
     <audio id="roy-audio" controls style="display:none;"></audio>
   </div>
 
+  <script>
+    document.getElementById('home-btn').onclick = () => window.location.href = 'https://synthcalm.com';
+  </script>
   <script src="script.js"></script>
 </body>
 </html>
