@@ -1,4 +1,4 @@
-/* Updated script.js – Roy is triggered only when STOP is pressed */
+/* Updated script.js – Roy is triggered only when STOP is pressed + real-time transcription visible only to Roy */
 
 window.addEventListener('DOMContentLoaded', () => {
   const micBtn = document.getElementById('mic-toggle');
@@ -121,7 +121,9 @@ window.addEventListener('DOMContentLoaded', () => {
       for (let i = e.resultIndex; i < e.results.length; ++i) {
         finalTranscript += e.results[i][0].transcript;
       }
-      inputEl.value = finalTranscript;
+      if (finalTranscript.trim()) appendMessage('You', finalTranscript);
+      inputEl.value = ''; // Clear typing box
+      fetchRoyResponse(finalTranscript);
     };
 
     recognition.start();
@@ -195,7 +197,7 @@ window.addEventListener('DOMContentLoaded', () => {
       micBtn.textContent = 'Speak';
       micBtn.classList.remove('active');
       isRecording = false;
-      recognition.stop();
+      recognition.stop(); // triggers fetchRoyResponse via onresult
     }
   });
 
