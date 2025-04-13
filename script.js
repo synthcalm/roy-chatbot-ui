@@ -26,6 +26,7 @@ window.addEventListener('DOMContentLoaded', () => {
   const royCtx = royCanvas.getContext('2d');
   let royAudioContext, royAnalyser, royDataArray;
 
+  userCanvas.style.border = '1px solid cyan'; // Fix user waveform border
   appendMessage('Roy', greetings[0]);
   appendHomeButton();
   setInterval(updateClockAndTimer, 1000);
@@ -201,7 +202,10 @@ window.addEventListener('DOMContentLoaded', () => {
     homeBtn.style.fontSize = '14px';
     homeBtn.style.height = '40px';
     homeBtn.onclick = () => window.location.href = 'https://synthcalm.com';
-    document.querySelector('.button-group').appendChild(homeBtn);
+    const existing = document.querySelectorAll('.button-group .button');
+    if (![...existing].some(btn => btn.textContent === 'SynthCalm Home')) {
+      document.querySelector('.button-group').appendChild(homeBtn);
+    }
   }
 
   sendBtn.addEventListener('click', () => {
