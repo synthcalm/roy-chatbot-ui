@@ -3,6 +3,7 @@
 const micBtn = document.getElementById('mic-toggle');
 const sendBtn = document.getElementById('send-button');
 const converseBtn = document.getElementById('converse-button');
+const saveBtn = document.getElementById('save-log');
 const inputEl = document.getElementById('user-input');
 const messagesEl = document.getElementById('messages');
 const audioEl = document.getElementById('roy-audio');
@@ -165,11 +166,6 @@ micBtn.addEventListener('click', async () => {
           body: formData
         });
 
-        if (!res.ok) {
-          console.error('Transcribe error:', await res.text());
-          return;
-        }
-
         const data = await res.json();
         if (data.text) fetchRoyResponse(data.text);
       };
@@ -231,6 +227,10 @@ converseBtn.addEventListener('click', async () => {
 
   mediaRecorder.start();
   setTimeout(() => mediaRecorder.stop(), 3000);
+});
+
+saveBtn.addEventListener('click', async () => {
+  console.log('TODO: Save chat log to Supabase');
 });
 
 setInterval(() => {
