@@ -18,6 +18,7 @@ window.addEventListener('DOMContentLoaded', () => {
   let isRecording = false;
   let stream, mediaRecorder, chunks = [];
   let sessionStart = Date.now();
+  let recognition;
 
   const userCanvas = document.getElementById('userWaveform');
   const userCtx = userCanvas.getContext('2d');
@@ -111,7 +112,7 @@ window.addEventListener('DOMContentLoaded', () => {
 
   async function startRecording() {
     stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    mediaRecorder = new MediaRecorder(stream);
+    mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/ogg; codecs=opus' });
     chunks = [];
 
     userAudioContext = new (window.AudioContext || window.webkitAudioContext)();
@@ -123,7 +124,7 @@ window.addEventListener('DOMContentLoaded', () => {
     userDataArray = new Uint8Array(userAnalyser.frequencyBinCount);
     drawUserWaveform();
 
-    const recognition = new (window.webkitSpeechRecognition || window.SpeechRecognition)();
+    recognition = new (window.webkitSpeechRecognition || window.SpeechRecognition)();
     recognition.lang = 'en-US';
     recognition.interimResults = true;
     recognition.continuous = true;
@@ -145,7 +146,7 @@ window.addEventListener('DOMContentLoaded', () => {
     mediaRecorder.ondataavailable = e => chunks.push(e.data);
     mediaRecorder.onstop = async () => {
       stream.getTracks().forEach(t => t.stop());
-      const blob = new Blob(chunks, { type: 'audio/webm' });
+      const blob = new Blob(chunks, { type: 'audio/ogg; codecs=opus' });
       const formData = new FormData();
       formData.append('audio', blob);
       const res = await fetch('https://roy-chatbo-backend.onrender.com/api/transcribe', {
@@ -237,7 +238,7 @@ window.addEventListener('DOMContentLoaded', () => {
       micBtn.textContent = 'Speak';
       micBtn.classList.remove('active');
       isRecording = false;
-      mediaRecorder.stop();
+      recognition.stop(); // stop transcription
     }
   });
 
