@@ -98,6 +98,7 @@ function appendMessage(sender, text) {
 }
 
 async function fetchRoyResponse(message) {
+  if (!message || typeof message !== 'string') return;
   appendMessage('You', message);
   inputEl.value = '';
 
@@ -170,7 +171,7 @@ micBtn.addEventListener('click', async () => {
         }
 
         const data = await res.json();
-        fetchRoyResponse(data.text || '');
+        if (data.text) fetchRoyResponse(data.text);
       };
 
       mediaRecorder.start();
@@ -224,7 +225,7 @@ converseBtn.addEventListener('click', async () => {
     });
 
     const data = await res.json();
-    await fetchRoyResponse(data.text || '');
+    if (data.text) await fetchRoyResponse(data.text);
     if (converseBtn.classList.contains('recording')) converseBtn.click();
   };
 
@@ -240,5 +241,5 @@ setInterval(() => {
 
 window.addEventListener('DOMContentLoaded', () => {
   const greeting = greetings[Math.floor(Math.random() * greetings.length)];
-  appendMessage('Roy', `${greeting} You can either speak, type, or start a hands-free conversation.`);
+  appendMessage('Roy', greeting);
 });
