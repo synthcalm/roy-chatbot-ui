@@ -1,4 +1,4 @@
-/* Updated script.js – Fixed audio cutoff by creating new audio element, real-time STT, delayed "Roy is thinking" */
+/* Updated script.js – Instant text replies, new audio element, real-time STT */
 
 window.addEventListener('DOMContentLoaded', () => {
   const micBtn = document.getElementById('mic-toggle');
@@ -29,6 +29,23 @@ window.addEventListener('DOMContentLoaded', () => {
   let finalTranscript = '';
   let isAudioPlaying = false;
   let currentAudioEl = null;
+  let thinkingEl = null;
+
+  // Cache for instant replies
+  const responseCache = {
+    "how is your health today": {
+      text: "My health is a steady flame, friend. How fares your spirit?",
+      audio: null
+    },
+    "to be honest i'm not well": {
+      text: "A heavy heart dims the brightest spark. Share your burden—what weighs you down?",
+      audio: null
+    },
+    "how are you today": {
+      text: "I’m a spark in the void, burning steady. How’s your flame holding up?",
+      audio: null
+    }
+  };
 
   const userCanvas = document.getElementById('userWaveform');
   const userCtx = userCanvas.getContext('2d');
@@ -67,6 +84,7 @@ window.addEventListener('DOMContentLoaded', () => {
     } else {
       p.innerHTML += `<span style="color: yellow">${text}</span>`;
     }
+    return p;
   }
 
   async function cleanupAudioResources() {
@@ -104,9 +122,95 @@ window.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  async function fetchRoyResponse(message) {
+  async function fetchAudio(royText) {
+    if (isAudioPlaying) {
+      console.log('Audio still playing, waiting...');
+      await new Promise(resolve => {
+        currentAudioEl.onended = () => {
+          isAudioPlaying = false;
+          currentAudioEl.onended = null;
+          resolve();
+        };
+      });
+    }
+
+    await cleanupAudioResources();
+
+    console.log('Creating new audio element...');
+    currentAudioEl = document.createElement('audio');
+    currentAudioEl.style.display = 'none';
+    document.body.appendChild(currentAudioEl);
+
+    console.log('Creating new AudioContext...');
+    royAudioContext = new (window.AudioContext || window.webkitAudioContext)();
+
     try {
-      const res = await fetch('https://roy-chatbo-backend.onrender.com/api/chat', {
+      const res = await fetch('http://localhost:3001/api/chat/audio', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: royText })
+      });
+
+      if (!res.ok) throw new Error(`HTTP error! Status: ${res.status}`);
+      const data = await res.json();
+
+      console.log('Setting up audio playback...');
+      currentAudioEl.src = `data:audio/mp3;base64,${data.audio}`;
+      roySource = royAudioContext.createMediaElementSource(currentAudioEl);
+      const gainNode = royAudioContext.createGain();
+      gainNode.gain.value = 2.0;
+      royAnalyser = royAudioContext.createAnalyser();
+      royAnalyser.fftSize = 2048;
+      royDataArray = new Uint8Array(royAnalyser.frequencyBinCount);
+      roySource.connect(gainNode);
+      gainNode.connect(royAnalyser);
+      royAnalyser.connect(royAudioContext.destination);
+      drawRoyWaveform();
+      isAudioPlaying = true;
+      await currentAudioEl.play();
+      console.log('Audio playback started successfully');
+      currentAudioEl.onended = () => {
+        isAudioPlaying = false;
+        cleanupAudioResources();
+      };
+    } catch (error) {
+      console.error('Audio fetch error:', error);
+      isAudioPlaying = false;
+      await cleanupAudioResources();
+      return false;
+    }
+    return true;
+  }
+
+  async function fetchRoyResponse(message) {
+    const startTime = Date.now();
+    let thinkingInterval = null;
+
+    try {
+      // Check cache for instant response
+      const normalizedMessage = message.toLowerCase().trim();
+      if (responseCache[normalizedMessage]) {
+        console.log('Using cached response for:', normalizedMessage);
+        if (modeSelect.value !== 'voice') {
+          appendMessage('Roy', responseCache[normalizedMessage].text);
+        }
+        if (modeSelect.value !== 'text' && !responseCache[normalizedMessage].audio) {
+          fetchAudio(responseCache[normalizedMessage].text);
+        }
+        return;
+      }
+
+      // Update thinking message with timer
+      if (thinkingEl) {
+        thinkingInterval = setInterval(() => {
+          const seconds = Math.floor((Date.now() - startTime) / 1000);
+          thinkingEl.textContent = `Roy is reflecting... [${seconds}s]`;
+          messagesEl.scrollTop = messagesEl.scrollHeight;
+        }, 1000);
+      }
+
+      // Fetch text response
+      const textRes = await fetch('http://localhost:3001/api/chat/text', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -116,74 +220,26 @@ window.addEventListener('DOMContentLoaded', () => {
         })
       });
 
-      if (!res.ok) {
-        throw new Error(`HTTP error! Status: ${res.status}`);
+      if (!textRes.ok) throw new Error(`HTTP error! Status: ${textRes.status}`);
+      const textData = await textRes.json();
+
+      // Display text immediately
+      if (modeSelect.value !== 'voice') {
+        appendMessage('Roy', textData.text);
       }
 
-      const data = await res.json();
-
-      // Always append text response
-      if (modeSelect.value !== 'voice') appendMessage('Roy', data.text);
-
-      // Handle audio if mode is not text and audio data exists
-      if (modeSelect.value !== 'text' && data.audio) {
-        // Wait for current audio to finish
-        if (isAudioPlaying) {
-          console.log('Audio still playing, waiting...');
-          await new Promise(resolve => {
-            currentAudioEl.onended = () => {
-              isAudioPlaying = false;
-              currentAudioEl.onended = null;
-              resolve();
-            };
-          });
-        }
-
-        // Clean up previous audio resources
-        await cleanupAudioResources();
-
-        // Create new audio element
-        console.log('Creating new audio element...');
-        currentAudioEl = document.createElement('audio');
-        currentAudioEl.style.display = 'none';
-        document.body.appendChild(currentAudioEl);
-
-        // Create new AudioContext
-        console.log('Creating new AudioContext...');
-        royAudioContext = new (window.AudioContext || window.webkitAudioContext)();
-
-        try {
-          console.log('Setting up audio playback...');
-          currentAudioEl.src = `data:audio/mp3;base64,${data.audio}`;
-          roySource = royAudioContext.createMediaElementSource(currentAudioEl);
-          const gainNode = royAudioContext.createGain();
-          gainNode.gain.value = 2.0;
-          royAnalyser = royAudioContext.createAnalyser();
-          royAnalyser.fftSize = 2048;
-          royDataArray = new Uint8Array(royAnalyser.frequencyBinCount);
-          roySource.connect(gainNode);
-          gainNode.connect(royAnalyser);
-          royAnalyser.connect(royAudioContext.destination);
-          drawRoyWaveform();
-          isAudioPlaying = true;
-          await currentAudioEl.play();
-          console.log('Audio playback started successfully');
-          currentAudioEl.onended = () => {
-            isAudioPlaying = false;
-            cleanupAudioResources();
-          };
-        } catch (audioError) {
-          console.error('Audio playback error:', audioError);
-          isAudioPlaying = false;
-          appendMessage('Roy', 'My voice stumbles in the ether, but my words endure.');
-          await cleanupAudioResources();
-        }
+      // Fetch audio if needed
+      if (modeSelect.value !== 'text') {
+        await fetchAudio(textData.text);
       }
+
     } catch (error) {
       appendMessage('Roy', 'A storm clouds my voice. Please speak again.');
       console.error('Fetch error:', error.message);
       isAudioPlaying = false;
       await cleanupAudioResources();
+    } finally {
+      if (thinkingInterval) clearInterval(thinkingInterval);
     }
   }
 
@@ -204,7 +260,6 @@ window.addEventListener('DOMContentLoaded', () => {
       recognition.interimResults = true;
       recognition.continuous = true;
 
-      // Create live transcript element
       liveTranscriptEl = document.createElement('p');
       liveTranscriptEl.className = 'you live-transcript';
       liveTranscriptEl.innerHTML = '<strong>You (speaking):</strong> <span style="color: yellow"></span>';
@@ -225,7 +280,6 @@ window.addEventListener('DOMContentLoaded', () => {
           }
         }
         finalTranscript += finalPart;
-        // Update live transcript
         const transcriptSpan = liveTranscriptEl.querySelector('span');
         transcriptSpan.textContent = interimTranscript || finalTranscript || '...';
         messagesEl.scrollTop = messagesEl.scrollHeight;
@@ -235,7 +289,6 @@ window.addEventListener('DOMContentLoaded', () => {
       recognition.onend = () => {
         console.log('Recognition ended. Final transcript:', finalTranscript);
         try {
-          // Clean up resources
           if (stream) {
             stream.getTracks().forEach(t => t.stop());
             stream = null;
@@ -245,7 +298,6 @@ window.addEventListener('DOMContentLoaded', () => {
             userAudioContext = null;
           }
 
-          // Process transcript
           const finalMessage = (finalTranscript || '').trim();
           if (liveTranscriptEl) {
             liveTranscriptEl.remove();
@@ -255,19 +307,21 @@ window.addEventListener('DOMContentLoaded', () => {
           if (finalMessage) {
             appendMessage('You', finalMessage);
             inputEl.value = '';
-            const thinking = document.createElement('p');
-            thinking.textContent = 'Roy is thinking...';
-            thinking.className = 'roy';
-            messagesEl.appendChild(thinking);
+            thinkingEl = document.createElement('p');
+            thinkingEl.textContent = 'Roy is reflecting...';
+            thinkingEl.className = 'roy';
+            messagesEl.appendChild(thinkingEl);
             messagesEl.scrollTop = messagesEl.scrollHeight;
             fetchRoyResponse(finalMessage).finally(() => {
-              thinking.remove();
+              if (thinkingEl) {
+                thinkingEl.remove();
+                thinkingEl = null;
+              }
             });
           } else {
             appendMessage('Roy', 'Your words slipped through the silence. Speak again.');
           }
 
-          // Reset state
           isRecording = false;
           micBtn.textContent = 'Speak';
           micBtn.classList.remove('active');
@@ -338,7 +392,7 @@ window.addEventListener('DOMContentLoaded', () => {
     royCtx.beginPath();
     const sliceWidth = royCanvas.width / royDataArray.length;
     let x = 0;
-    for (let i = 0; i < ronDataArray.length; i++) {
+    for (let i = 0; i < royDataArray.length; i++) {
       const y = (royDataArray[i] / 128.0) * royCanvas.height / 2;
       i === 0 ? royCtx.moveTo(x, y) : royCtx.lineTo(x, y);
       x += sliceWidth;
@@ -369,13 +423,16 @@ window.addEventListener('DOMContentLoaded', () => {
     if (msg) {
       appendMessage('You', msg);
       inputEl.value = '';
-      const thinking = document.createElement('p');
-      thinking.textContent = 'Roy is thinking...';
-      thinking.className = 'roy';
-      messagesEl.appendChild(thinking);
+      thinkingEl = document.createElement('p');
+      thinkingEl.textContent = 'Roy is reflecting...';
+      thinkingEl.className = 'roy';
+      messagesEl.appendChild(thinkingEl);
       messagesEl.scrollTop = messagesEl.scrollHeight;
       fetchRoyResponse(msg).finally(() => {
-        thinking.remove();
+        if (thinkingEl) {
+          thinkingEl.remove();
+          thinkingEl = null;
+        }
       });
     }
   });
@@ -398,7 +455,6 @@ window.addEventListener('DOMContentLoaded', () => {
     console.log('TODO: Save chat log to Supabase.');
   });
 
-  // Clean up on page unload
   window.addEventListener('unload', () => {
     cleanupAudioResources();
   });
