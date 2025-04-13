@@ -18,7 +18,7 @@ let userAudioContext, userAnalyser, userDataArray, userSource;
 let royAudioContext, royAnalyser, royDataArray;
 
 const sessionId = `session-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
-const greetings = ["Hello.", "Hi there.", "Welcome.", "How are you today?", "Glad you're here.", "Nice to see you.", "We begin whenever you're ready."];
+const greetings = ["Welcome. I'm Roy. You may speak using 'Hands Free' or 'Speak' mode, or type below."];
 
 function drawGrid(ctx, width, height, color) {
   ctx.strokeStyle = color;
