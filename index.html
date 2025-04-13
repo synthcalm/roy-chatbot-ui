@@ -1,184 +1,165 @@
-// DOM Elements
-const messagesDiv = document.getElementById('messages');
-const userInput = document.getElementById('message-input');
-const sendButton = document.getElementById('send-button');
-const startSpeechButton = document.getElementById('start-speech');
-const currentDateSpan = document.getElementById('current-date');
-const currentTimeSpan = document.getElementById('current-time');
-const countdownTimerSpan = document.getElementById('countdown-timer');
-const royAudio = document.getElementById('roy-audio');
-const responseModeSelect = document.getElementById('responseMode');
-
-// Timer Functions
-function updateDateTime() {
-    const now = new Date();
-    if (currentDateSpan) {
-        currentDateSpan.textContent = now.toLocaleDateString('en-US', { 
-            weekday: 'short', month: 'short', day: 'numeric' 
-        });
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="description" content="Chat with Roy on SynthCalm with text or voice." />
+  <title>Roy // SynthCalm</title>
+  <link rel="stylesheet" href="style.css" />
+  <style>
+    body {
+      margin: 0;
+      background: black;
+      color: white;
+      font-family: 'Courier New', monospace;
+      display: flex;
+      justify-content: center;
+      min-height: 100vh;
     }
-    if (currentTimeSpan) {
-        currentTimeSpan.textContent = now.toLocaleTimeString('en-US', { 
-            hour: '2-digit', minute: '2-digit', second: '2-digit' 
-        });
+    .container {
+      width: 90%;
+      max-width: 600px;
+      padding: 10px;
+      border: 2px solid cyan;
+      border-radius: 12px;
+      box-sizing: border-box;
     }
-}
-
-let countdownSeconds = 600; // 10 minutes
-function updateCountdown() {
-    if (countdownTimerSpan) {
-        const minutes = Math.floor(countdownSeconds / 60);
-        const seconds = countdownSeconds % 60;
-        countdownTimerSpan.textContent = `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
-        if (countdownSeconds > 0) {
-            countdownSeconds--;
-        } else {
-            countdownTimerSpan.textContent = '0:00';
-        }
+    canvas {
+      background-color: black;
+      background-image: linear-gradient(to right, rgba(0, 255, 255, 0.3) 1px, transparent 1px),
+                        linear-gradient(to bottom, rgba(0, 255, 255, 0.3) 1px, transparent 1px);
+      background-size: 20px 20px;
+      border: 1px solid cyan;
+      width: 100%;
     }
-}
-
-setInterval(updateDateTime, 1000);
-setInterval(updateCountdown, 1000);
-updateDateTime();
-
-// Speech Synthesis for Roy's audio response
-function speakText(text) {
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = 'en-US';
-    speechSynthesis.speak(utterance);
-}
-
-// Function to handle Roy's response
-function handleRoyResponse(message) {
-    // Since /api/chat is failing, simulate a response
-    const simulatedResponse = `I heard you say: "${message}". How can I assist you further?`;
-    
-    // Determine response mode
-    const mode = responseModeSelect.value;
-    if (mode === 'both' || mode === 'text') {
-        messagesDiv.innerHTML += `<p class="message roy"><strong>Roy:</strong> ${simulatedResponse}</p>`;
-        messagesDiv.scrollTop = messagesDiv.scrollHeight;
+    #userWaveform {
+      margin-bottom: 10px;
     }
-    if (mode === 'both' || mode === 'voice') {
-        speakText(simulatedResponse);
+    #royWaveform {
+      margin-top: 10px;
     }
-}
-
-// Initial greeting on page load
-window.addEventListener('load', () => {
-    const greeting = "Hello! I'm Roy, your SynthCalm assistant. How can I help you today?";
-    messagesDiv.innerHTML += `<p class="message roy"><strong>Roy:</strong> ${greeting}</p>`;
-    messagesDiv.scrollTop = messagesDiv.scrollHeight;
-    speakText(greeting);
-});
-
-// Speech Recognition
-const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-let recognition = null;
-
-if (SpeechRecognition) {
-    recognition = new SpeechRecognition();
-    recognition.continuous = false;
-    recognition.interimResults = true;
-    recognition.lang = 'en-US';
-
-    recognition.onresult = (event) => {
-        console.log('Speech result:', event.results);
-        let interimTranscript = '';
-        let finalTranscript = '';
-
-        for (let i = event.resultIndex; i < event.results.length; i++) {
-            const transcript = event.results[i][0].transcript;
-            console.log(`Transcript [${i}]: ${transcript}, isFinal: ${event.results[i].isFinal}`);
-            if (event.results[i].isFinal) {
-                finalTranscript += transcript;
-            } else {
-                interimTranscript += transcript;
-            }
-        }
-
-        const newValue = finalTranscript || interimTranscript;
-        if (newValue && userInput) {
-            userInput.value = newValue;
-            userInput.dispatchEvent(new Event('input'));
-            console.log('Set userInput.value:', newValue);
-        }
-    };
-
-    recognition.onerror = (event) => {
-        console.error('Speech error:', event.error);
-        messagesDiv.innerHTML += `<p class="message bot"><strong>Error:</strong> Speech recognition failed: ${event.error}</p>`;
-        messagesDiv.scrollTop = messagesDiv.scrollHeight;
-    };
-
-    recognition.onend = () => {
-        console.log('Speech recognition ended');
-        if (startSpeechButton) {
-            startSpeechButton.classList.remove('active');
-            // Automatically send the transcribed message
-            const message = userInput.value.trim();
-            if (message) {
-                messagesDiv.innerHTML += `<p class="message user"><strong>You:</strong> ${message}</p>`;
-                handleRoyResponse(message);
-                userInput.value = '';
-            }
-        }
-    };
-
-    recognition.onnomatch = () => {
-        console.log('No speech detected');
-        messagesDiv.innerHTML += `<p class="message bot"><strong>Notice:</strong> No speech detected. Try again.</p>`;
-        messagesDiv.scrollTop = messagesDiv.scrollHeight;
-    };
-} else {
-    console.warn('SpeechRecognition not supported');
-}
-
-if (startSpeechButton && recognition) {
-    startSpeechButton.addEventListener('click', () => {
-        if (startSpeechButton.classList.contains('active')) {
-            recognition.stop();
-            startSpeechButton.classList.remove('active');
-            console.log('Speech stopped manually');
-        } else {
-            navigator.permissions.query({ name: 'microphone' })
-                .then(permissionStatus => {
-                    if (permissionStatus.state === 'denied') {
-                        messagesDiv.innerHTML += `<p class="message bot"><strong>Error:</strong> Please allow microphone access in browser settings.</p>`;
-                        messagesDiv.scrollTop = messagesDiv.scrollHeight;
-                        return;
-                    }
-                    try {
-                        recognition.start();
-                        startSpeechButton.classList.add('active');
-                        console.log('Speech started');
-                    } catch (err) {
-                        console.error('Start error:', err);
-                        messagesDiv.innerHTML += `<p class="message bot"><strong>Error:</strong> Failed to start speech: ${err.message}</p>`;
-                        messagesDiv.scrollTop = messagesDiv.scrollHeight;
-                    }
-                })
-                .catch(err => {
-                    console.error('Permission error:', err);
-                    messagesDiv.innerHTML += `<p class="message bot"><strong>Error:</strong> Microphone permission error: ${err.message}</p>`;
-                    messagesDiv.scrollTop = messagesDiv.scrollHeight;
-                });
-        }
-    });
-} else if (startSpeechButton) {
-    startSpeechButton.disabled = true;
-    startSpeechButton.title = 'Speech not supported';
-    messagesDiv.innerHTML += `<p class="message bot"><strong>Warning:</strong> Speech recognition not supported. Use text input.</p>`;
-    messagesDiv.scrollTop = messagesDiv.scrollHeight;
-}
-
-// Send button event listener
-sendButton.addEventListener('click', () => {
-    const message = userInput.value.trim();
-    if (message) {
-        messagesDiv.innerHTML += `<p class="message user"><strong>You:</strong> ${message}</p>`;
-        handleRoyResponse(message);
-        userInput.value = '';
+    #messages {
+      height: 150px;
+      overflow-y: auto;
+      border: 1px solid cyan;
+      padding: 8px;
+      box-sizing: border-box;
     }
-});
+    #messages p.roy strong { color: cyan; }
+    #messages p.user strong { color: white; }
+    .input-area {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-top: 10px;
+    }
+    .input-group {
+      display: flex;
+      gap: 8px;
+      align-items: stretch;
+      width: 100%;
+    }
+    #message-input {
+      width: 100%;
+      max-width: 100%;
+      padding: 12px;
+      font-size: 16px;
+      border: 1px solid #0ff;
+      background: black;
+      color: white;
+      font-family: 'Courier New', monospace;
+      height: 96px;
+      box-sizing: border-box;
+      resize: none;
+    }
+    select.button, button.button {
+      font-family: 'Courier New', monospace;
+      font-size: 14px;
+      padding: 10px 18px;
+      background: black;
+      color: cyan;
+      border: 2px solid cyan;
+      border-radius: 6px;
+      cursor: pointer;
+      height: 44px;
+      flex: 1;
+    }
+    button.button.active {
+      background-color: red;
+      color: white;
+      border-color: red;
+    }
+    .button-group {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      margin-top: 10px;
+    }
+    .title-bar {
+      display: flex;
+      justify-content: space-between;
+      font-size: 14px;
+      color: yellow;
+      margin-bottom: 10px;
+    }
+    label[for="responseMode"] {
+      color: #0ff;
+      font-size: 12px;
+      margin-top: 5px;
+    }
+    @media (max-width: 768px) {
+      .container {
+        width: 95%;
+        padding: 8px;
+      }
+      #message-input {
+        font-size: 14px;
+        height: 80px;
+      }
+      select.button, button.button {
+        font-size: 12px;
+        padding: 8px 12px;
+        height: 40px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container" role="main">
+    <div class="title-bar" aria-live="polite">
+      <span id="current-date"></span>
+      <span id="current-time"></span>
+      <span id="countdown-timer"></span>
+    </div>
+
+    <canvas id="userWaveform" height="60" aria-label="User audio waveform"></canvas>
+    <div id="messages" role="log" aria-live="polite"></div>
+    <canvas id="royWaveform" height="60" aria-label="Roy audio waveform"></canvas>
+
+    <div class="input-area">
+      <div class="input-group">
+        <textarea id="message-input" placeholder="Say or type something..." aria-label="Message input"></textarea>
+        <button id="send-button" class="button" aria-label="Send message">Send</button>
+      </div>
+
+      <label for="responseMode">Roy Response Mode:</label>
+      <select id="responseMode" class="button" aria-label="Select response mode">
+        <option value="both">Text + Voice</option>
+        <option value="text">Text Only</option>
+        <option value="voice">Voice Only</option>
+      </select>
+
+      <div class="button-group">
+        <button id="start-speech" class="button" aria-label="Start or stop speech recognition">Speak</button>
+        <button id="save-log" class="button" aria-label="Save chat log">Save Log</button>
+        <button class="button" id="home-btn" aria-label="Go to SynthCalm home" onclick="window.location.href='https://synthcalm.com'">SynthCalm Home</button>
+      </div>
+    </div>
+
+    <audio id="roy-audio" style="display:none;" aria-hidden="true"></audio>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
