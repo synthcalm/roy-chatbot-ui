@@ -123,6 +123,9 @@
     let converseActive = false;
     let micBtn = document.getElementById('mic-toggle');
     let converseBtn = document.getElementById('converse-button');
+    const userCanvas = document.getElementById('userWaveform');
+    const userCtx = userCanvas.getContext('2d');
+    let audioContext, analyser, dataArray, source;
 
     function toggleConverseMode(button) {
       converseActive = !converseActive;
@@ -139,9 +142,12 @@
 
     async function startConverseLoop() {
       if (!converseActive) return;
+
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const mediaRecorder = new MediaRecorder(stream);
       const chunks = [];
+
+      setupUserWaveform(stream);
 
       mediaRecorder.ondataavailable = e => chunks.push(e.data);
       mediaRecorder.onstop = async () => {
@@ -155,6 +161,7 @@
         });
 
         const data = await res.json();
+        document.getElementById('user-input').value = data.text || '';
         await fetchRoyResponse(data.text || '');
 
         if (converseActive) setTimeout(startConverseLoop, 500);
@@ -162,6 +169,36 @@
 
       mediaRecorder.start();
       setTimeout(() => mediaRecorder.stop(), 4000);
+    }
+
+    function setupUserWaveform(stream) {
+      audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      analyser = audioContext.createAnalyser();
+      source = audioContext.createMediaStreamSource(stream);
+      source.connect(analyser);
+      analyser.fftSize = 2048;
+      dataArray = new Uint8Array(analyser.frequencyBinCount);
+      drawUserWaveform();
+    }
+
+    function drawUserWaveform() {
+      requestAnimationFrame(drawUserWaveform);
+      analyser.getByteTimeDomainData(dataArray);
+      userCtx.fillStyle = '#000';
+      userCtx.fillRect(0, 0, userCanvas.width, userCanvas.height);
+      userCtx.strokeStyle = 'yellow';
+      userCtx.lineWidth = 2;
+      userCtx.beginPath();
+      let sliceWidth = userCanvas.width * 1.0 / dataArray.length;
+      let x = 0;
+      for (let i = 0; i < dataArray.length; i++) {
+        let v = dataArray[i] / 128.0;
+        let y = v * userCanvas.height / 2;
+        i === 0 ? userCtx.moveTo(x, y) : userCtx.lineTo(x, y);
+        x += sliceWidth;
+      }
+      userCtx.lineTo(userCanvas.width, userCanvas.height / 2);
+      userCtx.stroke();
     }
 
     micBtn.addEventListener('click', function () {
@@ -174,11 +211,9 @@
       }
     });
 
-    // Placeholder to prep Save Log Supabase integration
     const saveBtn = document.getElementById('save-log');
     saveBtn.addEventListener('click', () => {
       console.log('Preparing to save chat log to Supabase...');
-      // Future implementation: send messages with timestamps to Supabase here
     });
   </script>
   <script src="script.js"></script>
