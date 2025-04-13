@@ -1,4 +1,4 @@
-/* Updated script.js – Fixed audio cutoff and added robust error handling */
+/* Updated script.js – Real-time STT display, delayed "Roy is thinking", fixed audio cutoff */
 
 window.addEventListener('DOMContentLoaded', () => {
   const micBtn = document.getElementById('mic-toggle');
@@ -16,13 +16,17 @@ window.addEventListener('DOMContentLoaded', () => {
   const greetings = ["Welcome. I'm Roy. Speak when ready — your thoughts hold weight."];
 
   let isRecording = false;
-  let recognition, userAudioContext, userAnalyser, userDataArray, stream;
-  let royAudioContext = null; // Initialize globally to reuse
+  let recognition = null;
+  let userAudioContext = null;
+  let userAnalyser = null;
+  let userDataArray = null;
+  let stream = null;
+  let royAudioContext = null;
   let royAnalyser = null;
   let royDataArray = null;
   let roySource = null;
   let sessionStart = Date.now();
-  let finalTranscript = '';
+  let liveTranscriptEl = null; // For real-time STT display
 
   const userCanvas = document.getElementById('userWaveform');
   const userCtx = userCanvas.getContext('2d');
@@ -64,13 +68,6 @@ window.addEventListener('DOMContentLoaded', () => {
   }
 
   async function fetchRoyResponse(message) {
-    appendMessage('You', message);
-    inputEl.value = '';
-    const thinking = document.createElement('p');
-    thinking.textContent = 'Roy is thinking...';
-    thinking.className = 'roy';
-    messagesEl.appendChild(thinking);
-
     try {
       const res = await fetch('https://roy-chatbo-backend.onrender.com/api/chat', {
         method: 'POST',
@@ -87,10 +84,9 @@ window.addEventListener('DOMContentLoaded', () => {
       }
 
       const data = await res.json();
-      thinking.remove();
 
       // Always append text response
-      appendMessage('Roy', data.text);
+      if (modeSelect.value !== 'voice') appendMessage('Roy', data.text);
 
       // Handle audio if mode is not text and audio data exists
       if (modeSelect.value !== 'text' && data.audio) {
@@ -132,7 +128,6 @@ window.addEventListener('DOMContentLoaded', () => {
         }
       }
     } catch (error) {
-      thinking.remove();
       appendMessage('Roy', 'A storm clouds my voice. Please speak again.');
       console.error('Fetch error:', error.message);
     }
@@ -153,18 +148,37 @@ window.addEventListener('DOMContentLoaded', () => {
       recognition = new SpeechRecognition();
       recognition.lang = 'en-US';
       recognition.interimResults = true;
-      recognition.continuous = false;
+      recognition.continuous = true; // Changed to continuous for smoother real-time updates
 
-      finalTranscript = '';
+      // Create live transcript element
+      liveTranscriptEl = document.createElement('p');
+      liveTranscriptEl.className = 'you live-transcript'; // Added class for styling
+      liveTranscriptEl.innerHTML = '<strong>You (speaking):</strong> <span style="color: yellow"></span>';
+      messagesEl.appendChild(liveTranscriptEl);
+      messagesEl.scrollTop = messagesEl.scrollHeight;
 
       recognition.onresult = (event) => {
-        finalTranscript = '';
+        let interimTranscript = '';
+        let finalTranscript = '';
         for (let i = event.resultIndex; i < event.results.length; ++i) {
-          finalTranscript += event.results[i][0].transcript;
+          const transcript = event.results[i][0].transcript;
+          if (event.results[i].isFinal) {
+            finalTranscript += transcript + ' ';
+          } else {
+            interimTranscript += transcript;
+          }
         }
+        // Update live transcript
+        const transcriptSpan = liveTranscriptEl.querySelector('span');
+        transcriptSpan.textContent = interimTranscript || finalTranscript || '...';
+        messagesEl.scrollTop = messagesEl.scrollHeight; // Scroll to keep latest text visible
       };
 
       recognition.onend = () => {
+        if (liveTranscriptEl) {
+          liveTranscriptEl.remove();
+          liveTranscriptEl = null;
+        }
         if (stream) {
           stream.getTracks().forEach(t => t.stop());
           stream = null;
@@ -173,14 +187,41 @@ window.addEventListener('DOMContentLoaded', () => {
           userAudioContext.close();
           userAudioContext = null;
         }
-        if (finalTranscript.trim()) {
-          fetchRoyResponse(finalTranscript.trim());
+        const finalMessage = liveTranscriptEl ? liveTranscriptEl.querySelector('span').textContent.trim() : '';
+        if (finalMessage && finalMessage !== '...') {
+          appendMessage('You', finalMessage);
+          inputEl.value = '';
+          const thinking = document.createElement('p');
+          thinking.textContent = 'Roy is thinking...';
+          thinking.className = 'roy';
+          messagesEl.appendChild(thinking);
+          messagesEl.scrollTop = messagesEl.scrollHeight;
+          fetchRoyResponse(finalMessage).finally(() => {
+            thinking.remove();
+          });
         }
+        isRecording = false;
+        micBtn.textContent = 'Speak';
+        micBtn.classList.remove('active');
+      };
+
+      recognition.onerror = (event) => {
+        console.error('Speech recognition error:', event.error);
+        if (liveTranscriptEl) {
+          liveTranscriptEl.remove();
+          liveTranscriptEl = null;
+        }
+        appendMessage('Roy', 'The winds steal my ears. Try speaking again.');
+        recognition.stop();
       };
 
       recognition.start();
     } catch (error) {
       console.error('Recording error:', error);
+      if (liveTranscriptEl) {
+        liveTranscriptEl.remove();
+        liveTranscriptEl = null;
+      }
       appendMessage('Roy', 'The winds steal my ears. Try speaking again.');
       micBtn.textContent = 'Speak';
       micBtn.classList.remove('active');
@@ -249,7 +290,18 @@ window.addEventListener('DOMContentLoaded', () => {
 
   sendBtn.addEventListener('click', () => {
     const msg = inputEl.value.trim();
-    if (msg) fetchRoyResponse(msg);
+    if (msg) {
+      appendMessage('You', msg);
+      inputEl.value = '';
+      const thinking = document.createElement('p');
+      thinking.textContent = 'Roy is thinking...';
+      thinking.className = 'roy';
+      messagesEl.appendChild(thinking);
+      messagesEl.scrollTop = messagesEl.scrollHeight;
+      fetchRoyResponse(msg).finally(() => {
+        thinking.remove();
+      });
+    }
   });
 
   micBtn.addEventListener('click', () => {
