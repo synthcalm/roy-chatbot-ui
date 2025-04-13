@@ -1,4 +1,4 @@
-// AssemblyAI-powered real-time transcription setup for Roy
+// script.js – Bulletproof logic for Roy chatbot
 
 window.addEventListener('DOMContentLoaded', () => {
   const micBtn = document.getElementById('mic-toggle');
@@ -28,7 +28,6 @@ window.addEventListener('DOMContentLoaded', () => {
 
   userCanvas.style.border = '1px solid cyan';
   appendMessage('Roy', greetings[0]);
-  appendHomeButton();
   setInterval(updateClockAndTimer, 1000);
 
   function updateClockAndTimer() {
@@ -119,24 +118,6 @@ window.addEventListener('DOMContentLoaded', () => {
     userAnalyser.fftSize = 2048;
     userDataArray = new Uint8Array(userAnalyser.frequencyBinCount);
     drawUserWaveform();
-
-    socket = new WebSocket('wss://api.assemblyai.com/v2/realtime/ws?sample_rate=16000');
-    socket.onopen = () => {
-      const mediaStream = new MediaRecorder(stream, { mimeType: 'audio/webm;codecs=opus' });
-      mediaStream.ondataavailable = async (e) => {
-        if (socket.readyState === 1) {
-          const reader = new FileReader();
-          reader.onload = () => socket.send(reader.result);
-          reader.readAsArrayBuffer(e.data);
-        }
-      };
-      mediaStream.start(250);
-    };
-
-    socket.onmessage = async (msg) => {
-      const res = JSON.parse(msg.data);
-      if (res.text) inputEl.value = res.text;
-    };
   }
 
   function drawUserWaveform() {
@@ -192,23 +173,6 @@ window.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  function appendHomeButton() {
-    const existing = document.querySelectorAll('.button-group .button');
-    const alreadyAppended = [...existing].some(btn => btn.textContent === 'SynthCalm Home');
-    if (alreadyAppended) return;
-
-    const homeBtn = document.createElement('button');
-    homeBtn.className = 'button';
-    homeBtn.textContent = 'SynthCalm Home';
-    homeBtn.style.marginTop = '10px';
-    homeBtn.style.flex = '1';
-    homeBtn.style.padding = '10px 18px';
-    homeBtn.style.fontSize = '14px';
-    homeBtn.style.height = '40px';
-    homeBtn.onclick = () => window.location.href = 'https://synthcalm.com';
-    document.querySelector('.button-group').appendChild(homeBtn);
-  }
-
   sendBtn.addEventListener('click', () => {
     const msg = inputEl.value.trim();
     if (msg) fetchRoyResponse(msg);
@@ -224,7 +188,7 @@ window.addEventListener('DOMContentLoaded', () => {
       micBtn.textContent = 'Speak';
       micBtn.classList.remove('active');
       isRecording = false;
-      if (socket && socket.readyState === 1) socket.close();
+      stream.getTracks().forEach(track => track.stop());
       const finalText = inputEl.value.trim();
       if (finalText) fetchRoyResponse(finalText);
     }
