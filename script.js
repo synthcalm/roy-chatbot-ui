@@ -1,4 +1,4 @@
-/* Updated script.js – Fixed STT clearing, real-time STT display, delayed "Roy is thinking", fixed audio cutoff */
+/* Updated script.js – Fixed STT clearing issue, real-time STT display, delayed "Roy is thinking", fixed audio cutoff */
 
 window.addEventListener('DOMContentLoaded', () => {
   const micBtn = document.getElementById('mic-toggle');
@@ -86,9 +86,12 @@ window.addEventListener('DOMContentLoaded', () => {
 
       const data = await res.json();
 
+      // Always append text response
       if (modeSelect.value !== 'voice') appendMessage('Roy', data.text);
 
+      // Handle audio if mode is not text and audio data exists
       if (modeSelect.value !== 'text' && data.audio) {
+        // Clean up previous audio nodes
         if (roySource) {
           roySource.disconnect();
           roySource = null;
@@ -97,10 +100,12 @@ window.addEventListener('DOMContentLoaded', () => {
           royAnalyser.disconnect();
           royAnalyser = null;
         }
+        // Reset audio element
         audioEl.pause();
         audioEl.currentTime = 0;
         audioEl.src = '';
 
+        // Initialize or reuse AudioContext
         if (!royAudioContext || royAudioContext.state === 'closed') {
           royAudioContext = new (window.AudioContext || window.webkitAudioContext)();
         }
@@ -130,7 +135,6 @@ window.addEventListener('DOMContentLoaded', () => {
   }
 
   async function startRecording() {
-    if (isRecording) return; // Prevent multiple starts
     try {
       stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       userAudioContext = new (window.AudioContext || window.webkitAudioContext)();
@@ -147,6 +151,7 @@ window.addEventListener('DOMContentLoaded', () => {
       recognition.interimResults = true;
       recognition.continuous = true;
 
+      // Create live transcript element
       liveTranscriptEl = document.createElement('p');
       liveTranscriptEl.className = 'you live-transcript';
       liveTranscriptEl.innerHTML = '<strong>You (speaking):</strong> <span style="color: yellow"></span>';
@@ -167,6 +172,7 @@ window.addEventListener('DOMContentLoaded', () => {
           }
         }
         finalTranscript += finalPart;
+        // Update live transcript
         const transcriptSpan = liveTranscriptEl.querySelector('span');
         transcriptSpan.textContent = interimTranscript || finalTranscript || '...';
         messagesEl.scrollTop = messagesEl.scrollHeight;
@@ -176,6 +182,7 @@ window.addEventListener('DOMContentLoaded', () => {
       recognition.onend = () => {
         console.log('Recognition ended. Final transcript:', finalTranscript);
         try {
+          // Clean up resources
           if (stream) {
             stream.getTracks().forEach(t => t.stop());
             stream = null;
@@ -185,7 +192,8 @@ window.addEventListener('DOMContentLoaded', () => {
             userAudioContext = null;
           }
 
-          const finalMessage = finalTranscript.trim();
+          // Process transcript
+          const finalMessage = (finalTranscript || '').trim();
           if (liveTranscriptEl) {
             liveTranscriptEl.remove();
             liveTranscriptEl = null;
@@ -206,6 +214,7 @@ window.addEventListener('DOMContentLoaded', () => {
             appendMessage('Roy', 'Your words slipped through the silence. Speak again.');
           }
 
+          // Reset state
           isRecording = false;
           micBtn.textContent = 'Speak';
           micBtn.classList.remove('active');
@@ -226,9 +235,7 @@ window.addEventListener('DOMContentLoaded', () => {
           liveTranscriptEl = null;
         }
         appendMessage('Roy', 'The winds steal my ears. Try speaking again.');
-        isRecording = false;
-        micBtn.textContent = 'Speak';
-        micBtn.classList.remove('active');
+        recognition.stop();
       };
 
       recognition.start();
@@ -239,9 +246,9 @@ window.addEventListener('DOMContentLoaded', () => {
         liveTranscriptEl = null;
       }
       appendMessage('Roy', 'The winds steal my ears. Try speaking again.');
-      isRecording = false;
       micBtn.textContent = 'Speak';
       micBtn.classList.remove('active');
+      isRecording = false;
     }
   }
 
@@ -296,4 +303,45 @@ window.addEventListener('DOMContentLoaded', () => {
       ctx.lineTo(x, height);
       ctx.stroke();
     }
-    for (let y = 0; y < height
+    for (let y = 0; y < height; y += 20) {
+      ctx.beginPath();
+      ctx.moveTo(0, y);
+      ctx.lineTo(width, y);
+      ctx.stroke();
+    }
+  }
+
+  sendBtn.addEventListener('click', () => {
+    const msg = inputEl.value.trim();
+    if (msg) {
+      appendMessage('You', msg);
+      inputEl.value = '';
+      const thinking = document.createElement('p');
+      thinking.textContent = 'Roy is thinking...';
+      thinking.className = 'roy';
+      messagesEl.appendChild(thinking);
+      messagesEl.scrollTop = messagesEl.scrollHeight;
+      fetchRoyResponse(msg).finally(() => {
+        thinking.remove();
+      });
+    }
+  });
+
+  micBtn.addEventListener('click', () => {
+    if (!isRecording) {
+      micBtn.textContent = 'Stop';
+      micBtn.classList.add('active');
+      isRecording = true;
+      startRecording();
+    } else {
+      micBtn.textContent = 'Speak';
+      micBtn.classList.remove('active');
+      isRecording = false;
+      if (recognition) recognition.stop();
+    }
+  });
+
+  saveBtn.addEventListener('click', () => {
+    console.log('TODO: Save chat log to Supabase.');
+  });
+});
