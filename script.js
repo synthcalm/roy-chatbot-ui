@@ -76,14 +76,16 @@ window.addEventListener('DOMContentLoaded', () => {
       audioEl.src = `data:audio/mp3;base64,${data.audio}`;
       audioEl.play();
 
-      royAudioContext = new (window.AudioContext || window.webkitAudioContext)();
-      royAnalyser = royAudioContext.createAnalyser();
-      const source = royAudioContext.createMediaElementSource(audioEl);
-      source.connect(royAnalyser);
-      royAnalyser.connect(royAudioContext.destination);
-      royAnalyser.fftSize = 2048;
-      royDataArray = new Uint8Array(royAnalyser.frequencyBinCount);
-      drawRoyWaveform();
+      audioEl.onplay = () => {
+        royAudioContext = new (window.AudioContext || window.webkitAudioContext)();
+        royAnalyser = royAudioContext.createAnalyser();
+        royAnalyser.fftSize = 2048;
+        royDataArray = new Uint8Array(royAnalyser.frequencyBinCount);
+        const source = royAudioContext.createMediaElementSource(audioEl);
+        source.connect(royAnalyser);
+        royAnalyser.connect(royAudioContext.destination);
+        drawRoyWaveform();
+      };
     }
   }
 
