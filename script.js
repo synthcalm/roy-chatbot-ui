@@ -110,6 +110,7 @@ window.addEventListener('DOMContentLoaded', () => {
     chunks = [];
 
     userAudioContext = new (window.AudioContext || window.webkitAudioContext)();
+    await userAudioContext.resume(); // ✅ iOS fix
     userAnalyser = userAudioContext.createAnalyser();
     const source = userAudioContext.createMediaStreamSource(stream);
     source.connect(userAnalyser);
