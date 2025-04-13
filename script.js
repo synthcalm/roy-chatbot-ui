@@ -134,7 +134,7 @@ window.addEventListener('DOMContentLoaded', () => {
       for (let i = event.resultIndex; i < event.results.length; i++) {
         interimTranscript += event.results[i][0].transcript;
       }
-      inputEl.value = interimTranscript;
+      inputEl.placeholder = interimTranscript;
     };
 
     recognition.onend = () => {
@@ -167,7 +167,7 @@ window.addEventListener('DOMContentLoaded', () => {
     userCtx.fillStyle = '#000';
     userCtx.fillRect(0, 0, userCanvas.width, userCanvas.height);
     drawGrid(userCtx, userCanvas.width, userCanvas.height, 'rgba(0,255,255,0.2)');
-    userCtx.strokeStyle = '#00FFFF'; // changed from yellow to cyan
+    userCtx.strokeStyle = '#00FFFF';
     userCtx.lineWidth = 1.8;
     userCtx.beginPath();
     const sliceWidth = userCanvas.width / userDataArray.length;
@@ -221,6 +221,7 @@ window.addEventListener('DOMContentLoaded', () => {
     homeBtn.style.flex = '1';
     homeBtn.style.padding = '10px 18px';
     homeBtn.style.fontSize = '14px';
+    homeBtn.style.height = '100%';
     homeBtn.onclick = () => window.location.href = 'https://synthcalm.com';
     document.querySelector('.button-group').appendChild(homeBtn);
   }
