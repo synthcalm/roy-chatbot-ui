@@ -1,7 +1,6 @@
 window.addEventListener('DOMContentLoaded', () => {
   const micBtn = document.getElementById('mic-toggle');
   const sendBtn = document.getElementById('send-button');
-  const converseBtn = document.getElementById('converse-button');
   const saveBtn = document.getElementById('save-log');
   const inputEl = document.getElementById('user-input');
   const messagesEl = document.getElementById('messages');
@@ -9,11 +8,12 @@ window.addEventListener('DOMContentLoaded', () => {
   const modeSelect = document.getElementById('responseMode');
 
   const sessionId = `session-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
-  const greetings = ["Welcome. I'm Roy. You may speak using 'Hands Free' or 'Speak' mode, or type below."];
+  const greetings = [
+    "Welcome. I'm Roy. You may speak using 'Speak' mode or type below."
+  ];
 
   let isRecording = false;
   let stream, mediaRecorder, chunks = [];
-  let handsfreeActive = false;
 
   const userCanvas = document.getElementById('userWaveform');
   const userCtx = userCanvas.getContext('2d');
@@ -62,7 +62,7 @@ window.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  async function startRecording(autoLoop = false) {
+  async function startRecording() {
     stream = await navigator.mediaDevices.getUserMedia({ audio: true });
     mediaRecorder = new MediaRecorder(stream);
     chunks = [];
@@ -86,11 +86,9 @@ window.addEventListener('DOMContentLoaded', () => {
       });
       const data = await res.json();
       if (data.text) await fetchRoyResponse(data.text);
-      if (autoLoop && handsfreeActive) setTimeout(() => startRecording(true), 4000);
     };
 
     mediaRecorder.start();
-    setTimeout(() => mediaRecorder.stop(), 4000);
   }
 
   function drawUserWaveform() {
@@ -144,7 +142,6 @@ window.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  // EVENTS
   sendBtn.addEventListener('click', () => {
     const msg = inputEl.value.trim();
     if (msg) fetchRoyResponse(msg);
@@ -153,25 +150,15 @@ window.addEventListener('DOMContentLoaded', () => {
   micBtn.addEventListener('click', () => {
     if (!isRecording) {
       micBtn.textContent = 'Stop';
+      micBtn.classList.add('active');
       isRecording = true;
-      startRecording(false);
+      startRecording();
     } else {
       micBtn.textContent = 'Speak';
+      micBtn.classList.remove('active');
       isRecording = false;
       mediaRecorder.stop();
       stream.getTracks().forEach(t => t.stop());
-    }
-  });
-
-  converseBtn.addEventListener('click', () => {
-    handsfreeActive = !handsfreeActive;
-    if (handsfreeActive) {
-      converseBtn.classList.add('active');
-      converseBtn.textContent = 'Session On';
-      startRecording(true);
-    } else {
-      converseBtn.classList.remove('active');
-      converseBtn.textContent = 'Hands Free';
     }
   });
 
