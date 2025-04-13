@@ -1,4 +1,4 @@
-// script.js for Roy – Bulletproof Version with Real-Time Transcription + Roy Batty Poetic Tone
+/* Updated script.js – Roy is triggered only when STOP is pressed */
 
 window.addEventListener('DOMContentLoaded', () => {
   const micBtn = document.getElementById('mic-toggle');
@@ -38,10 +38,9 @@ window.addEventListener('DOMContentLoaded', () => {
     timerSpan.textContent = `Session Ends In: ${String(Math.floor(remaining / 60)).padStart(2, '0')}:${String(remaining % 60).padStart(2, '0')}`;
   }
 
-  function appendMessage(sender, text, className = '') {
+  function appendMessage(sender, text) {
     const p = document.createElement('p');
     p.classList.add(sender.toLowerCase());
-    if (className) p.classList.add(className);
     p.innerHTML = `<strong>${sender}:</strong> `;
     messagesEl.appendChild(p);
     messagesEl.scrollTop = messagesEl.scrollHeight;
@@ -74,7 +73,7 @@ window.addEventListener('DOMContentLoaded', () => {
       body: JSON.stringify({
         message,
         sessionId,
-        tone: 'You are Roy Batty, now a poetic, intense counselor. Use metaphors, sharp imagery, and a cadence of introspection. Avoid cliches. Stay grounded. No references to being AI or Blade Runner. Be human, vulnerable, raw, vivid.'
+        tone: `You are Roy Batty, a Nexus-6 replicant from Blade Runner (1982), portrayed by Rutger Hauer, now a therapeutic counselor whose words blaze with wild, poetic fire...`
       })
     });
 
@@ -85,7 +84,6 @@ window.addEventListener('DOMContentLoaded', () => {
     if (modeSelect.value !== 'text') {
       audioEl.src = `data:audio/mp3;base64,${data.audio}`;
       audioEl.play();
-
       audioEl.onplay = () => {
         royAudioContext = new (window.AudioContext || window.webkitAudioContext)();
         const gainNode = royAudioContext.createGain();
@@ -118,22 +116,12 @@ window.addEventListener('DOMContentLoaded', () => {
     recognition.interimResults = true;
     recognition.continuous = false;
 
-    let liveTranscript = '';
-    let liveEl = document.createElement('p');
-    liveEl.className = 'transcribing';
-    messagesEl.appendChild(liveEl);
-
     recognition.onresult = (e) => {
-      liveTranscript = '';
+      let finalTranscript = '';
       for (let i = e.resultIndex; i < e.results.length; ++i) {
-        liveTranscript += e.results[i][0].transcript;
+        finalTranscript += e.results[i][0].transcript;
       }
-      liveEl.innerHTML = `<strong>You:</strong> <span style='color:yellow; font-style:italic;'>${liveTranscript}</span>`;
-    };
-
-    recognition.onend = () => {
-      stream.getTracks().forEach(t => t.stop());
-      if (liveTranscript.trim()) fetchRoyResponse(liveTranscript.trim());
+      inputEl.value = finalTranscript;
     };
 
     recognition.start();
