@@ -119,7 +119,7 @@ window.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    async function fetchAudio(royText) {
+    async function fetchAudio(royText, audioData) { // Added audio data parameter.
         if (isAudioPlaying) {
             console.log('Audio still playing, waiting...');
             await new Promise(resolve => {
@@ -134,7 +134,6 @@ window.addEventListener('DOMContentLoaded', () => {
                 } else {
                     resolve();
                 }
-
             });
         }
 
@@ -149,18 +148,8 @@ window.addEventListener('DOMContentLoaded', () => {
         royAudioContext = new (window.AudioContext || window.webkitAudioContext)();
 
         try {
-            const res = await fetch('http://localhost:3001/api/chat/audio', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ text: royText })
-            });
-
-            if (!res.ok) throw new Error(`HTTP error! Status: ${res.status}`);
-            const data = await res.json();
-
-            console.log('Setting up audio playback...');
-            if (currentAudioEl) {
-                currentAudioEl.src = `data:audio/mp3;base64,${data.audio}`;
+            if (currentAudioEl && audioData) { // Check that audio data exists
+                currentAudioEl.src = `data:audio/mp3;base64,${audioData}`; // Use passed audio data
                 roySource = royAudioContext.createMediaElementSource(currentAudioEl);
                 const gainNode = royAudioContext.createGain();
                 gainNode.gain.value = 2.0;
@@ -180,7 +169,7 @@ window.addEventListener('DOMContentLoaded', () => {
                 };
             }
         } catch (error) {
-            console.error('Audio fetch error:', error);
+            console.error('Audio playback error:', error);
             isAudioPlaying = false;
             await cleanupAudioResources();
             return false;
@@ -213,7 +202,7 @@ window.addEventListener('DOMContentLoaded', () => {
                 }, 1000);
             }
 
-            const textRes = await fetch('http://localhost:3001/api/chat/text', {
+            const res = await fetch('http://localhost:3001/api/chat', { // Corrected endpoint
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -223,15 +212,15 @@ window.addEventListener('DOMContentLoaded', () => {
                 })
             });
 
-            if (!textRes.ok) throw new Error(`HTTP error! Status: ${textRes.status}`);
-            const textData = await textRes.json();
+            if (!res.ok) throw new Error(`HTTP error! Status: ${res.status}`);
+            const data = await res.json();
 
             if (modeSelect.value !== 'voice') {
-                appendMessage('Roy', textData.text);
+                appendMessage('Roy', data.text);
             }
 
             if (modeSelect.value !== 'text') {
-                await fetchAudio(textData.text);
+                await fetchAudio(data.text, data.audio); // Pass the audio data
             }
 
         } catch (error) {
