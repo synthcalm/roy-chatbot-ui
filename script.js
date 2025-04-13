@@ -167,7 +167,7 @@ window.addEventListener('DOMContentLoaded', () => {
     userCtx.fillStyle = '#000';
     userCtx.fillRect(0, 0, userCanvas.width, userCanvas.height);
     drawGrid(userCtx, userCanvas.width, userCanvas.height, 'rgba(0,255,255,0.2)');
-    userCtx.strokeStyle = '#FFD700';
+    userCtx.strokeStyle = '#00FFFF'; // changed from yellow to cyan
     userCtx.lineWidth = 1.8;
     userCtx.beginPath();
     const sliceWidth = userCanvas.width / userDataArray.length;
