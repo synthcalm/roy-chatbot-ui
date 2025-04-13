@@ -1,4 +1,4 @@
-/* Updated script.js – Roy is triggered only when STOP is pressed + real-time transcription visible only to Roy */
+/* Updated script.js – Fix 404 audio node error + Roy triggered on STOP only + no repeated MediaElementSource */
 
 window.addEventListener('DOMContentLoaded', () => {
   const micBtn = document.getElementById('mic-toggle');
@@ -13,10 +13,11 @@ window.addEventListener('DOMContentLoaded', () => {
   const timerSpan = document.getElementById('countdown-timer');
 
   const sessionId = `session-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
-  const greetings = ["Welcome. I'm Roy. You may speak using 'Speak' mode or type below."];
+  const greetings = ["Welcome. I'm Roy. Speak when ready — your thoughts hold weight."];
 
   let isRecording = false;
   let recognition, userAudioContext, userAnalyser, userDataArray, stream;
+  let royAudioContext, royAnalyser, royDataArray, roySource;
   let sessionStart = Date.now();
   let fullTranscript = '';
 
@@ -24,7 +25,6 @@ window.addEventListener('DOMContentLoaded', () => {
   const userCtx = userCanvas.getContext('2d');
   const royCanvas = document.getElementById('royWaveform');
   const royCtx = royCanvas.getContext('2d');
-  let royAudioContext, royAnalyser, royDataArray;
 
   appendMessage('Roy', greetings[0]);
   updateClockAndTimer();
@@ -74,7 +74,7 @@ window.addEventListener('DOMContentLoaded', () => {
       body: JSON.stringify({
         message,
         sessionId,
-        tone: `You are Roy Batty, a Nexus-6 replicant from Blade Runner (1982), portrayed by Rutger Hauer, now a therapeutic counselor whose words blaze with wild, poetic fire...`
+        tone: `You are Roy Batty, a therapeutic counselor whose voice burns with poetic defiance. You speak not in clichés, but in vivid metaphor and emotional precision. Avoid repetition and weak phrasing. Your speech is electric with imagery — grounded in humanity, forged from pain. You do not mention Blade Runner or artificial life. Speak as if every word might be your last.`
       })
     });
 
@@ -83,21 +83,23 @@ window.addEventListener('DOMContentLoaded', () => {
     if (modeSelect.value !== 'voice') appendMessage('Roy', data.text);
 
     if (modeSelect.value !== 'text') {
-      audioEl.src = `data:audio/mp3;base64,${data.audio}`;
-      audioEl.play();
-      audioEl.onplay = () => {
+      if (!royAudioContext) {
         royAudioContext = new (window.AudioContext || window.webkitAudioContext)();
-        const gainNode = royAudioContext.createGain();
-        gainNode.gain.value = 2.0;
-        royAnalyser = royAudioContext.createAnalyser();
-        royAnalyser.fftSize = 2048;
-        royDataArray = new Uint8Array(royAnalyser.frequencyBinCount);
-        const source = royAudioContext.createMediaElementSource(audioEl);
-        source.connect(gainNode);
-        gainNode.connect(royAnalyser);
-        royAnalyser.connect(royAudioContext.destination);
-        drawRoyWaveform();
-      };
+      }
+      if (roySource) roySource.disconnect();
+
+      audioEl.src = `data:audio/mp3;base64,${data.audio}`;
+      roySource = royAudioContext.createMediaElementSource(audioEl);
+      const gainNode = royAudioContext.createGain();
+      gainNode.gain.value = 2.0;
+      royAnalyser = royAudioContext.createAnalyser();
+      royAnalyser.fftSize = 2048;
+      royDataArray = new Uint8Array(royAnalyser.frequencyBinCount);
+      roySource.connect(gainNode);
+      gainNode.connect(royAnalyser);
+      royAnalyser.connect(royAudioContext.destination);
+      drawRoyWaveform();
+      audioEl.play();
     }
   }
 
