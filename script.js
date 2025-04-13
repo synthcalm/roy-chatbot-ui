@@ -94,27 +94,15 @@ window.addEventListener('DOMContentLoaded', () => {
             currentAudioEl = null;
         }
         if (roySource) {
-            try {
-                roySource.disconnect();
-            } catch (e) {
-                console.warn('Error disconnecting roySource:', e);
-            }
+            try { roySource.disconnect(); } catch (e) { console.warn('Error disconnecting roySource:', e); }
             roySource = null;
         }
         if (royAnalyser) {
-            try {
-                royAnalyser.disconnect();
-            } catch (e) {
-                console.warn('Error disconnecting royAnalyser:', e);
-            }
+            try { royAnalyser.disconnect(); } catch (e) { console.warn('Error disconnecting royAnalyser:', e); }
             royAnalyser = null;
         }
         if (royAudioContext) {
-            try {
-                await royAudioContext.close();
-            } catch (e) {
-                console.warn('Error closing royAudioContext:', e);
-            }
+            try { await royAudioContext.close(); } catch (e) { console.warn('Error closing royAudioContext:', e); }
             royAudioContext = null;
         }
     }
@@ -126,9 +114,7 @@ window.addEventListener('DOMContentLoaded', () => {
                 if (currentAudioEl) {
                     currentAudioEl.onended = () => {
                         isAudioPlaying = false;
-                        if (currentAudioEl) {
-                            currentAudioEl.onended = null;
-                        }
+                        currentAudioEl.onended = null;
                         resolve();
                     };
                 } else {
@@ -172,7 +158,6 @@ window.addEventListener('DOMContentLoaded', () => {
             console.error('Audio playback error:', error);
             isAudioPlaying = false;
             await cleanupAudioResources();
-            return false;
         }
         return true;
     }
@@ -180,7 +165,7 @@ window.addEventListener('DOMContentLoaded', () => {
     async function fetchRoyResponse(message) {
         const startTime = Date.now();
         let thinkingInterval = null;
-        const renderUrl = 'https://roy-chatbo-backend.onrender.com'; // Your Render URL
+        const renderUrl = 'https://roy-chatbo-backend.onrender.com';
 
         try {
             const normalizedMessage = message.toLowerCase().trim();
@@ -203,7 +188,7 @@ window.addEventListener('DOMContentLoaded', () => {
                 }, 1000);
             }
 
-            const res = await fetch(`${renderUrl}/api/chat`, { // Use your Render URL
+            const res = await fetch(`${renderUrl}/api/chat`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -223,7 +208,6 @@ window.addEventListener('DOMContentLoaded', () => {
             if (modeSelect.value !== 'text') {
                 await fetchAudio(data.text, data.audio);
             }
-
         } catch (error) {
             appendMessage('Roy', 'It seems I momentarily lost my way. Please speak again.');
             console.error('Fetch error:', error.message);
@@ -234,180 +218,7 @@ window.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    async function startRecording() {
-        try {
-            stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-            userAudioContext = new (window.AudioContext || window.webkitAudioContext)();
-            const source = userAudioContext.createMediaStreamSource(stream);
-            userAnalyser = userAudioContext.createAnalyser();
-            source.connect(userAnalyser);
-            userAnalyser.fftSize = 2048;
-            userDataArray = new Uint8Array(userAnalyser.frequencyBinCount);
-            drawUserWaveform();
-
-            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-            recognition = new SpeechRecognition();
-            recognition.lang = 'en-US';
-            recognition.interimResults = true;
-            recognition.continuous = true;
-
-            liveTranscriptEl = document.createElement('p');
-            liveTranscriptEl.className = 'you live-transcript';
-            liveTranscriptEl.innerHTML = '<strong>You (speaking):</strong> <span style="color: yellow"></span>';
-            messagesEl.appendChild(liveTranscriptEl);
-            messagesEl.scrollTop = messagesEl.scrollHeight;
-
-            finalTranscript = '';
-
-            recognition.onresult = (event) => {
-                let interimTranscript = '';
-                let finalPart = '';
-                for (let i = event.resultIndex; i < event.results.length; ++i) {
-                    const transcript = event.results[i][0].transcript;
-                    if (event.results[i].isFinal) {
-                        finalPart += transcript + ' ';
-                    } else {
-                        interimTranscript += transcript;
-                    }
-                }
-                finalTranscript += finalPart;
-                const transcriptSpan = liveTranscriptEl.querySelector('span');
-                transcriptSpan.textContent = interimTranscript || finalTranscript || '...';
-                messagesEl.scrollTop = messagesEl.scrollHeight;
-                console.log('Transcript update:', { finalTranscript, interimTranscript });
-            };
-
-            recognition.onend = () => {
-                console.log('Recognition ended. Final transcript:', finalTranscript);
-                try {
-                    if (stream) {
-                        stream.getTracks().forEach(t => t.stop());
-                        stream = null;
-                    }
-                    if (userAudioContext) {
-                        userAudioContext.close();
-                        userAudioContext = null;
-                    }
-
-                    const finalMessage = (finalTranscript || '').trim();
-                    if (liveTranscriptEl) {
-                        liveTranscriptEl.remove();
-                        liveTranscriptEl = null;
-                    }
-
-                    if (finalMessage) {
-                        appendMessage('You', finalMessage);
-                        inputEl.value = '';
-                        thinkingEl = document.createElement('p');
-                        thinkingEl.textContent = 'Roy is reflecting...';
-                        thinkingEl.className = 'roy';
-                        messagesEl.appendChild(thinkingEl);
-                        messagesEl.scrollTop = messagesEl.scrollHeight;
-                        fetchRoyResponse(finalMessage).finally(() => {
-                            if (thinkingEl) {
-                                thinkingEl.remove();
-                                thinkingEl = null;
-                            }
-                        });
-                    } else {
-                        appendMessage('Roy', 'Your words slipped through the silence. Speak again.');
-                    }
-
-                    isRecording = false;
-                    micBtn.textContent = 'Speak';
-                    micBtn.classList.remove('active');
-                    finalTranscript = '';
-                } catch (error) {
-                    console.error('Error in onend:', error);
-                    appendMessage('Roy', 'A storm clouds my voice. Try again.');
-                    isRecording = false;
-                    micBtn.textContent = 'Speak';
-                    micBtn.classList.remove('active');
-                }
-            };
-
-            recognition.onerror = (event) => {
-                console.error('Speech recognition error:', event.error);
-                if (liveTranscriptEl) {
-                    liveTranscriptEl.remove();
-                    liveTranscriptEl = null;
-                }
-                appendMessage('Roy', 'The winds steal my ears. Try speaking again.');
-                recognition.stop();
-            };
-
-            recognition.start();
-        } catch (error) {
-            console.error('Recording error:', error);
-            if (liveTranscriptEl) {
-                liveTranscriptEl.remove();
-                liveTranscriptEl = null;
-            }
-            appendMessage('Roy', 'The winds steal my ears. Try speaking again.');
-            micBtn.textContent = 'Speak';
-            micBtn.classList.remove('active');
-            isRecording = false;
-        }
-    }
-
-    function drawUserWaveform() {
-        if (!userAnalyser) return;
-        requestAnimationFrame(drawUserWaveform);
-        userAnalyser.getByteTimeDomainData(userDataArray);
-        userCtx.fillStyle = '#000';
-        userCtx.fillRect(0, 0, userCanvas.width, userCanvas.height);
-        drawGrid(userCtx, userCanvas.width, userCanvas.height, 'rgba(0,255,255,0.2)');
-        userCtx.strokeStyle = 'yellow';
-        userCtx.lineWidth = 1.5;
-        userCtx.beginPath();
-        const sliceWidth = userCanvas.width / userDataArray.length;
-        let x = 0;
-        for (let i = 0; i < userDataArray.length; i++) {
-            const y = (userDataArray[i] / 128.0) * userCanvas.height / 2;
-            i === 0 ? userCtx.moveTo(x, y) : userCtx.lineTo(x, y);
-            x += sliceWidth;
-        }
-        userCtx.lineTo(userCanvas.width, userCanvas.height / 2);
-        userCtx.stroke();
-    }
-
-    function drawRoyWaveform() {
-        if (!royAnalyser) return;
-        requestAnimationFrame(drawRoyWaveform);
-        royAnalyser.getByteTimeDomainData(royDataArray);
-        royCtx.fillStyle = '#000';
-        royCtx.fillRect(0, 0, royCanvas.width, royCanvas.height);
-        drawGrid(royCtx, royCanvas.width, royCanvas.height, 'rgba(0,255,255,0.2)');
-        royCtx.strokeStyle = 'magenta';
-        royCtx.lineWidth = 1.5;
-        royCtx.beginPath();
-        const sliceWidth = royCanvas.width / royDataArray.length;
-        let x = 0;
-        for (let i = 0; i < royDataArray.length; i++) {
-            const y = (royDataArray[i] / 128.0) * royCanvas.height / 2;
-            i === 0 ? royCtx.moveTo(x, y) : royCtx.lineTo(x, y);
-            x += sliceWidth;
-        }
-        royCtx.lineTo(royCanvas.width, royCanvas.height / 2);
-        royCtx.stroke();
-    }
-
-    function drawGrid(ctx, width, height, color) {
-        ctx.strokeStyle = color;
-        ctx.lineWidth = 0.3;
-        for (let x = 0; x < width; x += 20) {
-            ctx.beginPath();
-            ctx.moveTo(x, 0);
-            ctx.lineTo(x, height);
-            ctx.stroke();
-        }
-        for (let y = 0; y < height; y += 20) {
-            ctx.beginPath();
-            ctx.moveTo(0, y);
-            ctx.lineTo(width, y);
-            ctx.stroke();
-        }
-    }
+    // startRecording() function with silence timeout is already included above
 
     sendBtn.addEventListener('click', () => {
         const msg = inputEl.value.trim();
