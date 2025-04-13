@@ -3,143 +3,109 @@ window.addEventListener('DOMContentLoaded', () => {
     const inputEl = document.getElementById('user-input');
     const messagesEl = document.getElementById('messages');
     let isRecording = false;
-    let recognition = null;
-    let stream = null;
-    let userAudioContext = null;
-    let userAnalyser = null;
-    let userDataArray = null;
+    let mediaRecorder;
+    let audioChunks = [];
+    let stream;
     let liveTranscriptEl = null;
-    let finalTranscript = '';
     let thinkingEl = null;
-    let silenceTimeout;
+
+    const ASSEMBLYAI_SOCKET_URL = 'wss://api.assemblyai.com/v2/realtime/ws?sample_rate=16000';
+    const ASSEMBLYAI_API_KEY = 'eeee5d1982444610a670bd17152a8e4a';
+    let socket;
 
     async function startRecording() {
         try {
-            const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
             stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-            userAudioContext = new (window.AudioContext || window.webkitAudioContext)();
+            const audioContext = new AudioContext();
+            const input = audioContext.createMediaStreamSource(stream);
+            const processor = audioContext.createScriptProcessor(4096, 1, 1);
 
-            if (userAudioContext.state === 'suspended') {
-                await userAudioContext.resume();
-            }
+            input.connect(processor);
+            processor.connect(audioContext.destination);
 
-            const source = userAudioContext.createMediaStreamSource(stream);
-            userAnalyser = userAudioContext.createAnalyser();
-            source.connect(userAnalyser);
-            userAnalyser.fftSize = 2048;
-            userDataArray = new Uint8Array(userAnalyser.frequencyBinCount);
+            const sampleRate = 16000;
+            const encoder = new Worker('https://cdn.jsdelivr.net/gh/ai/audio-encoder/encoder.min.js');
 
-            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-            if (!SpeechRecognition) {
-                appendMessage('Roy', 'Speech recognition is not supported in this browser.');
-                return;
-            }
+            encoder.postMessage({ command: 'init', config: { sampleRate } });
 
-            recognition = new SpeechRecognition();
-            recognition.lang = 'en-US';
-            recognition.interimResults = true;
-            recognition.continuous = true;
+            processor.onaudioprocess = (event) => {
+                const channelData = event.inputBuffer.getChannelData(0);
+                encoder.postMessage({ command: 'encode', buffer: channelData });
+            };
+
+            encoder.onmessage = async (e) => {
+                if (socket && socket.readyState === WebSocket.OPEN) {
+                    socket.send(e.data);
+                }
+            };
+
+            connectToAssemblyAI();
 
             liveTranscriptEl = document.createElement('p');
             liveTranscriptEl.className = 'you live-transcript';
             liveTranscriptEl.innerHTML = '<strong>You (speaking):</strong> <span style="color: yellow"></span>';
             messagesEl.appendChild(liveTranscriptEl);
             messagesEl.scrollTop = messagesEl.scrollHeight;
-
-            finalTranscript = '';
-
-            recognition.onresult = (event) => {
-                let interimTranscript = '';
-                let finalPart = '';
-                for (let i = event.resultIndex; i < event.results.length; ++i) {
-                    const transcript = event.results[i][0].transcript;
-                    if (event.results[i].isFinal) {
-                        finalPart += transcript + ' ';
-                    } else {
-                        interimTranscript += transcript;
-                    }
-                }
-                finalTranscript += finalPart;
-                const transcriptSpan = liveTranscriptEl.querySelector('span');
-                transcriptSpan.textContent = interimTranscript || finalTranscript || '...';
-                messagesEl.scrollTop = messagesEl.scrollHeight;
-
-                clearTimeout(silenceTimeout);
-                silenceTimeout = setTimeout(() => {
-                    recognition.stop();
-                }, 2000);
-            };
-
-            recognition.onend = () => {
-                try {
-                    if (stream) {
-                        stream.getTracks().forEach(t => t.stop());
-                        stream = null;
-                    }
-                    if (userAudioContext) {
-                        userAudioContext.close();
-                        userAudioContext = null;
-                    }
-
-                    const finalMessage = (finalTranscript || '').trim();
-                    if (liveTranscriptEl) {
-                        liveTranscriptEl.remove();
-                        liveTranscriptEl = null;
-                    }
-
-                    if (finalMessage) {
-                        appendMessage('You', finalMessage);
-                        inputEl.value = '';
-                        thinkingEl = document.createElement('p');
-                        thinkingEl.textContent = 'Roy is reflecting...';
-                        thinkingEl.className = 'roy';
-                        messagesEl.appendChild(thinkingEl);
-                        messagesEl.scrollTop = messagesEl.scrollHeight;
-                        fetchRoyResponse(finalMessage).finally(() => {
-                            if (thinkingEl) {
-                                thinkingEl.remove();
-                                thinkingEl = null;
-                            }
-                        });
-                    } else {
-                        appendMessage('Roy', 'Your words slipped through the silence. Speak again.');
-                    }
-
-                    isRecording = false;
-                    micBtn.textContent = 'Speak';
-                    micBtn.classList.remove('active');
-                    finalTranscript = '';
-                } catch (error) {
-                    console.error('Error in onend:', error);
-                    appendMessage('Roy', 'A storm clouds my voice. Try again.');
-                    isRecording = false;
-                    micBtn.textContent = 'Speak';
-                    micBtn.classList.remove('active');
-                }
-            };
-
-            recognition.onerror = (event) => {
-                console.error('Speech recognition error:', event.error);
-                if (liveTranscriptEl) {
-                    liveTranscriptEl.remove();
-                    liveTranscriptEl = null;
-                }
-                appendMessage('Roy', 'The winds steal my ears. Try speaking again.');
-                recognition.stop();
-            };
-
-            recognition.start();
         } catch (error) {
             console.error('Recording error:', error);
-            if (liveTranscriptEl) {
-                liveTranscriptEl.remove();
-                liveTranscriptEl = null;
-            }
-            appendMessage('Roy', 'The winds steal my ears. Try speaking again.');
-            micBtn.textContent = 'Speak';
-            micBtn.classList.remove('active');
-            isRecording = false;
+            appendMessage('Roy', 'Could not access the microphone.');
+            stopRecording();
         }
+    }
+
+    function connectToAssemblyAI() {
+        socket = new WebSocket(ASSEMBLYAI_SOCKET_URL);
+        socket.onopen = () => {
+            socket.send(JSON.stringify({ auth: ASSEMBLYAI_API_KEY }));
+        };
+        socket.onmessage = (message) => {
+            const res = JSON.parse(message.data);
+            if (res.text) {
+                const transcriptSpan = liveTranscriptEl.querySelector('span');
+                transcriptSpan.textContent = res.text;
+                messagesEl.scrollTop = messagesEl.scrollHeight;
+            }
+        };
+        socket.onerror = (e) => {
+            console.error('AssemblyAI WebSocket error:', e);
+            appendMessage('Roy', 'Something went wrong with AssemblyAI.');
+        };
+        socket.onclose = () => {
+            console.warn('AssemblyAI WebSocket closed.');
+        };
+    }
+
+    function stopRecording() {
+        if (stream) {
+            stream.getTracks().forEach(track => track.stop());
+            stream = null;
+        }
+        if (socket && socket.readyState === WebSocket.OPEN) {
+            socket.send(JSON.stringify({ terminate_session: true }));
+            socket.close();
+        }
+        if (liveTranscriptEl) {
+            const finalMessage = liveTranscriptEl.querySelector('span')?.textContent?.trim();
+            if (finalMessage) {
+                appendMessage('You', finalMessage);
+                inputEl.value = '';
+                thinkingEl = document.createElement('p');
+                thinkingEl.textContent = 'Roy is reflecting...';
+                thinkingEl.className = 'roy';
+                messagesEl.appendChild(thinkingEl);
+                messagesEl.scrollTop = messagesEl.scrollHeight;
+                fetchRoyResponse(finalMessage).finally(() => {
+                    if (thinkingEl) thinkingEl.remove();
+                });
+            } else {
+                appendMessage('Roy', 'Your words slipped through the silence. Speak again.');
+            }
+            liveTranscriptEl.remove();
+            liveTranscriptEl = null;
+        }
+        isRecording = false;
+        micBtn.textContent = 'Speak';
+        micBtn.classList.remove('active');
     }
 
     function appendMessage(sender, text) {
@@ -152,7 +118,7 @@ window.addEventListener('DOMContentLoaded', () => {
 
     async function fetchRoyResponse(text) {
         console.log('Fetching Roy response for:', text);
-        // This should call your backend API.
+        // Implement API fetch to backend here.
     }
 
     micBtn.addEventListener('click', () => {
@@ -162,10 +128,7 @@ window.addEventListener('DOMContentLoaded', () => {
             isRecording = true;
             startRecording();
         } else {
-            micBtn.textContent = 'Speak';
-            micBtn.classList.remove('active');
-            isRecording = false;
-            if (recognition) recognition.stop();
+            stopRecording();
         }
     });
 });
