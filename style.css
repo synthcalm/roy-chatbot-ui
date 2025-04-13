@@ -1,4 +1,4 @@
-/* Updated style.css for Roy Chatbot UI */
+/* Updated style.css for Roy Chatbot UI - Revised for Poetic Batty Voice */
 
 body {
   margin: 0;
@@ -34,6 +34,9 @@ canvas {
   overflow-y: auto;
   border: 1px solid cyan;
   padding: 8px;
+  font-size: 14px;
+  line-height: 1.6;
+  color: white;
 }
 
 #messages p.roy strong {
@@ -41,7 +44,7 @@ canvas {
 }
 
 #messages p.user strong {
-  color: white;
+  color: yellow;
 }
 
 .input-area {
@@ -64,7 +67,7 @@ canvas {
   font-size: 16px;
   border: 1px solid cyan;
   background: black;
-  color: white;
+  color: yellow;
   font-family: 'Courier New', monospace;
   height: 96px;
   box-sizing: border-box;
@@ -81,6 +84,7 @@ select.button, button.button {
   cursor: pointer;
   height: 44px;
   flex: 1;
+  transition: all 0.2s ease-in-out;
 }
 
 button.button.active {
@@ -107,5 +111,15 @@ button.button.active {
 @media (max-width: 768px) {
   .container {
     width: 95%;
+  }
+  #messages {
+    font-size: 13px;
+  }
+  select.button, button.button {
+    font-size: 12px;
+    padding: 8px;
+  }
+  #user-input {
+    font-size: 14px;
   }
 }
