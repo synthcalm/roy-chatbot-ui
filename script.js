@@ -9,8 +9,11 @@ window.addEventListener('DOMContentLoaded', () => {
     let thinkingEl = null;
 
     const ASSEMBLYAI_SOCKET_URL = 'wss://api.assemblyai.com/v2/realtime/ws?sample_rate=16000';
-    const ASSEMBLYAI_API_KEY = 'eeee5d1982444610a670bd17152a8e4a';
+    const ASSEMBLYAI_API_KEY = 'YOUR_ASSEMBLYAI_API_KEY';
     let socket;
+
+    // Display greeting on load
+    appendMessage('Roy', "Welcome. I'm Roy. Speak when ready — your thoughts hold weight.");
 
     async function startRecording() {
         try {
