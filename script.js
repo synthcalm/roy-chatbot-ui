@@ -1,4 +1,4 @@
-// script.js – Roy Chatbot Modes: Converse, Speak-and-Send, Type-and-Read with Real-Time Transcription, Typing Effect, Fast Response
+// script.js – Roy Chatbot Modes: Fixed Converse Mode, Filtered Transcription, Real-Time Typing, and Prompt Tone Control
 
 let isRecording = false;
 let mediaRecorder, stream, chunks = [];
@@ -107,7 +107,7 @@ window.addEventListener('DOMContentLoaded', () => {
     const res = await fetch('https://roy-chatbo-backend.onrender.com/api/chat', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ message, sessionId })
+      body: JSON.stringify({ message, sessionId, tone: 'brief, therapeutic, non-repetitive' })
     });
 
     if (!res.ok) {
@@ -135,10 +135,48 @@ window.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  sendBtn.addEventListener('click', () => {
-    const message = inputEl.value.trim();
-    if (!message) return;
-    fetchRoyResponse(message);
+  async function startConverseLoop() {
+    if (!converseBtn.classList.contains('recording')) return;
+    stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    mediaRecorder = new MediaRecorder(stream);
+    chunks = [];
+
+    userAudioContext = new (window.AudioContext || window.webkitAudioContext)();
+    userAnalyser = userAudioContext.createAnalyser();
+    userSource = userAudioContext.createMediaStreamSource(stream);
+    userSource.connect(userAnalyser);
+    userAnalyser.fftSize = 2048;
+    userDataArray = new Uint8Array(userAnalyser.frequencyBinCount);
+    drawUserWaveform();
+
+    mediaRecorder.ondataavailable = e => chunks.push(e.data);
+    mediaRecorder.onstop = async () => {
+      const blob = new Blob(chunks, { type: 'audio/webm' });
+      const formData = new FormData();
+      formData.append('audio', blob);
+      const res = await fetch('https://roy-chatbo-backend.onrender.com/api/transcribe', {
+        method: 'POST',
+        body: formData
+      });
+      const data = await res.json();
+      const text = data.text?.trim();
+      if (text && text.length > 3 && !["thank you", "okay", "hmm", "sure"].includes(text.toLowerCase())) {
+        await fetchRoyResponse(text);
+      }
+      if (converseBtn.classList.contains('recording')) startConverseLoop();
+    };
+
+    mediaRecorder.start();
+    setTimeout(() => mediaRecorder.stop(), 3000);
+  }
+
+  converseBtn.addEventListener('click', () => {
+    converseBtn.classList.toggle('recording');
+    const isActive = converseBtn.classList.contains('recording');
+    converseBtn.style.borderColor = isActive ? 'red' : '#0ff';
+    converseBtn.style.color = isActive ? 'red' : '#0ff';
+    converseBtn.textContent = isActive ? 'Session On' : 'Hands Free';
+    if (isActive) startConverseLoop();
   });
 
   micBtn.addEventListener('click', async () => {
@@ -161,12 +199,10 @@ window.addEventListener('DOMContentLoaded', () => {
           const blob = new Blob(chunks, { type: 'audio/webm' });
           const formData = new FormData();
           formData.append('audio', blob);
-
           const res = await fetch('https://roy-chatbo-backend.onrender.com/api/transcribe', {
             method: 'POST',
             body: formData
           });
-
           const data = await res.json();
           if (data.text) fetchRoyResponse(data.text);
         };
@@ -187,47 +223,6 @@ window.addEventListener('DOMContentLoaded', () => {
       micBtn.style.borderColor = '#0ff';
       isRecording = false;
     }
-  });
-
-  converseBtn.addEventListener('click', async () => {
-    converseBtn.classList.toggle('recording');
-    const isActive = converseBtn.classList.contains('recording');
-    converseBtn.style.borderColor = isActive ? 'red' : '#0ff';
-    converseBtn.style.color = isActive ? 'red' : '#0ff';
-    converseBtn.textContent = isActive ? 'Session On' : 'Hands Free';
-
-    if (!isActive) return;
-
-    stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    mediaRecorder = new MediaRecorder(stream);
-    chunks = [];
-
-    userAudioContext = new (window.AudioContext || window.webkitAudioContext)();
-    userAnalyser = userAudioContext.createAnalyser();
-    userSource = userAudioContext.createMediaStreamSource(stream);
-    userSource.connect(userAnalyser);
-    userAnalyser.fftSize = 2048;
-    userDataArray = new Uint8Array(userAnalyser.frequencyBinCount);
-    drawUserWaveform();
-
-    mediaRecorder.ondataavailable = e => chunks.push(e.data);
-    mediaRecorder.onstop = async () => {
-      const blob = new Blob(chunks, { type: 'audio/webm' });
-      const formData = new FormData();
-      formData.append('audio', blob);
-
-      const res = await fetch('https://roy-chatbo-backend.onrender.com/api/transcribe', {
-        method: 'POST',
-        body: formData
-      });
-
-      const data = await res.json();
-      if (data.text) await fetchRoyResponse(data.text);
-      if (converseBtn.classList.contains('recording')) converseBtn.click();
-    };
-
-    mediaRecorder.start();
-    setTimeout(() => mediaRecorder.stop(), 3000);
   });
 
   saveBtn.addEventListener('click', async () => {
