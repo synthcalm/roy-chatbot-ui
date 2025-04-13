@@ -37,7 +37,7 @@ function drawUserWaveform() {
   userAnalyser.getByteTimeDomainData(userDataArray);
   userCtx.fillStyle = '#000';
   userCtx.fillRect(0, 0, userCanvas.width, userCanvas.height);
-  drawGrid(userCtx, userCanvas.width, userCanvas.height, 'rgba(255,255,0,0.3)');
+  drawGrid(userCtx, userCanvas.width, userCanvas.height, 'rgba(0,255,255,0.3)');
   userCtx.lineWidth = 2;
   userCtx.strokeStyle = 'yellow';
   userCtx.beginPath();
@@ -59,7 +59,7 @@ function drawRoyWaveform() {
   royAnalyser.getByteTimeDomainData(royDataArray);
   royCtx.fillStyle = '#000';
   royCtx.fillRect(0, 0, royCanvas.width, royCanvas.height);
-  drawGrid(royCtx, royCanvas.width, royCanvas.height, 'rgba(255,0,255,0.3)');
+  drawGrid(royCtx, royCanvas.width, royCanvas.height, 'rgba(0,255,255,0.3)');
   royCtx.lineWidth = 2;
   royCtx.strokeStyle = 'magenta';
   royCtx.beginPath();
@@ -117,7 +117,7 @@ async function fetchRoyResponse(message) {
 
   if (modeSelect.value !== 'text') {
     audioEl.src = `data:audio/mp3;base64,${data.audio}`;
-    audioEl.style.display = 'block';
+    audioEl.style.display = 'none';
     audioEl.play();
 
     royAudioContext = new (window.AudioContext || window.webkitAudioContext)();
@@ -194,15 +194,23 @@ micBtn.addEventListener('click', async () => {
 converseBtn.addEventListener('click', async () => {
   converseBtn.classList.toggle('recording');
   const isActive = converseBtn.classList.contains('recording');
-  converseBtn.style.borderColor = isActive ? 'lime' : '#0ff';
-  converseBtn.style.color = isActive ? 'lime' : '#0ff';
-  converseBtn.textContent = isActive ? 'Converse (On)' : 'Converse';
+  converseBtn.style.borderColor = isActive ? 'red' : '#0ff';
+  converseBtn.style.color = isActive ? 'red' : '#0ff';
+  converseBtn.textContent = isActive ? 'Session On' : 'Hands Free';
 
   if (!isActive) return;
 
   stream = await navigator.mediaDevices.getUserMedia({ audio: true });
   mediaRecorder = new MediaRecorder(stream);
   chunks = [];
+
+  userAudioContext = new (window.AudioContext || window.webkitAudioContext)();
+  userAnalyser = userAudioContext.createAnalyser();
+  userSource = userAudioContext.createMediaStreamSource(stream);
+  userSource.connect(userAnalyser);
+  userAnalyser.fftSize = 2048;
+  userDataArray = new Uint8Array(userAnalyser.frequencyBinCount);
+  drawUserWaveform();
 
   mediaRecorder.ondataavailable = e => chunks.push(e.data);
   mediaRecorder.onstop = async () => {
