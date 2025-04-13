@@ -1,4 +1,4 @@
-// script.js – Roy Chatbot Modes: Enhanced TTS Style, Converse Mode, Prompt Tone Control
+// script.js – Roy Chatbot Modes: Enhanced TTS Style, Real-Time Transcription, Typing Effect, Hands-Free Loop
 
 let isRecording = false;
 let mediaRecorder, stream, chunks = [];
@@ -106,6 +106,16 @@ window.addEventListener('DOMContentLoaded', () => {
     appendMessage('You', message);
     inputEl.value = '';
 
+    const dots = document.createElement('p');
+    dots.className = 'roy';
+    dots.textContent = 'Roy is thinking';
+    messagesEl.appendChild(dots);
+    let dotCount = 0;
+    const dotInterval = setInterval(() => {
+      dots.textContent = 'Roy is thinking' + '.'.repeat(dotCount % 4);
+      dotCount++;
+    }, 500);
+
     const res = await fetch('https://roy-chatbo-backend.onrender.com/api/chat', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -115,6 +125,9 @@ window.addEventListener('DOMContentLoaded', () => {
         tone: "Short, human-like, emotional intelligence. Add natural expressions like 'Mmhh', 'Correct...', or 'That's what we want'. Be sometimes fast, sometimes slow or loud. Emphasize naturally. Avoid robotic tone."
       })
     });
+
+    clearInterval(dotInterval);
+    dots.remove();
 
     if (!res.ok) {
       console.error('Chat error:', await res.text());
