@@ -11,7 +11,9 @@ window.addEventListener('DOMContentLoaded', () => {
   const timerSpan = document.getElementById('countdown-timer');
 
   const sessionId = `session-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
-  const greetings = ["Welcome. I'm Roy. You may speak using 'Speak' mode or type below."];
+  const greetings = [
+    "Welcome. I'm Roy. You may speak using 'Speak' mode or type below."
+  ];
 
   let isRecording = false;
   let stream, mediaRecorder, chunks = [];
@@ -26,6 +28,7 @@ window.addEventListener('DOMContentLoaded', () => {
   let royAudioContext, royAnalyser, royDataArray;
 
   appendMessage('Roy', greetings[0]);
+  appendHomeButton();
 
   function updateClockAndTimer() {
     const now = new Date();
@@ -110,7 +113,7 @@ window.addEventListener('DOMContentLoaded', () => {
     chunks = [];
 
     userAudioContext = new (window.AudioContext || window.webkitAudioContext)();
-    await userAudioContext.resume(); // ✅ iOS fix
+    await userAudioContext.resume();
     userAnalyser = userAudioContext.createAnalyser();
     const source = userAudioContext.createMediaStreamSource(stream);
     source.connect(userAnalyser);
@@ -183,6 +186,15 @@ window.addEventListener('DOMContentLoaded', () => {
     for (let y = 0; y < height; y += 20) {
       ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(width, y); ctx.stroke();
     }
+  }
+
+  function appendHomeButton() {
+    const homeBtn = document.createElement('button');
+    homeBtn.className = 'button';
+    homeBtn.textContent = 'SynthCalm Home';
+    homeBtn.style.marginTop = '10px';
+    homeBtn.onclick = () => window.location.href = 'https://synthcalm.com';
+    document.querySelector('.button-group').appendChild(homeBtn);
   }
 
   sendBtn.addEventListener('click', () => {
