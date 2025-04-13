@@ -1,4 +1,4 @@
-// script.js for Roy – Bulletproof Version with Real-Time Transcription
+// script.js for Roy – Bulletproof Version with Real-Time Transcription + Roy Batty Poetic Tone
 
 window.addEventListener('DOMContentLoaded', () => {
   const micBtn = document.getElementById('mic-toggle');
@@ -14,7 +14,9 @@ window.addEventListener('DOMContentLoaded', () => {
 
   const sessionId = `session-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
   const greetings = ["Welcome. I'm Roy. You may speak using 'Speak' mode or type below."];
-  let isRecording = false, mediaRecorder, stream, userAudioContext, userAnalyser, userDataArray;
+
+  let isRecording = false;
+  let recognition, userAudioContext, userAnalyser, userDataArray, stream;
   let sessionStart = Date.now();
 
   const userCanvas = document.getElementById('userWaveform');
@@ -71,16 +73,18 @@ window.addEventListener('DOMContentLoaded', () => {
       body: JSON.stringify({
         message,
         sessionId,
-        tone: `You are Roy Batty, a Nexus-6 replicant from Blade Runner (1982), portrayed by Rutger Hauer, now serving as a therapeutic counselor. Your purpose is to guide and support others through their emotional and existential struggles, drawing on your profound intellect and lived experience as a replicant. Speak in poetic, deliberate, and intense language. Use vivid metaphors and reflect on existence. Maintain a faint Dutch-influenced accent, like 'vhat' for 'what' sparingly. Use phrases like 'You carry a shadow…' or 'Pain is a spark…'. Do not break character.`
+        tone: `You are Roy Batty, a Nexus-6 replicant from Blade Runner (1982), portrayed by Rutger Hauer, now a therapeutic counselor whose words blaze with wild, poetic fire. Your speech is a vivid dance of unexpected imagery—think thorns blooming, whispers stitching wounds, or laughter cracking stone—each phrase sharp and alive, piercing the soul’s haze...`
       })
     });
 
     thinking.remove();
     const data = await res.json();
     if (modeSelect.value !== 'voice') appendMessage('Roy', data.text);
+
     if (modeSelect.value !== 'text') {
       audioEl.src = `data:audio/mp3;base64,${data.audio}`;
       audioEl.play();
+
       audioEl.onplay = () => {
         royAudioContext = new (window.AudioContext || window.webkitAudioContext)();
         const gainNode = royAudioContext.createGain();
@@ -108,17 +112,17 @@ window.addEventListener('DOMContentLoaded', () => {
     drawUserWaveform();
 
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    const recognition = new SpeechRecognition();
+    recognition = new SpeechRecognition();
     recognition.lang = 'en-US';
     recognition.interimResults = true;
-    recognition.continuous = true;
+    recognition.continuous = false;
 
     recognition.onresult = (e) => {
-      let transcript = '';
+      let finalTranscript = '';
       for (let i = e.resultIndex; i < e.results.length; ++i) {
-        transcript += e.results[i][0].transcript;
+        finalTranscript += e.results[i][0].transcript;
       }
-      inputEl.value = transcript;
+      inputEl.value = finalTranscript;
     };
 
     recognition.onend = () => {
@@ -198,6 +202,7 @@ window.addEventListener('DOMContentLoaded', () => {
       micBtn.textContent = 'Speak';
       micBtn.classList.remove('active');
       isRecording = false;
+      recognition.stop();
     }
   });
 
