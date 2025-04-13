@@ -4,7 +4,6 @@ window.addEventListener('DOMContentLoaded', () => {
     const messagesEl = document.getElementById('messages');
     let isRecording = false;
     let mediaRecorder;
-    let audioChunks = [];
     let stream;
     let liveTranscriptEl = null;
     let thinkingEl = null;
@@ -16,30 +15,23 @@ window.addEventListener('DOMContentLoaded', () => {
     async function startRecording() {
         try {
             stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-            const audioContext = new AudioContext();
-            const input = audioContext.createMediaStreamSource(stream);
-            const processor = audioContext.createScriptProcessor(4096, 1, 1);
-
-            input.connect(processor);
-            processor.connect(audioContext.destination);
-
-            const sampleRate = 16000;
-            const encoder = new Worker('https://cdn.jsdelivr.net/gh/ai/audio-encoder/encoder.min.js');
-
-            encoder.postMessage({ command: 'init', config: { sampleRate } });
-
-            processor.onaudioprocess = (event) => {
-                const channelData = event.inputBuffer.getChannelData(0);
-                encoder.postMessage({ command: 'encode', buffer: channelData });
-            };
-
-            encoder.onmessage = async (e) => {
-                if (socket && socket.readyState === WebSocket.OPEN) {
-                    socket.send(e.data);
-                }
-            };
+            const mediaStreamAudioSourceNode = new AudioContext().createMediaStreamSource(stream);
 
             connectToAssemblyAI();
+
+            mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
+            mediaRecorder.addEventListener('dataavailable', async (event) => {
+                if (socket && socket.readyState === WebSocket.OPEN && event.data.size > 0) {
+                    const reader = new FileReader();
+                    reader.onload = () => {
+                        const base64data = reader.result.split(',')[1];
+                        socket.send(base64data);
+                    };
+                    reader.readAsDataURL(event.data);
+                }
+            });
+
+            mediaRecorder.start(250);
 
             liveTranscriptEl = document.createElement('p');
             liveTranscriptEl.className = 'you live-transcript';
@@ -76,6 +68,9 @@ window.addEventListener('DOMContentLoaded', () => {
     }
 
     function stopRecording() {
+        if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+            mediaRecorder.stop();
+        }
         if (stream) {
             stream.getTracks().forEach(track => track.stop());
             stream = null;
