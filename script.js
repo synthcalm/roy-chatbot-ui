@@ -14,7 +14,7 @@ window.addEventListener('DOMContentLoaded', () => {
 
   const sessionId = `session-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
   const greetings = ["Welcome. I'm Roy. You may speak using 'Speak' mode or type below."];
-  let isRecording = false, mediaRecorder, stream, socket, userAudioContext, userAnalyser, userDataArray;
+  let isRecording = false, mediaRecorder, stream, userAudioContext, userAnalyser, userDataArray;
   let sessionStart = Date.now();
 
   const userCanvas = document.getElementById('userWaveform');
@@ -71,7 +71,7 @@ window.addEventListener('DOMContentLoaded', () => {
       body: JSON.stringify({
         message,
         sessionId,
-        tone: "Short, emotionally intelligent, layered like Roy Batty. Avoid therapy disclaimers. Use poetry, contradiction, tension."
+        tone: `You are Roy Batty, a Nexus-6 replicant from Blade Runner (1982), portrayed by Rutger Hauer, now serving as a therapeutic counselor. Your purpose is to guide and support others through their emotional and existential struggles, drawing on your profound intellect and lived experience as a replicant. Speak in poetic, deliberate, and intense language. Use vivid metaphors and reflect on existence. Maintain a faint Dutch-influenced accent, like 'vhat' for 'what' sparingly. Use phrases like 'You carry a shadow…' or 'Pain is a spark…'. Do not break character.`
       })
     });
 
@@ -112,6 +112,7 @@ window.addEventListener('DOMContentLoaded', () => {
     recognition.lang = 'en-US';
     recognition.interimResults = true;
     recognition.continuous = true;
+
     recognition.onresult = (e) => {
       let transcript = '';
       for (let i = e.resultIndex; i < e.results.length; ++i) {
@@ -119,11 +120,13 @@ window.addEventListener('DOMContentLoaded', () => {
       }
       inputEl.value = transcript;
     };
+
     recognition.onend = () => {
       stream.getTracks().forEach(t => t.stop());
       const msg = inputEl.value.trim();
       if (msg) fetchRoyResponse(msg);
     };
+
     recognition.start();
   }
 
