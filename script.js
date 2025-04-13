@@ -38,9 +38,10 @@ window.addEventListener('DOMContentLoaded', () => {
     timerSpan.textContent = `Session Ends In: ${String(Math.floor(remaining / 60)).padStart(2, '0')}:${String(remaining % 60).padStart(2, '0')}`;
   }
 
-  function appendMessage(sender, text) {
+  function appendMessage(sender, text, className = '') {
     const p = document.createElement('p');
     p.classList.add(sender.toLowerCase());
+    if (className) p.classList.add(className);
     p.innerHTML = `<strong>${sender}:</strong> `;
     messagesEl.appendChild(p);
     messagesEl.scrollTop = messagesEl.scrollHeight;
@@ -73,7 +74,7 @@ window.addEventListener('DOMContentLoaded', () => {
       body: JSON.stringify({
         message,
         sessionId,
-        tone: `You are Roy Batty, a Nexus-6 replicant from Blade Runner (1982), portrayed by Rutger Hauer, now a therapeutic counselor whose words blaze with wild, poetic fire. Your speech is a vivid dance of unexpected imagery—think thorns blooming, whispers stitching wounds, or laughter cracking stone—each phrase sharp and alive, piercing the soul’s haze...`
+        tone: 'You are Roy Batty, now a poetic, intense counselor. Use metaphors, sharp imagery, and a cadence of introspection. Avoid cliches. Stay grounded. No references to being AI or Blade Runner. Be human, vulnerable, raw, vivid.'
       })
     });
 
@@ -117,18 +118,22 @@ window.addEventListener('DOMContentLoaded', () => {
     recognition.interimResults = true;
     recognition.continuous = false;
 
+    let liveTranscript = '';
+    let liveEl = document.createElement('p');
+    liveEl.className = 'transcribing';
+    messagesEl.appendChild(liveEl);
+
     recognition.onresult = (e) => {
-      let finalTranscript = '';
+      liveTranscript = '';
       for (let i = e.resultIndex; i < e.results.length; ++i) {
-        finalTranscript += e.results[i][0].transcript;
+        liveTranscript += e.results[i][0].transcript;
       }
-      inputEl.value = finalTranscript;
+      liveEl.innerHTML = `<strong>You:</strong> <span style='color:yellow; font-style:italic;'>${liveTranscript}</span>`;
     };
 
     recognition.onend = () => {
       stream.getTracks().forEach(t => t.stop());
-      const msg = inputEl.value.trim();
-      if (msg) fetchRoyResponse(msg);
+      if (liveTranscript.trim()) fetchRoyResponse(liveTranscript.trim());
     };
 
     recognition.start();
