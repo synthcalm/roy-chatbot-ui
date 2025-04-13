@@ -51,7 +51,7 @@
       font-size: 16px;
       border: 1px solid #0ff;
       background: black;
-      color: white;
+      color: yellow;
       font-family: 'Courier New', monospace;
       height: 96px;
       box-sizing: border-box;
@@ -90,8 +90,9 @@
 <body>
   <div class="container">
     <div class="title-bar">
-      <span id="current-date"></span>
-      <span id="current-time"></span>
+      <span id="current-date">0000-00-00</span>
+      <span id="current-time">00:00:00</span>
+      <span id="countdown-timer">Session Ends In: 60:00</span>
     </div>
 
     <canvas id="userWaveform" height="60" style="width:100%; border:1px solid yellow; margin-bottom:10px;"></canvas>
@@ -119,6 +120,7 @@
 
     <audio id="roy-audio" style="display:none;"></audio>
   </div>
+
   <script src="script.js" defer></script>
 </body>
 </html>
