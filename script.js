@@ -1,4 +1,4 @@
-/* script.js – Fixed AssemblyAI WebSocket, audio cutoff, delays with caching, waveforms */
+/* script.js – Fixed iPhone WebSocket, audio playback, instant replies */
 
 window.addEventListener('DOMContentLoaded', async () => {
   const micBtn = document.getElementById('mic-toggle');
@@ -6,6 +6,9 @@ window.addEventListener('DOMContentLoaded', async () => {
   const inputEl = document.getElementById('user-input');
   const messagesEl = document.getElementById('messages');
   const modeSelect = document.getElementById('responseMode');
+  const dateSpan = document.getElementById('current-date');
+  const timeSpan = document.getElementById('current-time');
+  const timerSpan = document.getElementById('countdown-timer');
   let isRecording = false;
   let stream = null;
   let liveTranscriptEl = null;
@@ -20,11 +23,12 @@ window.addEventListener('DOMContentLoaded', async () => {
   let royAnalyser = null;
   let royDataArray = null;
   let roySource = null;
+  let sessionStart = Date.now();
 
   const ASSEMBLYAI_SOCKET_URL = 'wss://api.assemblyai.com/v2/realtime/ws?sample_rate=16000';
   const ASSEMBLYAI_API_KEY = 'eeee5d1982444610a670bd17152a8e4a';
   const sessionId = `session-${Date.now()}`;
-  const apiBase = 'http://localhost:3001'; // Switch to 'https://roy-chatbo-backend.onrender.com' for prod
+  const apiBase = 'http://localhost:3001'; // Use 'https://roy-chatbo-backend.onrender.com' for prod
 
   // Cache for instant replies
   const responseCache = {
@@ -48,6 +52,17 @@ window.addEventListener('DOMContentLoaded', async () => {
   const royCtx = royCanvas.getContext('2d');
 
   appendMessage('Roy', "Welcome. I'm Roy. Speak when ready — your thoughts hold weight.");
+  updateClockAndTimer();
+  setInterval(updateClockAndTimer, 1000);
+
+  function updateClockAndTimer() {
+    const now = new Date();
+    const elapsed = Math.floor((Date.now() - sessionStart) / 1000);
+    const remaining = Math.max(0, 3600 - elapsed);
+    dateSpan.textContent = now.toISOString().split('T')[0];
+    timeSpan.textContent = now.toTimeString().split(' ')[0];
+    timerSpan.textContent = `Session Ends In: ${String(Math.floor(remaining / 60)).padStart(2, '0')}:${String(remaining % 60).padStart(2, '0')}`;
+  }
 
   async function startRecording() {
     try {
@@ -95,15 +110,27 @@ window.addEventListener('DOMContentLoaded', async () => {
       isRecording = true;
       micBtn.textContent = 'Stop';
       micBtn.classList.add('active');
+
+      // Handle iOS mic cutoff
+      document.addEventListener('visibilitychange', handleVisibilityChange);
     } catch (error) {
       console.error('Recording error:', error);
-      appendMessage('Roy', 'Microphone blocked. Please allow access and try again.');
+      appendMessage('Roy', 'Microphone blocked. Please allow access in Settings and try again.');
       stopRecording();
     }
   }
 
+  function handleVisibilityChange() {
+    if (document.visibilityState === 'hidden' && isRecording) {
+      console.warn('Page hidden, checking WebSocket...');
+      if (socket && socket.readyState !== WebSocket.OPEN) {
+        connectToAssemblyAI();
+      }
+    }
+  }
+
   function connectToAssemblyAI(retryCount = 0) {
-    if (retryCount > 3) {
+    if (retryCount > 5 && isRecording) {
       appendMessage('Roy', 'Cannot connect to transcription service. Try again later.');
       stopRecording();
       return;
@@ -123,8 +150,8 @@ window.addEventListener('DOMContentLoaded', async () => {
         if (res.error) {
           console.error('AssemblyAI error:', res.error);
           appendMessage('Roy', 'Transcription failed. Please try again.');
-          stopRecording();
-        } else if (res.text && liveTranscriptEl) {
+          if (isRecording) stopRecording();
+        } else if (res.text && liveTranscriptEl && isRecording) {
           const transcriptSpan = liveTranscriptEl.querySelector('span');
           transcriptSpan.textContent = res.text || '...';
           messagesEl.scrollTop = messagesEl.scrollHeight;
@@ -136,7 +163,7 @@ window.addEventListener('DOMContentLoaded', async () => {
 
     socket.onerror = (e) => {
       console.error('AssemblyAI WebSocket error:', e);
-      appendMessage('Roy', 'Transcription service issue. Retrying...');
+      appendMessage('Roy', 'Transcription issue. Retrying...');
     };
 
     socket.onclose = () => {
@@ -149,6 +176,8 @@ window.addEventListener('DOMContentLoaded', async () => {
   }
 
   async function stopRecording() {
+    document.removeEventListener('visibilitychange', handleVisibilityChange);
+
     if (workletNode) {
       workletNode.disconnect();
       workletNode = null;
@@ -190,8 +219,8 @@ window.addEventListener('DOMContentLoaded', async () => {
             thinkingEl = null;
           }
         });
-      } else {
-        appendMessage('Roy', 'Your words slipped through the silence. Speak again.');
+      } else if (isRecording) {
+        appendMessage('Roy', 'Your words were too soft to catch. Speak again.');
       }
     }
 
@@ -251,11 +280,13 @@ window.addEventListener('DOMContentLoaded', async () => {
 
       // Check cache
       const normalizedText = text.toLowerCase().trim();
-      if (responseCache[normalizedText] && modeSelect.value !== 'voice') {
+      if (responseCache[normalizedText]) {
         console.log('Using cached response for:', normalizedText);
-        appendMessage('Roy', responseCache[normalizedText].text);
+        if (modeSelect.value !== 'voice') {
+          appendMessage('Roy', responseCache[normalizedText].text);
+        }
         if (modeSelect.value !== 'text') {
-          fetchAudio(responseCache[normalizedText].text);
+          await fetchAudio(responseCache[normalizedText].text);
         }
         return;
       }
@@ -271,7 +302,7 @@ window.addEventListener('DOMContentLoaded', async () => {
             tone: `You are Roy Batty, a therapeutic counselor. Your voice burns with poetic defiance. Speak with imagery, insight, and vivid human emotion.`
           })
         }).then(res => res.ok ? res.json() : Promise.reject(`Text response failed: ${res.status}`)),
-        new Promise((_, reject) => setTimeout(() => reject('Text fetch timeout'), 10000))
+        new Promise((_, reject) => setTimeout(() => reject('Text fetch timeout'), 8000))
       ]);
 
       // Display text
@@ -314,13 +345,24 @@ window.addEventListener('DOMContentLoaded', async () => {
       console.log('Creating new AudioContext...');
       royAudioContext = new (window.AudioContext || window.webkitAudioContext)();
 
+      // iOS Safari requires user gesture for AudioContext
+      if (/iPhone|iPad|iPod/i.test(navigator.userAgent)) {
+        await new Promise(resolve => {
+          const handler = () => {
+            royAudioContext.resume().then(resolve);
+            window.removeEventListener('touchstart', handler);
+          };
+          window.addEventListener('touchstart', handler);
+        });
+      }
+
       const audioRes = await Promise.race([
         fetch(`${apiBase}/api/chat/audio`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ text: royText })
         }).then(res => res.ok ? res.json() : Promise.reject(`Audio response failed: ${res.status}`)),
-        new Promise((_, reject) => setTimeout(() => reject('Audio fetch timeout'), 10000))
+        new Promise((_, reject) => setTimeout(() => reject('Audio fetch timeout'), 8000))
       ]);
 
       console.log('Setting up audio playback...');
@@ -415,35 +457,4 @@ window.addEventListener('DOMContentLoaded', async () => {
     messagesEl.scrollTop = messagesEl.scrollHeight;
   }
 
-  micBtn.addEventListener('click', () => {
-    if (!isRecording) {
-      startRecording();
-    } else {
-      stopRecording();
-    }
-  });
-
-  sendBtn.addEventListener('click', () => {
-    const msg = inputEl.value.trim();
-    if (msg) {
-      appendMessage('You', msg);
-      inputEl.value = '';
-      thinkingEl = document.createElement('p');
-      thinkingEl.textContent = 'Roy is reflecting...';
-      thinkingEl.className = 'roy';
-      messagesEl.appendChild(thinkingEl);
-      messagesEl.scrollTop = messagesEl.scrollHeight;
-      fetchRoyResponse(msg).finally(() => {
-        if (thinkingEl) {
-          thinkingEl.remove();
-          thinkingEl = null;
-        }
-      });
-    }
-  });
-
-  window.addEventListener('unload', () => {
-    stopRecording();
-    cleanupAudioResources();
-  });
-});
+  mic
