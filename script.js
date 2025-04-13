@@ -1,4 +1,4 @@
-/* Updated script.js – Real-time STT display, delayed "Roy is thinking", fixed audio cutoff */
+/* Updated script.js – Fixed STT clearing issue, real-time STT display, delayed "Roy is thinking", fixed audio cutoff */
 
 window.addEventListener('DOMContentLoaded', () => {
   const micBtn = document.getElementById('mic-toggle');
@@ -26,7 +26,8 @@ window.addEventListener('DOMContentLoaded', () => {
   let royDataArray = null;
   let roySource = null;
   let sessionStart = Date.now();
-  let liveTranscriptEl = null; // For real-time STT display
+  let liveTranscriptEl = null;
+  let finalTranscript = ''; // Store transcript for onend
 
   const userCanvas = document.getElementById('userWaveform');
   const userCtx = userCanvas.getContext('2d');
@@ -148,61 +149,83 @@ window.addEventListener('DOMContentLoaded', () => {
       recognition = new SpeechRecognition();
       recognition.lang = 'en-US';
       recognition.interimResults = true;
-      recognition.continuous = true; // Changed to continuous for smoother real-time updates
+      recognition.continuous = true;
 
       // Create live transcript element
       liveTranscriptEl = document.createElement('p');
-      liveTranscriptEl.className = 'you live-transcript'; // Added class for styling
+      liveTranscriptEl.className = 'you live-transcript';
       liveTranscriptEl.innerHTML = '<strong>You (speaking):</strong> <span style="color: yellow"></span>';
       messagesEl.appendChild(liveTranscriptEl);
       messagesEl.scrollTop = messagesEl.scrollHeight;
 
+      finalTranscript = ''; // Reset transcript
+
       recognition.onresult = (event) => {
         let interimTranscript = '';
-        let finalTranscript = '';
+        let finalPart = '';
         for (let i = event.resultIndex; i < event.results.length; ++i) {
           const transcript = event.results[i][0].transcript;
           if (event.results[i].isFinal) {
-            finalTranscript += transcript + ' ';
+            finalPart += transcript + ' ';
           } else {
             interimTranscript += transcript;
           }
         }
+        finalTranscript += finalPart; // Accumulate final parts
         // Update live transcript
         const transcriptSpan = liveTranscriptEl.querySelector('span');
         transcriptSpan.textContent = interimTranscript || finalTranscript || '...';
-        messagesEl.scrollTop = messagesEl.scrollHeight; // Scroll to keep latest text visible
+        messagesEl.scrollTop = messagesEl.scrollHeight;
+        console.log('Transcript update:', { finalTranscript, interimTranscript }); // Debug
       };
 
       recognition.onend = () => {
-        if (liveTranscriptEl) {
-          liveTranscriptEl.remove();
-          liveTranscriptEl = null;
+        console.log('Recognition ended. Final transcript:', finalTranscript); // Debug
+        try {
+          // Clean up resources
+          if (stream) {
+            stream.getTracks().forEach(t => t.stop());
+            stream = null;
+          }
+          if (userAudioContext) {
+            userAudioContext.close();
+            userAudioContext = null;
+          }
+
+          // Process transcript
+          const finalMessage = (finalTranscript || '').trim();
+          if (liveTranscriptEl) {
+            liveTranscriptEl.remove();
+            liveTranscriptEl = null;
+          }
+
+          if (finalMessage) {
+            appendMessage('You', finalMessage);
+            inputEl.value = '';
+            const thinking = document.createElement('p');
+            thinking.textContent = 'Roy is thinking...';
+            thinking.className = 'roy';
+            messagesEl.appendChild(thinking);
+            messagesEl.scrollTop = messagesEl.scrollHeight;
+            fetchRoyResponse(finalMessage).finally(() => {
+              thinking.remove();
+            });
+          } else {
+            appendMessage('Roy', 'Your words slipped through the silence. Speak again.');
+          }
+
+          // Reset state
+          isRecording = false;
+          micBtn.textContent = 'Speak';
+          micBtn.classList.remove('active');
+          finalTranscript = '';
+        } catch (error) {
+          console.error('Error in onend:', error);
+          appendMessage('Roy', 'A storm clouds my voice. Try again.');
+          isRecording = false;
+          micBtn.textContent = 'Speak';
+          micBtn.classList.remove('active');
         }
-        if (stream) {
-          stream.getTracks().forEach(t => t.stop());
-          stream = null;
-        }
-        if (userAudioContext) {
-          userAudioContext.close();
-          userAudioContext = null;
-        }
-        const finalMessage = liveTranscriptEl ? liveTranscriptEl.querySelector('span').textContent.trim() : '';
-        if (finalMessage && finalMessage !== '...') {
-          appendMessage('You', finalMessage);
-          inputEl.value = '';
-          const thinking = document.createElement('p');
-          thinking.textContent = 'Roy is thinking...';
-          thinking.className = 'roy';
-          messagesEl.appendChild(thinking);
-          messagesEl.scrollTop = messagesEl.scrollHeight;
-          fetchRoyResponse(finalMessage).finally(() => {
-            thinking.remove();
-          });
-        }
-        isRecording = false;
-        micBtn.textContent = 'Speak';
-        micBtn.classList.remove('active');
       };
 
       recognition.onerror = (event) => {
@@ -264,7 +287,7 @@ window.addEventListener('DOMContentLoaded', () => {
     let x = 0;
     for (let i = 0; i < royDataArray.length; i++) {
       const y = (royDataArray[i] / 128.0) * royCanvas.height / 2;
-      i === 0 ? royCtx.moveTo(x, y) : royCtx.lineTo(x, y);
+      i === 0 ? royCtx.moveTo(x, y) : userCtx.lineTo(x, y);
       x += sliceWidth;
     }
     royCtx.lineTo(royCanvas.width, royCanvas.height / 2);
