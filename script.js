@@ -1,4 +1,4 @@
-// script.js – Finalized Roy frontend with robust error handling and fallback transcription
+// script.js – Finalized Roy frontend with fixed WebSocket message and improved fallback
 
 window.addEventListener('DOMContentLoaded', async () => {
   const micBtn = document.getElementById('mic-toggle');
@@ -53,6 +53,7 @@ window.addEventListener('DOMContentLoaded', async () => {
       const data = await res.json();
       if (!data.token) throw new Error('Token missing in response');
       token = data.token;
+      console.log('AssemblyAI token acquired:', token);
       return token;
     } catch (err) {
       console.error('Token error:', err);
@@ -63,12 +64,14 @@ window.addEventListener('DOMContentLoaded', async () => {
 
   async function fallbackTranscription() {
     if (!audioChunks.length) {
-      appendMessage('Roy', 'No audio recorded for transcription.');
+      appendMessage('Roy', 'No audio recorded for transcription. Please speak louder or check your microphone.');
       return;
     }
 
     try {
+      console.log('Fallback: Audio chunks length:', audioChunks.length);
       const blob = new Blob(audioChunks, { type: 'audio/webm' });
+      console.log('Fallback: Audio blob size:', blob.size);
       const formData = new FormData();
       formData.append('audio', blob, 'recording.webm');
 
@@ -108,8 +111,14 @@ window.addEventListener('DOMContentLoaded', async () => {
       // Fallback recording with MediaRecorder
       mediaRecorder = new MediaRecorder(stream);
       audioChunks = [];
-      mediaRecorder.ondataavailable = (e) => audioChunks.push(e.data);
-      mediaRecorder.start();
+      mediaRecorder.ondataavailable = (e) => {
+        if (e.data.size > 0) {
+          audioChunks.push(e.data);
+          console.log('MediaRecorder data received:', e.data.size);
+        }
+      };
+      mediaRecorder.onstop = () => console.log('MediaRecorder stopped, chunks:', audioChunks.length);
+      mediaRecorder.start(1000); // Capture data every 1 second
 
       if (window.AudioWorklet) {
         try {
@@ -120,7 +129,7 @@ window.addEventListener('DOMContentLoaded', async () => {
 
           socket.onopen = () => {
             console.log('WebSocket opened');
-            socket.send(JSON.stringify({ token }));
+            // Do not send an initial token message; AssemblyAI expects audio data
           };
 
           socket.onerror = (err) => {
@@ -129,11 +138,14 @@ window.addEventListener('DOMContentLoaded', async () => {
             fallbackTranscription();
           };
 
-          socket.onclose = () => console.log('WebSocket closed');
+          socket.onclose = (event) => {
+            console.log('WebSocket closed:', event.code, event.reason);
+          };
 
           socket.onmessage = (msg) => {
             try {
               const res = JSON.parse(msg.data);
+              console.log('WebSocket message received:', res);
               if (res.error) {
                 console.error('AssemblyAI error:', res.error);
                 appendMessage('Roy', 'Transcription error. Using fallback.');
@@ -148,7 +160,7 @@ window.addEventListener('DOMContentLoaded', async () => {
                 transcriptEl.querySelector('span').textContent = 'Listening...';
               }
             } catch (err) {
-              console.error('WebSocket message error:', err);
+              console.error('WebSocket message parse error:', err);
             }
           };
 
@@ -289,11 +301,14 @@ window.addEventListener('DOMContentLoaded', async () => {
     let x = 0;
     for (let i = 0; i < dataArray.length; i++) {
       const y = (dataArray[i] / 128.0) * userCanvas.height / 2;
-      i === 0 ? userCtx.moveTo(x, y) : userCtx.lineTo(x, y);
+      if (i === 0) userCtx.moveTo(x, y);
+      else userCtx.lineTo(x, y);
       x += sliceWidth;
     }
     userCtx.lineTo(userCanvas.width, userCanvas.height / 2);
     userCtx.stroke();
+    // Log to check if waveform data is meaningful
+    console.log('Waveform data sample:', dataArray[0], dataArray[Math.floor(dataArray.length / 2)]);
   }
 
   sendBtn.addEventListener('click', () => {
