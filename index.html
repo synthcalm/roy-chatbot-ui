@@ -8,7 +8,6 @@
   <link rel="stylesheet" href="style.css" />
   <link rel="icon" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAAAXNSR0IArs4c6QAAADBJREFUWIXt0SEXACAIBNH7/z+KiC2W1oFzYQUXjA+PtE9f2WdVvaZ8eADx9ABz9wC0xAHoZcJqRwAAAABJRU5ErkJggg==" />
   <style>
-    /* Inline styles to ensure basic functionality if style.css is incomplete */
     body {
       margin: 0;
       background-color: #000;
@@ -52,6 +51,20 @@
     .you.live-transcript {
       color: #ff0;
       font-style: italic;
+      animation: fadeIn 0.3s ease-in;
+    }
+    .roy.typing {
+      color: #0ff;
+      animation: typing 1s infinite;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+    @keyframes typing {
+      0%, 100% { content: '.'; }
+      33% { content: '..'; }
+      66% { content: '...'; }
     }
     .input-area {
       display: flex;
@@ -71,6 +84,11 @@
       font-family: inherit;
       resize: none;
       height: 60px;
+      transition: border-color 0.3s ease;
+    }
+    #user-input:focus {
+      border-color: #ff0;
+      outline: none;
     }
     .button {
       background: #000;
@@ -143,6 +161,7 @@
       </div>
     </div>
     <audio id="roy-audio" aria-label="Roy's audio response"></audio>
+    <audio id="thinking-sound" src="thinking.mp3" preload="auto" style="display: none;"></audio>
   </div>
   <script src="script.js" defer></script>
 </body>
