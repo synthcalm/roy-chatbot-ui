@@ -1,5 +1,5 @@
 // script.js – Updated Roy frontend with polished UX
-// Version: 2.1 (Fixed automatic reply, restored microphone and waveform)
+// Version: 2.2 (Removed thinking.mp3, ensured functional app)
 // Note: After updating this file, ensure you redeploy to GitHub Pages (synthcalm.github.io) to apply changes.
 
 window.addEventListener('DOMContentLoaded', async () => {
@@ -18,7 +18,6 @@ window.addEventListener('DOMContentLoaded', async () => {
   const userCtx = userCanvas.getContext('2d');
   const royCtx = royCanvas.getContext('2d');
   const audioEl = document.getElementById('roy-audio');
-  const thinkingSound = document.getElementById('thinking-sound');
 
   let sessionStart = Date.now();
   let audioContext = null;
@@ -68,7 +67,6 @@ window.addEventListener('DOMContentLoaded', async () => {
 
   async function startRecording() {
     try {
-      // Request microphone access
       stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       audioContext = new (window.AudioContext || window.webkitAudioContext)();
       const source = audioContext.createMediaStreamSource(stream);
@@ -105,10 +103,8 @@ window.addEventListener('DOMContentLoaded', async () => {
       analyser = null;
     }
 
-    // Clear the canvas to stop the waveform
     userCtx.clearRect(0, 0, userCanvas.width, userCanvas.height);
 
-    // Only stop recording and prompt the user; do NOT trigger a Roy response
     appendMessage('Roy', 'Recording stopped. Please type or send your message to continue.');
     isRecording = false;
     micBtn.textContent = 'Speak';
@@ -121,14 +117,6 @@ window.addEventListener('DOMContentLoaded', async () => {
     thinkingEl.textContent = 'Roy is reflecting...';
     messagesEl.appendChild(thinkingEl);
     messagesEl.scrollTop = messagesEl.scrollHeight;
-
-    try {
-      thinkingSound.src = '/thinking.mp3'; // Adjust path if needed (e.g., '/assets/thinking.mp3')
-      await thinkingSound.play();
-    } catch (err) {
-      console.error('Error playing thinking sound:', err);
-      appendMessage('Roy', 'Thinking sound failed to play.');
-    }
 
     let attempts = 0;
     const maxAttempts = 3;
