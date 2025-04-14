@@ -55,62 +55,65 @@ window.addEventListener('DOMContentLoaded', async () => {
   }
 
   async function startRecording() {
-    try {
-      stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      audioContext = new (window.AudioContext || window.webkitAudioContext)();
-      const source = audioContext.createMediaStreamSource(stream);
-      analyser = audioContext.createAnalyser();
-      analyser.fftSize = 2048;
-      dataArray = new Uint8Array(analyser.frequencyBinCount);
-      source.connect(analyser);
-      drawWaveform('user');
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    const source = audioContext.createMediaStreamSource(stream);
+    analyser = audioContext.createAnalyser();
+    analyser.fftSize = 2048;
+    dataArray = new Uint8Array(analyser.frequencyBinCount);
+    source.connect(analyser);
+    drawWaveform();
 
-      await getToken();
+    // ✅ FIRST create live transcript element
+    transcriptEl = document.createElement('p');
+    transcriptEl.className = 'you live-transcript';
+    transcriptEl.innerHTML = '<strong>You (speaking):</strong> <span style="color: yellow">...</span>';
+    messagesEl.appendChild(transcriptEl);
 
-      socket = new WebSocket(`wss://api.assemblyai.com/v2/realtime/ws?sample_rate=16000`);
-      socket.binaryType = 'arraybuffer';
+    // ✅ THEN request the AssemblyAI token
+    await getToken();
 
-      socket.onopen = () => socket.send(JSON.stringify({ token }));
+    socket = new WebSocket(`wss://api.assemblyai.com/v2/realtime/ws?sample_rate=16000`);
+    socket.binaryType = 'arraybuffer';
 
-      socket.onmessage = (msg) => {
-        const res = JSON.parse(msg.data);
-        if (res.text) {
-          transcriptEl.querySelector('span').textContent = res.text;
-          liveTranscript = res.text;
-        }
-      };
+    socket.onopen = () => socket.send(JSON.stringify({ token }));
 
-      transcriptEl = document.createElement('p');
-      transcriptEl.className = 'you live-transcript';
-      transcriptEl.innerHTML = '<strong>You (speaking):</strong> <span style="color: yellow">...</span>';
-      messagesEl.appendChild(transcriptEl);
-
-      const worklet = `class PCMProcessor extends AudioWorkletProcessor {
-        process(inputs) {
-          const input = inputs[0][0];
-          if (!input) return true;
-          const int16 = new Int16Array(input.length);
-          for (let i = 0; i < input.length; i++) int16[i] = Math.max(-1, Math.min(1, input[i])) * 32767;
-          this.port.postMessage(int16.buffer);
-          return true;
-        }
+    socket.onmessage = (msg) => {
+      const res = JSON.parse(msg.data);
+      if (res.text && transcriptEl) {
+        transcriptEl.querySelector('span').textContent = res.text;
+        liveTranscript = res.text;
       }
-      registerProcessor('pcm-processor', PCMProcessor);`;
+    };
 
-      await audioContext.audioWorklet.addModule('data:application/javascript;base64,' + btoa(worklet));
-      const workletNode = new AudioWorkletNode(audioContext, 'pcm-processor');
-      workletNode.port.onmessage = (e) => {
-        if (socket.readyState === WebSocket.OPEN) socket.send(e.data);
-      };
-      source.connect(workletNode).connect(audioContext.destination);
-
-      isRecording = true;
-      micBtn.textContent = 'Stop';
-      micBtn.classList.add('active');
-    } catch (err) {
-      appendMessage('Roy', 'Could not access your microphone.');
+    // ✅ Set up AudioWorklet
+    const worklet = `class PCMProcessor extends AudioWorkletProcessor {
+      process(inputs) {
+        const input = inputs[0][0];
+        if (!input) return true;
+        const int16 = new Int16Array(input.length);
+        for (let i = 0; i < input.length; i++) int16[i] = Math.max(-1, Math.min(1, input[i])) * 32767;
+        this.port.postMessage(int16.buffer);
+        return true;
+      }
     }
+    registerProcessor('pcm-processor', PCMProcessor);`;
+
+    await audioContext.audioWorklet.addModule('data:application/javascript;base64,' + btoa(worklet));
+    const workletNode = new AudioWorkletNode(audioContext, 'pcm-processor');
+    workletNode.port.onmessage = (e) => {
+      if (socket.readyState === WebSocket.OPEN) socket.send(e.data);
+    };
+    source.connect(workletNode).connect(audioContext.destination);
+
+    isRecording = true;
+    micBtn.textContent = 'Stop';
+    micBtn.classList.add('active');
+  } catch (err) {
+    appendMessage('Roy', 'Could not access your microphone.');
   }
+}
 
   function stopRecording() {
     if (socket && socket.readyState === WebSocket.OPEN) {
