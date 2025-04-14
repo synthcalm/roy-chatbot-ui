@@ -1,4 +1,4 @@
-// script.js – Finalized Roy frontend using MIA's working flow
+// script.js – Finalized Roy frontend with robust error handling and fallback transcription
 
 window.addEventListener('DOMContentLoaded', async () => {
   const micBtn = document.getElementById('mic-toggle');
@@ -22,6 +22,8 @@ window.addEventListener('DOMContentLoaded', async () => {
   let token = null;
   let liveTranscript = '';
   let transcriptEl = null;
+  let mediaRecorder = null;
+  let audioChunks = [];
 
   updateClock();
   setInterval(updateClock, 1000);
@@ -45,14 +47,56 @@ window.addEventListener('DOMContentLoaded', async () => {
   }
 
   async function getToken() {
-    const res = await fetch('https://roy-chatbo-backend.onrender.com/api/assembly/token');
-    const data = await res.json();
-    token = data.token;
+    try {
+      const res = await fetch('https://roy-chatbo-backend.onrender.com/api/assembly/token');
+      if (!res.ok) throw new Error(`Token fetch failed: ${res.status} - ${await res.text()}`);
+      const data = await res.json();
+      if (!data.token) throw new Error('Token missing in response');
+      token = data.token;
+      return token;
+    } catch (err) {
+      console.error('Token error:', err);
+      appendMessage('Roy', 'Failed to connect to transcription service. Using fallback.');
+      throw err;
+    }
+  }
+
+  async function fallbackTranscription() {
+    if (!audioChunks.length) {
+      appendMessage('Roy', 'No audio recorded for transcription.');
+      return;
+    }
+
+    try {
+      const blob = new Blob(audioChunks, { type: 'audio/webm' });
+      const formData = new FormData();
+      formData.append('audio', blob, 'recording.webm');
+
+      const res = await fetch('https://roy-chatbo-backend.onrender.com/api/transcribe', {
+        method: 'POST',
+        body: formData
+      });
+
+      if (!res.ok) throw new Error(`Transcription failed: ${res.status} - ${await res.text()}`);
+      const data = await res.json();
+      if (data.text && data.text.trim()) {
+        liveTranscript = data.text;
+        appendMessage('You', liveTranscript);
+        fetchRoyResponse(liveTranscript);
+      } else {
+        appendMessage('Roy', 'Your words were too faint. Speak louder and try again.');
+      }
+    } catch (err) {
+      console.error('Fallback transcription error:', err);
+      appendMessage('Roy', 'Transcription failed. Try again or type your message.');
+    }
   }
 
   async function startRecording() {
     try {
       stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      console.log('Microphone stream acquired:', stream.getAudioTracks());
+
       audioContext = new (window.AudioContext || window.webkitAudioContext)();
       const source = audioContext.createMediaStreamSource(stream);
       analyser = audioContext.createAnalyser();
@@ -61,50 +105,105 @@ window.addEventListener('DOMContentLoaded', async () => {
       source.connect(analyser);
       drawWaveform();
 
-      await getToken();
+      // Fallback recording with MediaRecorder
+      mediaRecorder = new MediaRecorder(stream);
+      audioChunks = [];
+      mediaRecorder.ondataavailable = (e) => audioChunks.push(e.data);
+      mediaRecorder.start();
 
-      socket = new WebSocket(`wss://api.assemblyai.com/v2/realtime/ws?sample_rate=16000&token=${token}`);
-      socket.binaryType = 'arraybuffer';
+      if (window.AudioWorklet) {
+        try {
+          await getToken();
 
-      socket.onopen = () => socket.send(JSON.stringify({ token }));
+          socket = new WebSocket(`wss://api.assemblyai.com/v2/realtime/ws?sample_rate=16000&token=${token}`);
+          socket.binaryType = 'arraybuffer';
 
-      socket.onmessage = (msg) => {
-        const res = JSON.parse(msg.data);
-        if (res.text) {
-          transcriptEl.querySelector('span').textContent = res.text;
-          liveTranscript = res.text;
+          socket.onopen = () => {
+            console.log('WebSocket opened');
+            socket.send(JSON.stringify({ token }));
+          };
+
+          socket.onerror = (err) => {
+            console.error('WebSocket error:', err);
+            appendMessage('Roy', 'Transcription connection failed. Using fallback.');
+            fallbackTranscription();
+          };
+
+          socket.onclose = () => console.log('WebSocket closed');
+
+          socket.onmessage = (msg) => {
+            try {
+              const res = JSON.parse(msg.data);
+              if (res.error) {
+                console.error('AssemblyAI error:', res.error);
+                appendMessage('Roy', 'Transcription error. Using fallback.');
+                fallbackTranscription();
+                return;
+              }
+              if (res.text && res.text.trim()) {
+                transcriptEl.querySelector('span').textContent = res.text;
+                liveTranscript = res.text;
+                messagesEl.scrollTop = messagesEl.scrollHeight;
+              } else {
+                transcriptEl.querySelector('span').textContent = 'Listening...';
+              }
+            } catch (err) {
+              console.error('WebSocket message error:', err);
+            }
+          };
+
+          transcriptEl = document.createElement('p');
+          transcriptEl.className = 'you live-transcript';
+          transcriptEl.innerHTML = '<strong>You (speaking):</strong> <span style="color: yellow">...</span>';
+          messagesEl.appendChild(transcriptEl);
+
+          const worklet = `class PCMProcessor extends AudioWorkletProcessor {
+            process(inputs) {
+              const input = inputs[0][0];
+              if (!input) return true;
+              const int16 = new Int16Array(input.length);
+              for (let i = 0; i < input.length; i++) int16[i] = Math.max(-1, Math.min(1, input[i])) * 32767;
+              this.port.postMessage(int16.buffer);
+              return true;
+            }
+          }
+          registerProcessor('pcm-processor', PCMProcessor);`;
+
+          await audioContext.audioWorklet.addModule('data:application/javascript;base64,' + btoa(worklet)).catch(err => {
+            console.error('Worklet error:', err);
+            appendMessage('Roy', 'Audio processing failed. Using fallback.');
+            throw err;
+          });
+
+          const workletNode = new AudioWorkletNode(audioContext, 'pcm-processor');
+          workletNode.port.onmessage = (e) => {
+            if (socket.readyState === WebSocket.OPEN) {
+              console.log('Sending PCM data:', e.data.byteLength);
+              socket.send(e.data);
+            }
+          };
+          source.connect(workletNode).connect(audioContext.destination);
+        } catch (err) {
+          console.error('Live transcription setup error:', err);
+          appendMessage('Roy', 'Live transcription setup failed. Using fallback.');
+          fallbackTranscription();
         }
-      };
-
-      transcriptEl = document.createElement('p');
-      transcriptEl.className = 'you live-transcript';
-      transcriptEl.innerHTML = '<strong>You (speaking):</strong> <span style="color: yellow">...</span>';
-      messagesEl.appendChild(transcriptEl);
-
-      const worklet = `class PCMProcessor extends AudioWorkletProcessor {
-        process(inputs) {
-          const input = inputs[0][0];
-          if (!input) return true;
-          const int16 = new Int16Array(input.length);
-          for (let i = 0; i < input.length; i++) int16[i] = Math.max(-1, Math.min(1, input[i])) * 32767;
-          this.port.postMessage(int16.buffer);
-          return true;
-        }
+      } else {
+        appendMessage('Roy', 'Live transcription unavailable in your browser. Recording audio instead.');
       }
-      registerProcessor('pcm-processor', PCMProcessor);`;
-
-      await audioContext.audioWorklet.addModule('data:application/javascript;base64,' + btoa(worklet));
-      const workletNode = new AudioWorkletNode(audioContext, 'pcm-processor');
-      workletNode.port.onmessage = (e) => {
-        if (socket.readyState === WebSocket.OPEN) socket.send(e.data);
-      };
-      source.connect(workletNode).connect(audioContext.destination);
 
       isRecording = true;
       micBtn.textContent = 'Stop';
       micBtn.classList.add('active');
     } catch (err) {
-      appendMessage('Roy', 'Could not access your microphone.');
+      console.error('Microphone error:', err.name, err.message);
+      if (err.name === 'NotAllowedError') {
+        appendMessage('Roy', 'Please allow microphone access to speak.');
+      } else if (err.name === 'NotFoundError') {
+        appendMessage('Roy', 'No microphone found. Check your device.');
+      } else {
+        appendMessage('Roy', `Could not access your microphone: ${err.message}`);
+      }
     }
   }
 
@@ -112,6 +211,9 @@ window.addEventListener('DOMContentLoaded', async () => {
     if (socket && socket.readyState === WebSocket.OPEN) {
       socket.send(JSON.stringify({ terminate_session: true }));
       socket.close();
+    }
+    if (mediaRecorder) {
+      mediaRecorder.stop();
     }
     if (stream) {
       stream.getTracks().forEach(track => track.stop());
@@ -125,8 +227,11 @@ window.addEventListener('DOMContentLoaded', async () => {
     if (liveTranscript.trim()) {
       appendMessage('You', liveTranscript);
       fetchRoyResponse(liveTranscript);
+    } else if (window.AudioWorklet) {
+      appendMessage('Roy', 'Your words didn’t make it through the static. Using fallback.');
+      fallbackTranscription();
     } else {
-      appendMessage('Roy', 'Your words didn’t make it through the static. Try again.');
+      fallbackTranscription();
     }
 
     if (transcriptEl) transcriptEl.remove();
@@ -148,6 +253,7 @@ window.addEventListener('DOMContentLoaded', async () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message })
       });
+      if (!res.ok) throw new Error(`Chat request failed: ${res.status} - ${await res.text()}`);
       const data = await res.json();
       appendMessage('Roy', data.text);
 
@@ -157,11 +263,13 @@ window.addEventListener('DOMContentLoaded', async () => {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ text: data.text })
         });
+        if (!audioRes.ok) throw new Error(`Audio request failed: ${audioRes.status} - ${await audioRes.text()}`);
         const audioData = await audioRes.json();
         const audioEl = new Audio(`data:audio/mp3;base64,${audioData.audio}`);
         await audioEl.play();
       }
     } catch (err) {
+      console.error('Fetch Roy response error:', err);
       appendMessage('Roy', 'A storm clouded my voice. Try again.');
     } finally {
       thinkingEl.remove();
