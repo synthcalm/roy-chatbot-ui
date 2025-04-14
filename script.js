@@ -1,4 +1,4 @@
-// script.js – Finalized Roy frontend with reduced delays and fixed waveform updates
+// script.js – Finalized Roy frontend with fixed live transcription and waveform
 
 window.addEventListener('DOMContentLoaded', async () => {
   const micBtn = document.getElementById('mic-toggle');
@@ -24,11 +24,11 @@ window.addEventListener('DOMContentLoaded', async () => {
   let transcriptEl = null;
   let mediaRecorder = null;
   let audioChunks = [];
-  let rafId = null; // For cancelling requestAnimationFrame
+  let rafId = null;
 
   updateClock();
   setInterval(updateClock, 1000);
-  appendMessage('Roy', "Welcome. I'm Roy. Speak when ready — your thoughts hold weight.");
+  appendMessage('Roy', "Dress rehearsal. It’s de main act. Let’s hear your story. Unvarnished. Raw. Real.");
 
   function updateClock() {
     const now = new Date();
@@ -82,10 +82,12 @@ window.addEventListener('DOMContentLoaded', async () => {
       const formData = new FormData();
       formData.append('audio', blob, 'recording.webm');
 
+      const startTime = Date.now();
       const res = await fetch('https://roy-chatbo-backend.onrender.com/api/transcribe', {
         method: 'POST',
         body: formData
       });
+      console.log('Fallback transcription time:', Date.now() - startTime, 'ms');
 
       if (!res.ok) throw new Error(`Transcription failed: ${res.status} - ${await res.text()}`);
       const data = await res.json();
@@ -134,7 +136,9 @@ window.addEventListener('DOMContentLoaded', async () => {
         try {
           await getToken();
 
-          socket = new WebSocket(`wss://api.assemblyai.com/v2/realtime/ws?sample_rate=16000&token=${token}`);
+          // Add word_boost to improve transcription accuracy
+          const wordBoost = encodeURIComponent(JSON.stringify(["begin", "check", "test"]));
+          socket = new WebSocket(`wss://api.assemblyai.com/v2/realtime/ws?sample_rate=16000&token=${token}&word_boost=${wordBoost}`);
           socket.binaryType = 'arraybuffer';
 
           socket.onopen = () => {
@@ -202,7 +206,8 @@ window.addEventListener('DOMContentLoaded', async () => {
           const workletNode = new AudioWorkletNode(audioContext, 'pcm-processor');
           workletNode.port.onmessage = (e) => {
             if (socket.readyState === WebSocket.OPEN) {
-              console.log('Sending PCM data:', e.data.byteLength);
+              const int16 = new Int16Array(e.data);
+              console.log('Sending PCM data:', e.data.byteLength, 'Sample values:', int16[0], int16[int16.length - 1]);
               socket.send(e.data);
             }
           };
@@ -236,7 +241,7 @@ window.addEventListener('DOMContentLoaded', async () => {
       socket.send(JSON.stringify({ terminate_session: true }));
       setTimeout(() => {
         socket.close();
-      }, 2000); // Increased delay to ensure FinalTranscript is received
+      }, 2000);
     }
     if (mediaRecorder) {
       mediaRecorder.stop();
@@ -252,7 +257,7 @@ window.addEventListener('DOMContentLoaded', async () => {
     if (rafId) {
       cancelAnimationFrame(rafId);
       rafId = null;
-      userCtx.clearRect(0, 0, userCanvas.width, userCanvas.height); // Clear waveform
+      userCtx.clearRect(0, 0, userCanvas.width, userCanvas.height);
     }
 
     if (liveTranscript.trim()) {
@@ -279,11 +284,13 @@ window.addEventListener('DOMContentLoaded', async () => {
     messagesEl.scrollTop = messagesEl.scrollHeight;
 
     try {
+      const startTime = Date.now();
       const res = await fetch('https://roy-chatbo-backend.onrender.com/api/chat/text', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message })
       });
+      console.log('Text generation time:', Date.now() - startTime, 'ms');
       if (!res.ok) throw new Error(`Chat request failed: ${res.status} - ${await res.text()}`);
       const data = await res.json();
       appendMessage('Roy', data.text);
@@ -295,11 +302,13 @@ window.addEventListener('DOMContentLoaded', async () => {
         messagesEl.appendChild(speakingEl);
         messagesEl.scrollTop = messagesEl.scrollHeight;
 
+        const audioStartTime = Date.now();
         const audioRes = await fetch('https://roy-chatbo-backend.onrender.com/api/chat/audio', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ text: data.text })
         });
+        console.log('Audio generation time:', Date.now() - audioStartTime, 'ms');
         if (!audioRes.ok) throw new Error(`Audio request failed: ${audioRes.status} - ${await audioRes.text()}`);
         const audioData = await audioRes.json();
         const audioEl = new Audio(`data:audio/mp3;base64,${audioData.audio}`);
@@ -326,9 +335,19 @@ window.addEventListener('DOMContentLoaded', async () => {
     userCtx.beginPath();
     const sliceWidth = userCanvas.width / dataArray.length;
     let x = 0;
+
+    // Find min and max for dynamic scaling
+    let min = 128, max = 128;
     for (let i = 0; i < dataArray.length; i++) {
-      const normalized = (dataArray[i] - 128) / 128.0;
-      const y = (normalized * userCanvas.height * 1.5) + (userCanvas.height / 2); // Increased scaling
+      min = Math.min(min, dataArray[i]);
+      max = Math.max(max, dataArray[i]);
+    }
+    const range = Math.max(1, max - min);
+    console.log('Waveform data range:', min, max);
+
+    for (let i = 0; i < dataArray.length; i++) {
+      const normalized = (dataArray[i] - 128) / range;
+      const y = (normalized * userCanvas.height * 2) + (userCanvas.height / 2); // Dynamic scaling
       if (i === 0) userCtx.moveTo(x, y);
       else userCtx.lineTo(x, y);
       x += sliceWidth;
@@ -348,5 +367,19 @@ window.addEventListener('DOMContentLoaded', async () => {
 
   micBtn.addEventListener('click', () => {
     isRecording ? stopRecording() : startRecording();
+  });
+
+  // Handle Save Log button
+  document.getElementById('save-log').addEventListener('click', () => {
+    const messages = Array.from(messagesEl.getElementsByTagName('p'))
+      .map(p => p.textContent)
+      .join('\n');
+    const blob = new Blob([messages], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'roy-chat-log.txt';
+    a.click();
+    URL.revokeObjectURL(url);
   });
 });
