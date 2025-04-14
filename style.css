@@ -30,7 +30,8 @@ canvas {
 }
 
 #messages {
-  height: 150px;
+  height: 40vh; /* Changed from fixed 150px to 40% of viewport height for better scaling */
+  max-height: 300px; /* Added max-height to prevent it from growing too large on bigger screens */
   overflow-y: auto;
   border: 1px solid cyan;
   padding: 8px;
@@ -81,13 +82,13 @@ canvas {
 
 #user-input {
   width: 100%;
-  padding: 12px;
+  padding: 8px; /* Reduced padding from 12px to save space */
   font-size: 16px;
   border: 1px solid cyan; /* Unified from #0ff */
   background: black;
   color: white; /* Kept from inline (yellow in style.css) */
   font-family: 'Courier New', monospace;
-  height: 96px;
+  height: 40px; /* Reduced from 96px to make it smaller */
   box-sizing: border-box;
 }
 
@@ -122,10 +123,11 @@ button.button.active {
   display: flex;
   justify-content: space-between;
   font-size: 14px;
-  color: yellow;
+  color: yellowsome text yellow;
   margin-bottom: 10px;
 }
 
+/* Adjusted media queries for better smartphone optimization */
 @media (max-width: 768px) {
   .container {
     width: 95%;
@@ -139,5 +141,38 @@ button.button.active {
   }
   #user-input {
     font-size: 14px;
+  }
+}
+
+/* Added media query for iPhone-sized screens (e.g., 375px to 430px) */
+@media (max-width: 430px) {
+  .container {
+    width: 98%; /* Maximize width for small screens */
+    padding: 8px; /* Reduce padding */
+  }
+  #messages {
+    height: 50vh; /* Adjust height to 50% of viewport for smaller screens */
+    max-height: 250px; /* Reduce max-height for smaller screens */
+    font-size: 12px; /* Smaller font size */
+    line-height: 1.4; /* Reduce line spacing */
+    padding: 6px; /* Reduce padding */
+  }
+  #user-input {
+    height: 35px; /* Further reduce height for smaller screens */
+    font-size: 13px; /* Smaller font size */
+    padding: 6px; /* Reduce padding */
+  }
+  select.button, button.button {
+    font-size: 11px; /* Smaller font size */
+    padding: 6px 12px; /* Reduce padding */
+    height: 35px; /* Match the reduced input height */
+  }
+  .title-bar {
+    font-size: 12px; /* Reduce font size */
+    margin-bottom: 8px; /* Reduce margin */
+  }
+  .button-group {
+    gap: 8px; /* Reduce gap between buttons */
+    margin-top: 8px; /* Reduce margin */
   }
 }
