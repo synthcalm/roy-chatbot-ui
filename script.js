@@ -1,5 +1,5 @@
 // script.js – Updated Roy frontend with polished UX
-// Version: 2.0 (Deepgram removed, fixed automatic reply issue)
+// Version: 2.1 (Fixed automatic reply, restored microphone and waveform)
 // Note: After updating this file, ensure you redeploy to GitHub Pages (synthcalm.github.io) to apply changes.
 
 window.addEventListener('DOMContentLoaded', async () => {
@@ -68,6 +68,7 @@ window.addEventListener('DOMContentLoaded', async () => {
 
   async function startRecording() {
     try {
+      // Request microphone access
       stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       audioContext = new (window.AudioContext || window.webkitAudioContext)();
       const source = audioContext.createMediaStreamSource(stream);
@@ -80,10 +81,16 @@ window.addEventListener('DOMContentLoaded', async () => {
       isRecording = true;
       micBtn.textContent = 'Stop';
       micBtn.classList.add('recording');
-      appendMessage('Roy', 'Recording started. Speak now, then press Stop to type or send.');
+      appendMessage('Roy', 'Recording started. Speak now, then press Stop to type or send your message.');
     } catch (err) {
       console.error('Recording error:', err);
-      appendMessage('Roy', 'Could not access your microphone.');
+      let errorMessage = 'Could not access your microphone.';
+      if (err.name === 'NotAllowedError') {
+        errorMessage = 'Microphone access denied. Please allow microphone permissions in your browser settings.';
+      } else if (err.name === 'NotFoundError') {
+        errorMessage = 'No microphone found. Please ensure a microphone is connected.';
+      }
+      appendMessage('Roy', errorMessage);
     }
   }
 
@@ -98,8 +105,11 @@ window.addEventListener('DOMContentLoaded', async () => {
       analyser = null;
     }
 
+    // Clear the canvas to stop the waveform
+    userCtx.clearRect(0, 0, userCanvas.width, userCanvas.height);
+
     // Only stop recording and prompt the user; do NOT trigger a Roy response
-    appendMessage('Roy', 'Recording stopped. Please type or send your message.');
+    appendMessage('Roy', 'Recording stopped. Please type or send your message to continue.');
     isRecording = false;
     micBtn.textContent = 'Speak';
     micBtn.classList.remove('recording');
@@ -223,7 +233,11 @@ window.addEventListener('DOMContentLoaded', async () => {
   });
 
   micBtn.addEventListener('click', () => {
-    isRecording ? stopRecording() : startRecording();
+    if (isRecording) {
+      stopRecording();
+    } else {
+      startRecording();
+    }
   });
 
   saveLogBtn.addEventListener('click', saveConversationLog);
