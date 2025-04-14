@@ -1,4 +1,4 @@
-// script.js – Roy frontend with isolated waveform scopes and real-time AssemblyAI transcription (fixed date/time bug)
+// script.js – Roy frontend with isolated waveform scopes and real-time AssemblyAI transcription (full working version)
 
 window.addEventListener('DOMContentLoaded', async () => {
   const micBtn = document.getElementById('mic-toggle');
@@ -10,8 +10,8 @@ window.addEventListener('DOMContentLoaded', async () => {
   const timeSpan = document.getElementById('current-time');
   const timerSpan = document.getElementById('countdown-timer');
   const userCanvas = document.getElementById('userWaveform');
-  const userCtx = userCanvas.getContext('2d');
   const royCanvas = document.getElementById('royWaveform');
+  const userCtx = userCanvas.getContext('2d');
   const royCtx = royCanvas.getContext('2d');
 
   let sessionStart = Date.now();
@@ -21,6 +21,7 @@ window.addEventListener('DOMContentLoaded', async () => {
   let royAudioContext = null;
   let royAnalyser = null;
   let royDataArray = null;
+  let roySource = null;
   let stream = null;
   let isRecording = false;
   let socket = null;
@@ -39,16 +40,6 @@ window.addEventListener('DOMContentLoaded', async () => {
 
   updateClock();
   setInterval(updateClock, 1000);
-  appendMessage('Roy', "Welcome. I'm Roy. Speak when ready — your thoughts hold weight.");
-
-  function updateClock() {
-    const now = new Date();
-    dateSpan.textContent = now.toISOString().split('T')[0];
-    timeSpan.textContent = now.toTimeString().split(' ')[0];
-    const elapsed = Math.floor((Date.now() - sessionStart) / 1000);
-    const remaining = Math.max(0, 3600 - elapsed);
-    timerSpan.textContent = `Session Ends In: ${String(Math.floor(remaining / 60)).padStart(2, '0')}:${String(remaining % 60).padStart(2, '0')}`;
-  }
 
   function appendMessage(sender, text) {
     const p = document.createElement('p');
@@ -57,6 +48,8 @@ window.addEventListener('DOMContentLoaded', async () => {
     messagesEl.appendChild(p);
     messagesEl.scrollTop = messagesEl.scrollHeight;
   }
+
+  appendMessage('Roy', "Welcome. I'm Roy. Speak when ready — your thoughts hold weight.");
 
   async function getToken() {
     const res = await fetch('https://roy-chatbo-backend.onrender.com/api/assembly/token');
@@ -69,18 +62,11 @@ window.addEventListener('DOMContentLoaded', async () => {
       stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       userAudioContext = new (window.AudioContext || window.webkitAudioContext)();
       const source = userAudioContext.createMediaStreamSource(stream);
-
       userAnalyser = userAudioContext.createAnalyser();
       userAnalyser.fftSize = 2048;
       userDataArray = new Uint8Array(userAnalyser.frequencyBinCount);
       source.connect(userAnalyser);
-
       drawUserWaveform();
-
-      transcriptEl = document.createElement('p');
-      transcriptEl.className = 'you live-transcript';
-      transcriptEl.innerHTML = '<strong>You (speaking):</strong> <span style="color: yellow">...</span>';
-      messagesEl.appendChild(transcriptEl);
 
       await getToken();
 
@@ -91,11 +77,16 @@ window.addEventListener('DOMContentLoaded', async () => {
 
       socket.onmessage = (msg) => {
         const res = JSON.parse(msg.data);
-        if (res.text && transcriptEl) {
+        if (res.text) {
           transcriptEl.querySelector('span').textContent = res.text;
           liveTranscript = res.text;
         }
       };
+
+      transcriptEl = document.createElement('p');
+      transcriptEl.className = 'you live-transcript';
+      transcriptEl.innerHTML = '<strong>You (speaking):</strong> <span style="color: yellow">...</span>';
+      messagesEl.appendChild(transcriptEl);
 
       const worklet = `class PCMProcessor extends AudioWorkletProcessor {
         process(inputs) {
@@ -177,14 +168,14 @@ window.addEventListener('DOMContentLoaded', async () => {
         const audioEl = new Audio(`data:audio/mp3;base64,${audioData.audio}`);
 
         royAudioContext = new (window.AudioContext || window.webkitAudioContext)();
-        const roySource = royAudioContext.createMediaElementSource(audioEl);
+        roySource = royAudioContext.createMediaElementSource(audioEl);
         royAnalyser = royAudioContext.createAnalyser();
         royAnalyser.fftSize = 2048;
         royDataArray = new Uint8Array(royAnalyser.frequencyBinCount);
         roySource.connect(royAnalyser);
         royAnalyser.connect(royAudioContext.destination);
-
         drawRoyWaveform();
+
         await audioEl.play();
       }
     } catch (err) {
@@ -200,7 +191,7 @@ window.addEventListener('DOMContentLoaded', async () => {
     userAnalyser.getByteTimeDomainData(userDataArray);
     userCtx.fillStyle = '#000';
     userCtx.fillRect(0, 0, userCanvas.width, userCanvas.height);
-    drawGrid(userCtx, userCanvas.width, userCanvas.height, 'rgba(0,255,255,0.2)');
+    drawGrid(userCtx, userCanvas.width, userCanvas.height);
     userCtx.strokeStyle = 'yellow';
     userCtx.lineWidth = 1.5;
     userCtx.beginPath();
@@ -221,7 +212,7 @@ window.addEventListener('DOMContentLoaded', async () => {
     royAnalyser.getByteTimeDomainData(royDataArray);
     royCtx.fillStyle = '#000';
     royCtx.fillRect(0, 0, royCanvas.width, royCanvas.height);
-    drawGrid(royCtx, royCanvas.width, royCanvas.height, 'rgba(0,255,255,0.2)');
+    drawGrid(royCtx, royCanvas.width, royCanvas.height);
     royCtx.strokeStyle = 'magenta';
     royCtx.lineWidth = 1.5;
     royCtx.beginPath();
@@ -236,8 +227,8 @@ window.addEventListener('DOMContentLoaded', async () => {
     royCtx.stroke();
   }
 
-  function drawGrid(ctx, width, height, color) {
-    ctx.strokeStyle = color;
+  function drawGrid(ctx, width, height) {
+    ctx.strokeStyle = 'rgba(0,255,255,0.2)';
     ctx.lineWidth = 0.3;
     for (let x = 0; x < width; x += 20) {
       ctx.beginPath();
