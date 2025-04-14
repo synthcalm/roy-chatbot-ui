@@ -63,7 +63,7 @@ window.addEventListener('DOMContentLoaded', async () => {
 
       await getToken();
 
-      socket = new WebSocket(`wss://api.assemblyai.com/v2/realtime/ws?sample_rate=16000`);
+      socket = new WebSocket(`wss://api.assemblyai.com/v2/realtime/ws?sample_rate=16000&token=${token}`);
       socket.binaryType = 'arraybuffer';
 
       socket.onopen = () => socket.send(JSON.stringify({ token }));
