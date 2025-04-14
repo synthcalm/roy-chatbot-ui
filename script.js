@@ -1,4 +1,4 @@
-// script.js – Roy frontend with isolated waveform scopes and real-time AssemblyAI transcription
+// script.js – Roy frontend with isolated waveform scopes and real-time AssemblyAI transcription (fixed date/time bug)
 
 window.addEventListener('DOMContentLoaded', async () => {
   const micBtn = document.getElementById('mic-toggle');
@@ -27,6 +27,15 @@ window.addEventListener('DOMContentLoaded', async () => {
   let token = null;
   let liveTranscript = '';
   let transcriptEl = null;
+
+  function updateClock() {
+    const now = new Date();
+    if (dateSpan) dateSpan.textContent = now.toISOString().split('T')[0];
+    if (timeSpan) timeSpan.textContent = now.toTimeString().split(' ')[0];
+    const elapsed = Math.floor((Date.now() - sessionStart) / 1000);
+    const remaining = Math.max(0, 3600 - elapsed);
+    if (timerSpan) timerSpan.textContent = `Session Ends In: ${String(Math.floor(remaining / 60)).padStart(2, '0')}:${String(remaining % 60).padStart(2, '0')}`;
+  }
 
   updateClock();
   setInterval(updateClock, 1000);
