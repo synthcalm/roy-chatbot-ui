@@ -1,4 +1,4 @@
-// script.js – Updated Roy frontend with MIA's voice and transcription flow
+// script.js – Updated Roy frontend with real-time transcription using AssemblyAI
 
 window.addEventListener('DOMContentLoaded', async () => {
   const micBtn = document.getElementById('mic-toggle');
@@ -22,9 +22,11 @@ window.addEventListener('DOMContentLoaded', async () => {
   let analyser = null;
   let dataArray = null;
   let stream = null;
-  let mediaRecorder = null;
-  let chunks = [];
   let isRecording = false;
+  let socket = null;
+  let token = null;
+  let liveTranscript = '';
+  let transcriptEl = null;
   let lastWaveformUpdate = 0;
   const WAVEFORM_UPDATE_INTERVAL = 100; // Update waveform every 100ms
 
@@ -49,6 +51,12 @@ window.addEventListener('DOMContentLoaded', async () => {
     messagesEl.scrollTop = messagesEl.scrollHeight;
   }
 
+  async function getToken() {
+    const res = await fetch('https://roy-chatbo-backend.onrender.com/api/assembly/token');
+    const data = await res.json();
+    token = data.token;
+  }
+
   async function startRecording() {
     try {
       stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -60,45 +68,78 @@ window.addEventListener('DOMContentLoaded', async () => {
       source.connect(analyser);
       drawWaveform('user');
 
-      mediaRecorder = new MediaRecorder(stream);
-      chunks = [];
-      mediaRecorder.ondataavailable = (e) => {
-        chunks.push(e.data);
-        console.log('MediaRecorder data received:', e.data.size);
+      await getToken();
+
+      socket = new WebSocket(`wss://api.assemblyai.com/v2/realtime/ws?sample_rate=16000`);
+      socket.binaryType = 'arraybuffer';
+
+      socket.onopen = () => {
+        socket.send(JSON.stringify({ token }));
+        console.log('WebSocket connection opened');
       };
-      mediaRecorder.onstop = async () => {
-        const blob = new Blob(chunks, { type: 'audio/webm' });
-        const formData = new FormData();
-        formData.append('audio', blob);
-        try {
-          const res = await fetch('https://roy-chatbo-backend.onrender.com/api/transcribe', {
-            method: 'POST',
-            body: formData
-          });
-          const data = await res.json();
-          if (data.text) {
-            appendMessage('You', data.text);
-            fetchRoyResponse(data.text);
-          } else {
-            appendMessage('Roy', 'Your words didn’t make it through the static. Try again.');
+
+      socket.onmessage = (msg) => {
+        const res = JSON.parse(msg.data);
+        if (res.message_type === 'PartialTranscript' || res.message_type === 'FinalTranscript') {
+          liveTranscript = res.text;
+          if (transcriptEl) {
+            transcriptEl.querySelector('span').textContent = liveTranscript || '...';
           }
-        } catch (err) {
-          appendMessage('Roy', 'A storm clouded my voice. Try again.');
         }
       };
-      mediaRecorder.start();
+
+      socket.onerror = (err) => {
+        console.error('WebSocket error:', err);
+        appendMessage('Roy', 'A storm disrupted the transcription. Try again.');
+      };
+
+      socket.onclose = () => {
+        console.log('WebSocket connection closed');
+      };
+
+      transcriptEl = document.createElement('p');
+      transcriptEl.className = 'you live-transcript';
+      transcriptEl.innerHTML = '<strong>You (speaking):</strong> <span style="color: yellow">...</span>';
+      messagesEl.appendChild(transcriptEl);
+
+      const worklet = `
+        class PCMProcessor extends AudioWorkletProcessor {
+          process(inputs) {
+            const input = inputs[0][0];
+            if (!input) return true;
+            const int16 = new Int16Array(input.length);
+            for (let i = 0; i < input.length; i++) {
+              int16[i] = Math.max(-1, Math.min(1, input[i])) * 32767;
+            }
+            this.port.postMessage(int16.buffer);
+            return true;
+          }
+        }
+        registerProcessor('pcm-processor', PCMProcessor);
+      `;
+
+      await audioContext.audioWorklet.addModule('data:application/javascript;base64,' + btoa(worklet));
+      const workletNode = new AudioWorkletNode(audioContext, 'pcm-processor');
+      workletNode.port.onmessage = (e) => {
+        if (socket.readyState === WebSocket.OPEN) {
+          socket.send(e.data);
+        }
+      };
+      source.connect(workletNode).connect(audioContext.destination);
 
       isRecording = true;
       micBtn.textContent = 'Stop';
       micBtn.classList.add('recording');
     } catch (err) {
+      console.error('Recording error:', err);
       appendMessage('Roy', 'Could not access your microphone.');
     }
   }
 
   function stopRecording() {
-    if (mediaRecorder) {
-      mediaRecorder.stop();
+    if (socket && socket.readyState === WebSocket.OPEN) {
+      socket.send(JSON.stringify({ terminate_session: true }));
+      socket.close();
     }
     if (stream) {
       stream.getTracks().forEach(track => track.stop());
@@ -110,6 +151,18 @@ window.addEventListener('DOMContentLoaded', async () => {
       analyser = null;
     }
 
+    if (liveTranscript.trim()) {
+      appendMessage('You', liveTranscript);
+      fetchRoyResponse(liveTranscript);
+    } else {
+      appendMessage('Roy', 'Your words didn’t make it through the static. Try again.');
+    }
+
+    if (transcriptEl) {
+      transcriptEl.remove();
+      transcriptEl = null;
+    }
+    liveTranscript = '';
     isRecording = false;
     micBtn.textContent = 'Speak';
     micBtn.classList.remove('recording');
