@@ -1,4 +1,4 @@
-// script.js – Updated Roy frontend with reliability improvements
+// script.js – Updated Roy frontend with polished UX
 
 window.addEventListener('DOMContentLoaded', async () => {
   const micBtn = document.getElementById('mic-toggle');
@@ -16,6 +16,7 @@ window.addEventListener('DOMContentLoaded', async () => {
   const userCtx = userCanvas.getContext('2d');
   const royCtx = royCanvas.getContext('2d');
   const audioEl = document.getElementById('roy-audio');
+  const thinkingSound = document.getElementById('thinking-sound');
 
   let sessionStart = Date.now();
   let audioContext = null;
@@ -28,8 +29,8 @@ window.addEventListener('DOMContentLoaded', async () => {
   let transcriptEl = null;
   let lastWaveformUpdate = 0;
   let lastTranscriptUpdate = 0;
-  const WAVEFORM_UPDATE_INTERVAL = 150; // Reduced frequency to 150ms
-  const TRANSCRIPT_UPDATE_INTERVAL = 200; // Update transcript UI every 200ms
+  const WAVEFORM_UPDATE_INTERVAL = 150;
+  const TRANSCRIPT_UPDATE_INTERVAL = 200;
 
   updateClock();
   setInterval(updateClock, 1000);
@@ -44,10 +45,26 @@ window.addEventListener('DOMContentLoaded', async () => {
     timerSpan.textContent = `Session Ends In: ${String(Math.floor(remaining / 60)).padStart(2, '0')}:${String(remaining % 60).padStart(2, '0')}`;
   }
 
-  function appendMessage(sender, text) {
+  function appendMessage(sender, text, animate = false) {
     const p = document.createElement('p');
     p.classList.add(sender.toLowerCase());
-    p.innerHTML = `<strong>${sender}:</strong> ${text}`;
+    if (animate && sender === 'Roy') {
+      p.innerHTML = `<strong>${sender}:</strong> <span class="typing-text"></span>`;
+      const span = p.querySelector('.typing-text');
+      let i = 0;
+      const type = () => {
+        if (i < text.length) {
+          span.textContent += text[i];
+          i++;
+          setTimeout(type, 50);
+        } else {
+          span.classList.remove('typing-text');
+        }
+      };
+      type();
+    } else {
+      p.innerHTML = `<strong>${sender}:</strong> ${text}`;
+    }
     messagesEl.appendChild(p);
     messagesEl.scrollTop = messagesEl.scrollHeight;
   }
@@ -69,7 +86,7 @@ window.addEventListener('DOMContentLoaded', async () => {
         try {
           socket = new WebSocket('wss://api.deepgram.com/v1/listen?encoding=linear16&sample_rate=16000&channels=1', [
             'token',
-            'DEEPGRAM_API_KEY' // Replace with your actual Deepgram API key
+            'DEEPGRAM_API_KEY'
           ]);
           socket.binaryType = 'arraybuffer';
           break;
@@ -166,7 +183,7 @@ window.addEventListener('DOMContentLoaded', async () => {
     };
 
     recognition.onend = () => {
-      if (isRecording) recognition.start(); // Restart if still recording
+      if (isRecording) recognition.start();
     };
 
     recognition.start();
@@ -215,10 +232,12 @@ window.addEventListener('DOMContentLoaded', async () => {
 
   async function fetchRoyResponse(message) {
     const thinkingEl = document.createElement('p');
-    thinkingEl.className = 'roy';
+    thinkingEl.className = 'roy typing';
     thinkingEl.textContent = 'Roy is reflecting...';
     messagesEl.appendChild(thinkingEl);
     messagesEl.scrollTop = messagesEl.scrollHeight;
+
+    thinkingSound.play();
 
     let attempts = 0;
     const maxAttempts = 3;
@@ -235,7 +254,7 @@ window.addEventListener('DOMContentLoaded', async () => {
         thinkingEl.remove();
 
         if (mode === 'text' || mode === 'both') {
-          appendMessage('Roy', data.text);
+          appendMessage('Roy', data.text, true);
         }
         if ((mode === 'voice' || mode === 'both') && data.audio) {
           audioEl.src = `data:audio/mp3;base64,${data.audio}`;
