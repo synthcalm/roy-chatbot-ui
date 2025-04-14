@@ -1,4 +1,4 @@
-// script.js – Finalized Roy frontend with fixed WebSocket message and improved fallback
+// script.js – Finalized Roy frontend with fixed live transcription and waveform
 
 window.addEventListener('DOMContentLoaded', async () => {
   const micBtn = document.getElementById('mic-toggle');
@@ -100,7 +100,10 @@ window.addEventListener('DOMContentLoaded', async () => {
       stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       console.log('Microphone stream acquired:', stream.getAudioTracks());
 
-      audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      // Ensure AudioContext sample rate matches AssemblyAI's expected 16000 Hz
+      audioContext = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 16000 });
+      console.log('AudioContext sample rate:', audioContext.sampleRate);
+
       const source = audioContext.createMediaStreamSource(stream);
       analyser = audioContext.createAnalyser();
       analyser.fftSize = 2048;
@@ -129,7 +132,6 @@ window.addEventListener('DOMContentLoaded', async () => {
 
           socket.onopen = () => {
             console.log('WebSocket opened');
-            // Do not send an initial token message; AssemblyAI expects audio data
           };
 
           socket.onerror = (err) => {
@@ -152,12 +154,15 @@ window.addEventListener('DOMContentLoaded', async () => {
                 fallbackTranscription();
                 return;
               }
-              if (res.text && res.text.trim()) {
-                transcriptEl.querySelector('span').textContent = res.text;
-                liveTranscript = res.text;
-                messagesEl.scrollTop = messagesEl.scrollHeight;
-              } else {
-                transcriptEl.querySelector('span').textContent = 'Listening...';
+              if (res.message_type === 'PartialTranscript' || res.message_type === 'FinalTranscript') {
+                if (res.text && res.text.trim()) {
+                  transcriptEl.querySelector('span').textContent = res.text;
+                  liveTranscript = res.text;
+                  messagesEl.scrollTop = messagesEl.scrollHeight;
+                } else {
+                  console.log('No text in transcript, confidence:', res.confidence);
+                  transcriptEl.querySelector('span').textContent = 'Listening... (low confidence)';
+                }
               }
             } catch (err) {
               console.error('WebSocket message parse error:', err);
@@ -222,7 +227,10 @@ window.addEventListener('DOMContentLoaded', async () => {
   function stopRecording() {
     if (socket && socket.readyState === WebSocket.OPEN) {
       socket.send(JSON.stringify({ terminate_session: true }));
-      socket.close();
+      // Wait briefly for final transcript
+      setTimeout(() => {
+        socket.close();
+      }, 1000);
     }
     if (mediaRecorder) {
       mediaRecorder.stop();
@@ -300,12 +308,13 @@ window.addEventListener('DOMContentLoaded', async () => {
     const sliceWidth = userCanvas.width / dataArray.length;
     let x = 0;
     for (let i = 0; i < dataArray.length; i++) {
-      const y = (dataArray[i] / 128.0) * userCanvas.height / 2;
+      // Amplify the waveform for better visualization
+      const normalized = (dataArray[i] - 128) / 128.0; // Center around 0 (-1 to 1)
+      const y = (normalized * userCanvas.height * 0.8) + (userCanvas.height / 2); // Scale and center
       if (i === 0) userCtx.moveTo(x, y);
       else userCtx.lineTo(x, y);
       x += sliceWidth;
     }
-    userCtx.lineTo(userCanvas.width, userCanvas.height / 2);
     userCtx.stroke();
     // Log to check if waveform data is meaningful
     console.log('Waveform data sample:', dataArray[0], dataArray[Math.floor(dataArray.length / 2)]);
