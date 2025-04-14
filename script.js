@@ -1,4 +1,4 @@
-// script.js – Finalized Roy frontend with fixed live transcription and waveform
+// script.js – Finalized Roy frontend with reduced delays and fixed waveform updates
 
 window.addEventListener('DOMContentLoaded', async () => {
   const micBtn = document.getElementById('mic-toggle');
@@ -24,6 +24,7 @@ window.addEventListener('DOMContentLoaded', async () => {
   let transcriptEl = null;
   let mediaRecorder = null;
   let audioChunks = [];
+  let rafId = null; // For cancelling requestAnimationFrame
 
   updateClock();
   setInterval(updateClock, 1000);
@@ -69,6 +70,12 @@ window.addEventListener('DOMContentLoaded', async () => {
     }
 
     try {
+      const loadingEl = document.createElement('p');
+      loadingEl.textContent = 'Transcribing...';
+      loadingEl.className = 'roy';
+      messagesEl.appendChild(loadingEl);
+      messagesEl.scrollTop = messagesEl.scrollHeight;
+
       console.log('Fallback: Audio chunks length:', audioChunks.length);
       const blob = new Blob(audioChunks, { type: 'audio/webm' });
       console.log('Fallback: Audio blob size:', blob.size);
@@ -92,6 +99,8 @@ window.addEventListener('DOMContentLoaded', async () => {
     } catch (err) {
       console.error('Fallback transcription error:', err);
       appendMessage('Roy', 'Transcription failed. Try again or type your message.');
+    } finally {
+      messagesEl.removeChild(loadingEl);
     }
   }
 
@@ -100,7 +109,6 @@ window.addEventListener('DOMContentLoaded', async () => {
       stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       console.log('Microphone stream acquired:', stream.getAudioTracks());
 
-      // Ensure AudioContext sample rate matches AssemblyAI's expected 16000 Hz
       audioContext = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 16000 });
       console.log('AudioContext sample rate:', audioContext.sampleRate);
 
@@ -111,7 +119,6 @@ window.addEventListener('DOMContentLoaded', async () => {
       source.connect(analyser);
       drawWaveform();
 
-      // Fallback recording with MediaRecorder
       mediaRecorder = new MediaRecorder(stream);
       audioChunks = [];
       mediaRecorder.ondataavailable = (e) => {
@@ -121,7 +128,7 @@ window.addEventListener('DOMContentLoaded', async () => {
         }
       };
       mediaRecorder.onstop = () => console.log('MediaRecorder stopped, chunks:', audioChunks.length);
-      mediaRecorder.start(1000); // Capture data every 1 second
+      mediaRecorder.start(1000);
 
       if (window.AudioWorklet) {
         try {
@@ -155,12 +162,12 @@ window.addEventListener('DOMContentLoaded', async () => {
                 return;
               }
               if (res.message_type === 'PartialTranscript' || res.message_type === 'FinalTranscript') {
+                console.log('Transcript text:', res.text, 'Confidence:', res.confidence);
                 if (res.text && res.text.trim()) {
                   transcriptEl.querySelector('span').textContent = res.text;
                   liveTranscript = res.text;
                   messagesEl.scrollTop = messagesEl.scrollHeight;
                 } else {
-                  console.log('No text in transcript, confidence:', res.confidence);
                   transcriptEl.querySelector('span').textContent = 'Listening... (low confidence)';
                 }
               }
@@ -227,10 +234,9 @@ window.addEventListener('DOMContentLoaded', async () => {
   function stopRecording() {
     if (socket && socket.readyState === WebSocket.OPEN) {
       socket.send(JSON.stringify({ terminate_session: true }));
-      // Wait briefly for final transcript
       setTimeout(() => {
         socket.close();
-      }, 1000);
+      }, 2000); // Increased delay to ensure FinalTranscript is received
     }
     if (mediaRecorder) {
       mediaRecorder.stop();
@@ -242,6 +248,11 @@ window.addEventListener('DOMContentLoaded', async () => {
     if (audioContext) {
       audioContext.close();
       audioContext = null;
+    }
+    if (rafId) {
+      cancelAnimationFrame(rafId);
+      rafId = null;
+      userCtx.clearRect(0, 0, userCanvas.width, userCanvas.height); // Clear waveform
     }
 
     if (liveTranscript.trim()) {
@@ -278,6 +289,12 @@ window.addEventListener('DOMContentLoaded', async () => {
       appendMessage('Roy', data.text);
 
       if (modeSelect.value !== 'text') {
+        const speakingEl = document.createElement('p');
+        speakingEl.textContent = 'Roy is speaking...';
+        speakingEl.className = 'roy';
+        messagesEl.appendChild(speakingEl);
+        messagesEl.scrollTop = messagesEl.scrollHeight;
+
         const audioRes = await fetch('https://roy-chatbo-backend.onrender.com/api/chat/audio', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -287,18 +304,20 @@ window.addEventListener('DOMContentLoaded', async () => {
         const audioData = await audioRes.json();
         const audioEl = new Audio(`data:audio/mp3;base64,${audioData.audio}`);
         await audioEl.play();
+
+        messagesEl.removeChild(speakingEl);
       }
     } catch (err) {
       console.error('Fetch Roy response error:', err);
       appendMessage('Roy', 'A storm clouded my voice. Try again.');
     } finally {
-      thinkingEl.remove();
+      messagesEl.removeChild(thinkingEl);
     }
   }
 
   function drawWaveform() {
-    if (!analyser) return;
-    requestAnimationFrame(drawWaveform);
+    if (!analyser || !isRecording) return;
+    rafId = requestAnimationFrame(drawWaveform);
     analyser.getByteTimeDomainData(dataArray);
     userCtx.fillStyle = '#000';
     userCtx.fillRect(0, 0, userCanvas.width, userCanvas.height);
@@ -308,15 +327,13 @@ window.addEventListener('DOMContentLoaded', async () => {
     const sliceWidth = userCanvas.width / dataArray.length;
     let x = 0;
     for (let i = 0; i < dataArray.length; i++) {
-      // Amplify the waveform for better visualization
-      const normalized = (dataArray[i] - 128) / 128.0; // Center around 0 (-1 to 1)
-      const y = (normalized * userCanvas.height * 0.8) + (userCanvas.height / 2); // Scale and center
+      const normalized = (dataArray[i] - 128) / 128.0;
+      const y = (normalized * userCanvas.height * 1.5) + (userCanvas.height / 2); // Increased scaling
       if (i === 0) userCtx.moveTo(x, y);
       else userCtx.lineTo(x, y);
       x += sliceWidth;
     }
     userCtx.stroke();
-    // Log to check if waveform data is meaningful
     console.log('Waveform data sample:', dataArray[0], dataArray[Math.floor(dataArray.length / 2)]);
   }
 
