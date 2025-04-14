@@ -1,5 +1,6 @@
 // script.js – Updated Roy frontend with polished UX
-// Deepgram references removed, thinking.mp3 path fixed, error handling improved
+// Version: 2.0 (Deepgram removed, fixed automatic reply issue)
+// Note: After updating this file, ensure you redeploy to GitHub Pages (synthcalm.github.io) to apply changes.
 
 window.addEventListener('DOMContentLoaded', async () => {
   const micBtn = document.getElementById('mic-toggle');
@@ -79,7 +80,7 @@ window.addEventListener('DOMContentLoaded', async () => {
       isRecording = true;
       micBtn.textContent = 'Stop';
       micBtn.classList.add('recording');
-      appendMessage('Roy', 'Recording started... (transcription disabled)');
+      appendMessage('Roy', 'Recording started. Speak now, then press Stop to type or send.');
     } catch (err) {
       console.error('Recording error:', err);
       appendMessage('Roy', 'Could not access your microphone.');
@@ -97,7 +98,8 @@ window.addEventListener('DOMContentLoaded', async () => {
       analyser = null;
     }
 
-    appendMessage('Roy', 'Recording stopped. Transcription unavailable.');
+    // Only stop recording and prompt the user; do NOT trigger a Roy response
+    appendMessage('Roy', 'Recording stopped. Please type or send your message.');
     isRecording = false;
     micBtn.textContent = 'Speak';
     micBtn.classList.remove('recording');
@@ -111,7 +113,7 @@ window.addEventListener('DOMContentLoaded', async () => {
     messagesEl.scrollTop = messagesEl.scrollHeight;
 
     try {
-      thinkingSound.src = '/thinking.mp3'; // Adjusted path for GitHub Pages
+      thinkingSound.src = '/thinking.mp3'; // Adjust path if needed (e.g., '/assets/thinking.mp3')
       await thinkingSound.play();
     } catch (err) {
       console.error('Error playing thinking sound:', err);
