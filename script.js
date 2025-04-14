@@ -1,4 +1,4 @@
-// script.js – Updated Roy frontend with polished UX
+// script.js – Updated Roy frontend with polished UX and AssemblyAI integration
 
 window.addEventListener('DOMContentLoaded', async () => {
   const micBtn = document.getElementById('mic-toggle');
@@ -18,13 +18,15 @@ window.addEventListener('DOMContentLoaded', async () => {
   const audioEl = document.getElementById('roy-audio');
   const thinkingSound = document.getElementById('thinking-sound');
 
+  const BACKEND_URL = 'https://roy-chatbo-backend.onrender.com';
+
   let sessionStart = Date.now();
   let audioContext = null;
   let analyser = null;
   let dataArray = null;
   let stream = null;
   let isRecording = false;
-  let socket = null;
+  let assemblySocket = null;
   let liveTranscript = '';
   let transcriptEl = null;
   let lastWaveformUpdate = 0;
@@ -69,6 +71,17 @@ window.addEventListener('DOMContentLoaded', async () => {
     messagesEl.scrollTop = messagesEl.scrollHeight;
   }
 
+  async function getAssemblyAIToken() {
+    try {
+      const response = await fetch(`${BACKEND_URL}/api/assembly/token`);
+      const data = await response.json();
+      return data.token;
+    } catch (err) {
+      console.error('Failed to get AssemblyAI token:', err);
+      throw err;
+    }
+  }
+
   async function startRecording() {
     try {
       stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -80,74 +93,55 @@ window.addEventListener('DOMContentLoaded', async () => {
       source.connect(analyser);
       drawWaveform('user');
 
-      let attempts = 0;
-      const maxAttempts = 3;
-      while (attempts < maxAttempts) {
-        try {
-          socket = new WebSocket('wss://api.deepgram.com/v1/listen?encoding=linear16&sample_rate=16000&channels=1', [
-            'token',
-            'DEEPGRAM_API_KEY'
-          ]);
-          socket.binaryType = 'arraybuffer';
-          break;
-        } catch (err) {
-          attempts++;
-          if (attempts === maxAttempts) throw err;
-          await new Promise(resolve => setTimeout(resolve, 1000 * attempts));
-        }
-      }
-
-      socket.onopen = () => {
-        console.log('Deepgram WebSocket connection opened');
+      // Get AssemblyAI token
+      const token = await getAssemblyAIToken();
+      
+      // Connect to AssemblyAI real-time transcription
+      assemblySocket = new WebSocket(`wss://api.assemblyai.com/v2/realtime/ws?sample_rate=16000`, [token]);
+      
+      assemblySocket.onopen = () => {
+        console.log('AssemblyAI WebSocket connection opened');
+        
+        // Set up audio processor for sending audio data
+        const processor = audioContext.createScriptProcessor(2048, 1, 1);
+        processor.connect(audioContext.destination);
+        source.connect(processor);
+        
+        processor.onaudioprocess = (e) => {
+          if (assemblySocket.readyState === WebSocket.OPEN) {
+            const inputData = e.inputBuffer.getChannelData(0);
+            // Convert float32 to int16
+            const int16Data = new Int16Array(inputData.length);
+            for (let i = 0; i < inputData.length; i++) {
+              int16Data[i] = Math.max(-1, Math.min(1, inputData[i])) * 0x7FFF;
+            }
+            assemblySocket.send(JSON.stringify({ audio_data: convertToBase64(int16Data) }));
+          }
+        };
       };
 
-      socket.onmessage = (msg) => {
+      assemblySocket.onmessage = (msg) => {
         const data = JSON.parse(msg.data);
-        if (data.channel && data.channel.alternatives && data.channel.alternatives[0].transcript) {
-          liveTranscript = data.channel.alternatives[0].transcript;
+        if (data.message_type === 'FinalTranscript' || data.message_type === 'PartialTranscript') {
+          liveTranscript = data.text || '';
           updateLiveTranscript();
         }
       };
 
-      socket.onerror = (err) => {
-        console.error('Deepgram WebSocket error:', err);
+      assemblySocket.onerror = (err) => {
+        console.error('AssemblyAI WebSocket error:', err);
         appendMessage('Roy', 'A storm disrupted the transcription. Falling back to local recognition.');
         startLocalTranscription();
       };
 
-      socket.onclose = () => {
-        console.log('Deepgram WebSocket connection closed');
+      assemblySocket.onclose = () => {
+        console.log('AssemblyAI WebSocket connection closed');
       };
 
       transcriptEl = document.createElement('p');
       transcriptEl.className = 'you live-transcript';
       transcriptEl.innerHTML = '<strong>You (speaking):</strong> <span style="color: yellow">...</span>';
       messagesEl.appendChild(transcriptEl);
-
-      const worklet = `
-        class PCMProcessor extends AudioWorkletProcessor {
-          process(inputs) {
-            const input = inputs[0][0];
-            if (!input) return true;
-            const int16 = new Int16Array(input.length);
-            for (let i = 0; i < input.length; i++) {
-              int16[i] = Math.max(-1, Math.min(1, input[i])) * 32767;
-            }
-            this.port.postMessage(int16.buffer);
-            return true;
-          }
-        }
-        registerProcessor('pcm-processor', PCMProcessor);
-      `;
-
-      await audioContext.audioWorklet.addModule('data:application/javascript;base64,' + btoa(worklet));
-      const workletNode = new AudioWorkletNode(audioContext, 'pcm-processor');
-      workletNode.port.onmessage = (e) => {
-        if (socket.readyState === WebSocket.OPEN) {
-          socket.send(e.data);
-        }
-      };
-      source.connect(workletNode).connect(audioContext.destination);
 
       isRecording = true;
       micBtn.textContent = 'Stop';
@@ -156,6 +150,12 @@ window.addEventListener('DOMContentLoaded', async () => {
       console.error('Recording error:', err);
       appendMessage('Roy', 'Could not access your microphone.');
     }
+  }
+
+  function convertToBase64(int16Array) {
+    const bytes = new Uint8Array(int16Array.buffer);
+    const base64 = btoa(String.fromCharCode(...bytes));
+    return base64;
   }
 
   function startLocalTranscription() {
@@ -200,13 +200,16 @@ window.addEventListener('DOMContentLoaded', async () => {
   }
 
   function stopRecording() {
-    if (socket && socket.readyState === WebSocket.OPEN) {
-      socket.close();
+    if (assemblySocket && assemblySocket.readyState === WebSocket.OPEN) {
+      assemblySocket.close();
+      assemblySocket = null;
     }
+    
     if (stream) {
       stream.getTracks().forEach(track => track.stop());
       stream = null;
     }
+    
     if (audioContext) {
       audioContext.close();
       audioContext = null;
@@ -217,13 +220,14 @@ window.addEventListener('DOMContentLoaded', async () => {
       appendMessage('You', liveTranscript);
       fetchRoyResponse(liveTranscript);
     } else {
-      appendMessage('Roy', 'Your words didn’t make it through the static. Try again.');
+      appendMessage('Roy', 'Your words didn't make it through the static. Try again.');
     }
 
     if (transcriptEl) {
       transcriptEl.remove();
       transcriptEl = null;
     }
+    
     liveTranscript = '';
     isRecording = false;
     micBtn.textContent = 'Speak';
@@ -245,7 +249,7 @@ window.addEventListener('DOMContentLoaded', async () => {
       try {
         const mode = modeSelect.value || 'both';
         const apiMode = mode === 'text' ? 'text' : 'audio';
-        const res = await fetch(`https://roy-chatbo-backend.onrender.com/api/chat?mode=${apiMode}`, {
+        const res = await fetch(`${BACKEND_URL}/api/chat?mode=${apiMode}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ message })
