@@ -1,4 +1,4 @@
-// script.js – Updated Roy frontend with real-time transcription using AssemblyAI
+// script.js – Updated Roy frontend with polished UX
 
 window.addEventListener('DOMContentLoaded', async () => {
   const micBtn = document.getElementById('mic-toggle');
@@ -16,6 +16,7 @@ window.addEventListener('DOMContentLoaded', async () => {
   const userCtx = userCanvas.getContext('2d');
   const royCtx = royCanvas.getContext('2d');
   const audioEl = document.getElementById('roy-audio');
+  const thinkingSound = document.getElementById('thinking-sound');
 
   let sessionStart = Date.now();
   let audioContext = null;
@@ -24,11 +25,12 @@ window.addEventListener('DOMContentLoaded', async () => {
   let stream = null;
   let isRecording = false;
   let socket = null;
-  let token = null;
   let liveTranscript = '';
   let transcriptEl = null;
   let lastWaveformUpdate = 0;
-  const WAVEFORM_UPDATE_INTERVAL = 100; // Update waveform every 100ms
+  let lastTranscriptUpdate = 0;
+  const WAVEFORM_UPDATE_INTERVAL = 150;
+  const TRANSCRIPT_UPDATE_INTERVAL = 200;
 
   updateClock();
   setInterval(updateClock, 1000);
@@ -43,18 +45,28 @@ window.addEventListener('DOMContentLoaded', async () => {
     timerSpan.textContent = `Session Ends In: ${String(Math.floor(remaining / 60)).padStart(2, '0')}:${String(remaining % 60).padStart(2, '0')}`;
   }
 
-  function appendMessage(sender, text) {
+  function appendMessage(sender, text, animate = false) {
     const p = document.createElement('p');
     p.classList.add(sender.toLowerCase());
-    p.innerHTML = `<strong>${sender}:</strong> ${text}`;
+    if (animate && sender === 'Roy') {
+      p.innerHTML = `<strong>${sender}:</strong> <span class="typing-text"></span>`;
+      const span = p.querySelector('.typing-text');
+      let i = 0;
+      const type = () => {
+        if (i < text.length) {
+          span.textContent += text[i];
+          i++;
+          setTimeout(type, 50);
+        } else {
+          span.classList.remove('typing-text');
+        }
+      };
+      type();
+    } else {
+      p.innerHTML = `<strong>${sender}:</strong> ${text}`;
+    }
     messagesEl.appendChild(p);
     messagesEl.scrollTop = messagesEl.scrollHeight;
-  }
-
-  async function getToken() {
-    const res = await fetch('https://roy-chatbo-backend.onrender.com/api/assembly/token');
-    const data = await res.json();
-    token = data.token;
   }
 
   async function startRecording() {
@@ -68,33 +80,43 @@ window.addEventListener('DOMContentLoaded', async () => {
       source.connect(analyser);
       drawWaveform('user');
 
-      await getToken();
-
-      socket = new WebSocket(`wss://api.assemblyai.com/v2/realtime/ws?sample_rate=16000`);
-      socket.binaryType = 'arraybuffer';
+      let attempts = 0;
+      const maxAttempts = 3;
+      while (attempts < maxAttempts) {
+        try {
+          socket = new WebSocket('wss://api.deepgram.com/v1/listen?encoding=linear16&sample_rate=16000&channels=1', [
+            'token',
+            'DEEPGRAM_API_KEY'
+          ]);
+          socket.binaryType = 'arraybuffer';
+          break;
+        } catch (err) {
+          attempts++;
+          if (attempts === maxAttempts) throw err;
+          await new Promise(resolve => setTimeout(resolve, 1000 * attempts));
+        }
+      }
 
       socket.onopen = () => {
-        socket.send(JSON.stringify({ token }));
-        console.log('WebSocket connection opened');
+        console.log('Deepgram WebSocket connection opened');
       };
 
       socket.onmessage = (msg) => {
-        const res = JSON.parse(msg.data);
-        if (res.message_type === 'PartialTranscript' || res.message_type === 'FinalTranscript') {
-          liveTranscript = res.text;
-          if (transcriptEl) {
-            transcriptEl.querySelector('span').textContent = liveTranscript || '...';
-          }
+        const data = JSON.parse(msg.data);
+        if (data.channel && data.channel.alternatives && data.channel.alternatives[0].transcript) {
+          liveTranscript = data.channel.alternatives[0].transcript;
+          updateLiveTranscript();
         }
       };
 
       socket.onerror = (err) => {
-        console.error('WebSocket error:', err);
-        appendMessage('Roy', 'A storm disrupted the transcription. Try again.');
+        console.error('Deepgram WebSocket error:', err);
+        appendMessage('Roy', 'A storm disrupted the transcription. Falling back to local recognition.');
+        startLocalTranscription();
       };
 
       socket.onclose = () => {
-        console.log('WebSocket connection closed');
+        console.log('Deepgram WebSocket connection closed');
       };
 
       transcriptEl = document.createElement('p');
@@ -136,9 +158,49 @@ window.addEventListener('DOMContentLoaded', async () => {
     }
   }
 
+  function startLocalTranscription() {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      appendMessage('Roy', 'Local transcription not supported in this browser.');
+      return;
+    }
+
+    const recognition = new SpeechRecognition();
+    recognition.interimResults = true;
+    recognition.continuous = true;
+
+    recognition.onresult = (event) => {
+      const transcript = Array.from(event.results)
+        .map(result => result[0].transcript)
+        .join('');
+      liveTranscript = transcript;
+      updateLiveTranscript();
+    };
+
+    recognition.onerror = (err) => {
+      console.error('Local transcription error:', err);
+      appendMessage('Roy', 'Local transcription failed. Please try again.');
+    };
+
+    recognition.onend = () => {
+      if (isRecording) recognition.start();
+    };
+
+    recognition.start();
+  }
+
+  function updateLiveTranscript() {
+    const now = Date.now();
+    if (now - lastTranscriptUpdate < TRANSCRIPT_UPDATE_INTERVAL) return;
+    lastTranscriptUpdate = now;
+    if (transcriptEl) {
+      transcriptEl.querySelector('span').textContent = liveTranscript || '...';
+      messagesEl.scrollTop = messagesEl.scrollHeight;
+    }
+  }
+
   function stopRecording() {
     if (socket && socket.readyState === WebSocket.OPEN) {
-      socket.send(JSON.stringify({ terminate_session: true }));
       socket.close();
     }
     if (stream) {
@@ -170,50 +232,60 @@ window.addEventListener('DOMContentLoaded', async () => {
 
   async function fetchRoyResponse(message) {
     const thinkingEl = document.createElement('p');
-    thinkingEl.className = 'roy';
+    thinkingEl.className = 'roy typing';
     thinkingEl.textContent = 'Roy is reflecting...';
     messagesEl.appendChild(thinkingEl);
     messagesEl.scrollTop = messagesEl.scrollHeight;
 
-    try {
-      const mode = modeSelect.value || 'both';
-      const apiMode = mode === 'text' ? 'text' : 'audio'; // Map 'both' and 'voice' to 'audio' for the API
-      const res = await fetch(`https://roy-chatbo-backend.onrender.com/api/chat?mode=${apiMode}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message })
-      });
-      const data = await res.json();
-      thinkingEl.remove();
+    thinkingSound.play();
 
-      // Handle response based on mode
-      if (mode === 'text' || mode === 'both') {
-        appendMessage('Roy', data.text);
+    let attempts = 0;
+    const maxAttempts = 3;
+    while (attempts < maxAttempts) {
+      try {
+        const mode = modeSelect.value || 'both';
+        const apiMode = mode === 'text' ? 'text' : 'audio';
+        const res = await fetch(`https://roy-chatbo-backend.onrender.com/api/chat?mode=${apiMode}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message })
+        });
+        const data = await res.json();
+        thinkingEl.remove();
+
+        if (mode === 'text' || mode === 'both') {
+          appendMessage('Roy', data.text, true);
+        }
+        if ((mode === 'voice' || mode === 'both') && data.audio) {
+          audioEl.src = `data:audio/mp3;base64,${data.audio}`;
+          audioEl.style.display = 'block';
+          audioEl.play();
+
+          const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+          const source = audioContext.createMediaElementSource(audioEl);
+          analyser = audioContext.createAnalyser();
+          analyser.fftSize = 2048;
+          dataArray = new Uint8Array(analyser.frequencyBinCount);
+          source.connect(analyser);
+          analyser.connect(audioContext.destination);
+          drawWaveform('roy');
+
+          audioEl.onended = () => {
+            audioContext.close();
+            analyser = null;
+            royCtx.clearRect(0, 0, royCanvas.width, royCanvas.height);
+          };
+        }
+        return;
+      } catch (err) {
+        attempts++;
+        if (attempts === maxAttempts) {
+          thinkingEl.remove();
+          appendMessage('Roy', 'A storm clouded my voice. Please try again.');
+          return;
+        }
+        await new Promise(resolve => setTimeout(resolve, 1000 * attempts));
       }
-      if ((mode === 'voice' || mode === 'both') && data.audio) {
-        audioEl.src = `data:audio/mp3;base64,${data.audio}`;
-        audioEl.style.display = 'block';
-        audioEl.play();
-
-        // Visualize Roy's audio on royWaveform
-        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-        const source = audioContext.createMediaElementSource(audioEl);
-        analyser = audioContext.createAnalyser();
-        analyser.fftSize = 2048;
-        dataArray = new Uint8Array(analyser.frequencyBinCount);
-        source.connect(analyser);
-        analyser.connect(audioContext.destination);
-        drawWaveform('roy');
-
-        audioEl.onended = () => {
-          audioContext.close();
-          analyser = null;
-          royCtx.clearRect(0, 0, royCanvas.width, royCanvas.height);
-        };
-      }
-    } catch (err) {
-      thinkingEl.remove();
-      appendMessage('Roy', 'A storm clouded my voice. Try again.');
     }
   }
 
