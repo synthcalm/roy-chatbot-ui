@@ -1,4 +1,4 @@
-// script.js – Finalized Roy frontend with AssemblyAI real-time transcription + dual waveform
+// script.js – Roy frontend with isolated waveform scopes and real-time AssemblyAI transcription
 
 window.addEventListener('DOMContentLoaded', async () => {
   const micBtn = document.getElementById('mic-toggle');
@@ -15,9 +15,12 @@ window.addEventListener('DOMContentLoaded', async () => {
   const royCtx = royCanvas.getContext('2d');
 
   let sessionStart = Date.now();
-  let audioContext = null;
-  let analyser = null;
-  let dataArray = null;
+  let userAudioContext = null;
+  let userAnalyser = null;
+  let userDataArray = null;
+  let royAudioContext = null;
+  let royAnalyser = null;
+  let royDataArray = null;
   let stream = null;
   let isRecording = false;
   let socket = null;
@@ -55,15 +58,15 @@ window.addEventListener('DOMContentLoaded', async () => {
   async function startRecording() {
     try {
       stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      audioContext = new (window.AudioContext || window.webkitAudioContext)();
-      const source = audioContext.createMediaStreamSource(stream);
+      userAudioContext = new (window.AudioContext || window.webkitAudioContext)();
+      const source = userAudioContext.createMediaStreamSource(stream);
 
-      analyser = audioContext.createAnalyser();
-      analyser.fftSize = 2048;
-      dataArray = new Uint8Array(analyser.frequencyBinCount);
-      source.connect(analyser);
+      userAnalyser = userAudioContext.createAnalyser();
+      userAnalyser.fftSize = 2048;
+      userDataArray = new Uint8Array(userAnalyser.frequencyBinCount);
+      source.connect(userAnalyser);
 
-      drawWaveforms();
+      drawUserWaveform();
 
       transcriptEl = document.createElement('p');
       transcriptEl.className = 'you live-transcript';
@@ -97,13 +100,12 @@ window.addEventListener('DOMContentLoaded', async () => {
       }
       registerProcessor('pcm-processor', PCMProcessor);`;
 
-      await audioContext.audioWorklet.addModule('data:application/javascript;base64,' + btoa(worklet));
-      const workletNode = new AudioWorkletNode(audioContext, 'pcm-processor');
+      await userAudioContext.audioWorklet.addModule('data:application/javascript;base64,' + btoa(worklet));
+      const workletNode = new AudioWorkletNode(userAudioContext, 'pcm-processor');
       workletNode.port.onmessage = (e) => {
         if (socket.readyState === WebSocket.OPEN) socket.send(e.data);
       };
-
-      source.connect(workletNode).connect(audioContext.destination);
+      source.connect(workletNode).connect(userAudioContext.destination);
 
       isRecording = true;
       micBtn.textContent = 'Stop';
@@ -122,9 +124,9 @@ window.addEventListener('DOMContentLoaded', async () => {
       stream.getTracks().forEach(track => track.stop());
       stream = null;
     }
-    if (audioContext) {
-      audioContext.close();
-      audioContext = null;
+    if (userAudioContext) {
+      userAudioContext.close();
+      userAudioContext = null;
     }
 
     if (liveTranscript.trim()) {
@@ -164,7 +166,17 @@ window.addEventListener('DOMContentLoaded', async () => {
         });
         const audioData = await audioRes.json();
         const audioEl = new Audio(`data:audio/mp3;base64,${audioData.audio}`);
-        audioEl.play();
+
+        royAudioContext = new (window.AudioContext || window.webkitAudioContext)();
+        const roySource = royAudioContext.createMediaElementSource(audioEl);
+        royAnalyser = royAudioContext.createAnalyser();
+        royAnalyser.fftSize = 2048;
+        royDataArray = new Uint8Array(royAnalyser.frequencyBinCount);
+        roySource.connect(royAnalyser);
+        royAnalyser.connect(royAudioContext.destination);
+
+        drawRoyWaveform();
+        await audioEl.play();
       }
     } catch (err) {
       appendMessage('Roy', 'A storm clouded my voice. Try again.');
@@ -173,30 +185,63 @@ window.addEventListener('DOMContentLoaded', async () => {
     }
   }
 
-  function drawWaveforms() {
-    if (!analyser) return;
-    requestAnimationFrame(drawWaveforms);
+  function drawUserWaveform() {
+    if (!userAnalyser) return;
+    requestAnimationFrame(drawUserWaveform);
+    userAnalyser.getByteTimeDomainData(userDataArray);
+    userCtx.fillStyle = '#000';
+    userCtx.fillRect(0, 0, userCanvas.width, userCanvas.height);
+    drawGrid(userCtx, userCanvas.width, userCanvas.height, 'rgba(0,255,255,0.2)');
+    userCtx.strokeStyle = 'yellow';
+    userCtx.lineWidth = 1.5;
+    userCtx.beginPath();
+    const sliceWidth = userCanvas.width / userDataArray.length;
+    let x = 0;
+    for (let i = 0; i < userDataArray.length; i++) {
+      const y = (userDataArray[i] / 128.0) * userCanvas.height / 2;
+      i === 0 ? userCtx.moveTo(x, y) : userCtx.lineTo(x, y);
+      x += sliceWidth;
+    }
+    userCtx.lineTo(userCanvas.width, userCanvas.height / 2);
+    userCtx.stroke();
+  }
 
-    analyser.getByteTimeDomainData(dataArray);
+  function drawRoyWaveform() {
+    if (!royAnalyser) return;
+    requestAnimationFrame(drawRoyWaveform);
+    royAnalyser.getByteTimeDomainData(royDataArray);
+    royCtx.fillStyle = '#000';
+    royCtx.fillRect(0, 0, royCanvas.width, royCanvas.height);
+    drawGrid(royCtx, royCanvas.width, royCanvas.height, 'rgba(0,255,255,0.2)');
+    royCtx.strokeStyle = 'magenta';
+    royCtx.lineWidth = 1.5;
+    royCtx.beginPath();
+    const sliceWidth = royCanvas.width / royDataArray.length;
+    let x = 0;
+    for (let i = 0; i < royDataArray.length; i++) {
+      const y = (royDataArray[i] / 128.0) * royCanvas.height / 2;
+      i === 0 ? royCtx.moveTo(x, y) : royCtx.lineTo(x, y);
+      x += sliceWidth;
+    }
+    royCtx.lineTo(royCanvas.width, royCanvas.height / 2);
+    royCtx.stroke();
+  }
 
-    [userCtx, royCtx].forEach((ctx, i) => {
-      const isRoy = (ctx === royCtx);
-      const canvas = isRoy ? royCanvas : userCanvas;
-      ctx.fillStyle = '#000';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-      ctx.strokeStyle = isRoy ? 'magenta' : 'yellow';
-      ctx.lineWidth = 1.5;
+  function drawGrid(ctx, width, height, color) {
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 0.3;
+    for (let x = 0; x < width; x += 20) {
       ctx.beginPath();
-      const sliceWidth = canvas.width / dataArray.length;
-      let x = 0;
-      for (let i = 0; i < dataArray.length; i++) {
-        const y = (dataArray[i] / 128.0) * canvas.height / 2;
-        i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
-        x += sliceWidth;
-      }
-      ctx.lineTo(canvas.width, canvas.height / 2);
+      ctx.moveTo(x, 0);
+      ctx.lineTo(x, height);
       ctx.stroke();
-    });
+    }
+    for (let y = 0; y < height; y += 20) {
+      ctx.beginPath();
+      ctx.moveTo(0, y);
+      ctx.lineTo(width, y);
+      ctx.stroke();
+    }
   }
 
   sendBtn.addEventListener('click', () => {
