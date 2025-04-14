@@ -2,39 +2,39 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Roy – Poetic Therapist</title>
-  <link rel="stylesheet" href="style.css"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Roy // SynthCalm</title>
+  <link rel="stylesheet" href="style.css" />
+  <link rel="icon" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAAAXNSR0IArs4c6QAAADBJREFUWIXt0rENACAIBNH7/z+KiC2W1oFzYQUXjA+PtE9f2WdVvaZ8eADx9ABz9wC0xAHoZcJqRwAAAABJRU5ErkJggg==" />
 </head>
 <body>
   <div class="container">
-    <div class="header">
-      <span id="current-date"></span>
-      <span id="countdown-timer" class="right"></span>
+    <div class="title-bar">
+      <span id="current-date">0000-00-00</span>
+      <span id="current-time">00:00:00</span>
+      <span id="countdown-timer">Session Ends In: 60:00</span>
     </div>
-
-    <canvas id="userWaveform" width="600" height="120"></canvas>
-    <canvas id="royWaveform" width="600" height="120"></canvas>
-
-    <div id="messages" class="message-box"></div>
-
-    <textarea id="user-input" placeholder="Say or type something..."></textarea>
-    <button id="send-button">Send</button>
-
-    <label for="responseMode">Roy Response Mode:</label>
-    <select id="responseMode">
-      <option value="text">Text Only</option>
-      <option value="voice">Voice Only</option>
-      <option value="text+voice" selected>Text + Voice</option>
-    </select>
-
-    <div class="controls">
-      <button id="mic-toggle">Speak</button>
-      <button id="save-log">Save Log</button>
-      <a href="https://synthcalm.com" target="_blank"><button>SynthCalm Home</button></a>
+    <canvas id="userWaveform" height="60" style="width:100%; margin-bottom:10px;"></canvas>
+    <div id="messages"></div>
+    <canvas id="royWaveform" height="60" style="width:100%; margin-top:10px;"></canvas>
+    <div class="input-area">
+      <div class="input-group">
+        <textarea id="user-input" placeholder="Say or type something..." rows="4"></textarea>
+        <button id="send-button" class="button">Send</button>
+      </div>
+      <label for="responseMode" style="color:#0ff; font-size:12px;">Roy Response Mode:</label>
+      <select id="responseMode" class="button">
+        <option value="both">Text + Voice</option>
+        <option value="text">Text Only</option>
+        <option value="voice">Voice Only</option>
+      </select>
+      <div class="button-group">
+        <button id="mic-toggle" class="button">Speak</button>
+        <button id="save-log" class="button">Save Log</button>
+        <button id="home-btn" class="button" onclick="window.location.href='https://synthcalm.com'">SynthCalm Home</button>
+      </div>
     </div>
   </div>
-
-  <script src="script.js"></script>
+  <script src="script.js" defer></script>
 </body>
 </html>
