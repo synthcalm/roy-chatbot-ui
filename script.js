@@ -1,10 +1,8 @@
-// script.js – Finalized Roy frontend using AssemblyAI (NOT Deepgram) and restored UX
+// script.js – Finalized Roy frontend with AssemblyAI real-time transcription + dual waveform
 
 window.addEventListener('DOMContentLoaded', async () => {
   const micBtn = document.getElementById('mic-toggle');
   const sendBtn = document.getElementById('send-button');
-  const saveLogBtn = document.getElementById('save-log');
-  const homeBtn = document.getElementById('home-btn');
   const inputEl = document.getElementById('user-input');
   const messagesEl = document.getElementById('messages');
   const modeSelect = document.getElementById('responseMode');
@@ -12,8 +10,8 @@ window.addEventListener('DOMContentLoaded', async () => {
   const timeSpan = document.getElementById('current-time');
   const timerSpan = document.getElementById('countdown-timer');
   const userCanvas = document.getElementById('userWaveform');
-  const royCanvas = document.getElementById('royWaveform');
   const userCtx = userCanvas.getContext('2d');
+  const royCanvas = document.getElementById('royWaveform');
   const royCtx = royCanvas.getContext('2d');
 
   let sessionStart = Date.now();
@@ -55,65 +53,65 @@ window.addEventListener('DOMContentLoaded', async () => {
   }
 
   async function startRecording() {
-  try {
-    stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    audioContext = new (window.AudioContext || window.webkitAudioContext)();
-    const source = audioContext.createMediaStreamSource(stream);
-    analyser = audioContext.createAnalyser();
-    analyser.fftSize = 2048;
-    dataArray = new Uint8Array(analyser.frequencyBinCount);
-    source.connect(analyser);
-    drawWaveform();
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      const source = audioContext.createMediaStreamSource(stream);
 
-    // ✅ FIRST create live transcript element
-    transcriptEl = document.createElement('p');
-    transcriptEl.className = 'you live-transcript';
-    transcriptEl.innerHTML = '<strong>You (speaking):</strong> <span style="color: yellow">...</span>';
-    messagesEl.appendChild(transcriptEl);
+      analyser = audioContext.createAnalyser();
+      analyser.fftSize = 2048;
+      dataArray = new Uint8Array(analyser.frequencyBinCount);
+      source.connect(analyser);
 
-    // ✅ THEN request the AssemblyAI token
-    await getToken();
+      drawWaveforms();
 
-    socket = new WebSocket(`wss://api.assemblyai.com/v2/realtime/ws?sample_rate=16000`);
-    socket.binaryType = 'arraybuffer';
+      transcriptEl = document.createElement('p');
+      transcriptEl.className = 'you live-transcript';
+      transcriptEl.innerHTML = '<strong>You (speaking):</strong> <span style="color: yellow">...</span>';
+      messagesEl.appendChild(transcriptEl);
 
-    socket.onopen = () => socket.send(JSON.stringify({ token }));
+      await getToken();
 
-    socket.onmessage = (msg) => {
-      const res = JSON.parse(msg.data);
-      if (res.text && transcriptEl) {
-        transcriptEl.querySelector('span').textContent = res.text;
-        liveTranscript = res.text;
+      socket = new WebSocket(`wss://api.assemblyai.com/v2/realtime/ws?sample_rate=16000`);
+      socket.binaryType = 'arraybuffer';
+
+      socket.onopen = () => socket.send(JSON.stringify({ token }));
+
+      socket.onmessage = (msg) => {
+        const res = JSON.parse(msg.data);
+        if (res.text && transcriptEl) {
+          transcriptEl.querySelector('span').textContent = res.text;
+          liveTranscript = res.text;
+        }
+      };
+
+      const worklet = `class PCMProcessor extends AudioWorkletProcessor {
+        process(inputs) {
+          const input = inputs[0][0];
+          if (!input) return true;
+          const int16 = new Int16Array(input.length);
+          for (let i = 0; i < input.length; i++) int16[i] = Math.max(-1, Math.min(1, input[i])) * 32767;
+          this.port.postMessage(int16.buffer);
+          return true;
+        }
       }
-    };
+      registerProcessor('pcm-processor', PCMProcessor);`;
 
-    // ✅ Set up AudioWorklet
-    const worklet = `class PCMProcessor extends AudioWorkletProcessor {
-      process(inputs) {
-        const input = inputs[0][0];
-        if (!input) return true;
-        const int16 = new Int16Array(input.length);
-        for (let i = 0; i < input.length; i++) int16[i] = Math.max(-1, Math.min(1, input[i])) * 32767;
-        this.port.postMessage(int16.buffer);
-        return true;
-      }
+      await audioContext.audioWorklet.addModule('data:application/javascript;base64,' + btoa(worklet));
+      const workletNode = new AudioWorkletNode(audioContext, 'pcm-processor');
+      workletNode.port.onmessage = (e) => {
+        if (socket.readyState === WebSocket.OPEN) socket.send(e.data);
+      };
+
+      source.connect(workletNode).connect(audioContext.destination);
+
+      isRecording = true;
+      micBtn.textContent = 'Stop';
+      micBtn.classList.add('active');
+    } catch (err) {
+      appendMessage('Roy', 'Could not access your microphone.');
     }
-    registerProcessor('pcm-processor', PCMProcessor);`;
-
-    await audioContext.audioWorklet.addModule('data:application/javascript;base64,' + btoa(worklet));
-    const workletNode = new AudioWorkletNode(audioContext, 'pcm-processor');
-    workletNode.port.onmessage = (e) => {
-      if (socket.readyState === WebSocket.OPEN) socket.send(e.data);
-    };
-    source.connect(workletNode).connect(audioContext.destination);
-
-    isRecording = true;
-    micBtn.textContent = 'Stop';
-    micBtn.classList.add('active');
-  } catch (err) {
-    appendMessage('Roy', 'Could not access your microphone.');
   }
-}
 
   function stopRecording() {
     if (socket && socket.readyState === WebSocket.OPEN) {
@@ -165,8 +163,8 @@ window.addEventListener('DOMContentLoaded', async () => {
           body: JSON.stringify({ text: data.text })
         });
         const audioData = await audioRes.json();
-        const audio = new Audio(`data:audio/mp3;base64,${audioData.audio}`);
-        await audio.play();
+        const audioEl = new Audio(`data:audio/mp3;base64,${audioData.audio}`);
+        audioEl.play();
       }
     } catch (err) {
       appendMessage('Roy', 'A storm clouded my voice. Try again.');
@@ -175,26 +173,30 @@ window.addEventListener('DOMContentLoaded', async () => {
     }
   }
 
-  function drawWaveform(type) {
+  function drawWaveforms() {
     if (!analyser) return;
-    requestAnimationFrame(() => drawWaveform(type));
+    requestAnimationFrame(drawWaveforms);
+
     analyser.getByteTimeDomainData(dataArray);
-    const canvas = type === 'user' ? userCanvas : royCanvas;
-    const ctx = type === 'user' ? userCtx : royCtx;
-    ctx.fillStyle = '#000';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    ctx.strokeStyle = type === 'user' ? 'yellow' : '#0ff';
-    ctx.lineWidth = 1.5;
-    ctx.beginPath();
-    const sliceWidth = canvas.width / dataArray.length;
-    let x = 0;
-    for (let i = 0; i < dataArray.length; i++) {
-      const y = (dataArray[i] / 128.0) * canvas.height / 2;
-      i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
-      x += sliceWidth;
-    }
-    ctx.lineTo(canvas.width, canvas.height / 2);
-    ctx.stroke();
+
+    [userCtx, royCtx].forEach((ctx, i) => {
+      const isRoy = (ctx === royCtx);
+      const canvas = isRoy ? royCanvas : userCanvas;
+      ctx.fillStyle = '#000';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.strokeStyle = isRoy ? 'magenta' : 'yellow';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      const sliceWidth = canvas.width / dataArray.length;
+      let x = 0;
+      for (let i = 0; i < dataArray.length; i++) {
+        const y = (dataArray[i] / 128.0) * canvas.height / 2;
+        i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+        x += sliceWidth;
+      }
+      ctx.lineTo(canvas.width, canvas.height / 2);
+      ctx.stroke();
+    });
   }
 
   sendBtn.addEventListener('click', () => {
@@ -208,20 +210,5 @@ window.addEventListener('DOMContentLoaded', async () => {
 
   micBtn.addEventListener('click', () => {
     isRecording ? stopRecording() : startRecording();
-  });
-
-  saveLogBtn.addEventListener('click', () => {
-    const messages = Array.from(messagesEl.querySelectorAll('p')).map(p => p.textContent).join('\n');
-    const blob = new Blob([messages], { type: 'text/plain' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `roy-session-${new Date().toISOString().split('T')[0]}.txt`;
-    a.click();
-    URL.revokeObjectURL(url);
-  });
-
-  homeBtn.addEventListener('click', () => {
-    window.location.href = 'https://synthcalm.com';
   });
 });
