@@ -1,4 +1,4 @@
-// script.js – Finalized Roy frontend with fixed live transcription and waveform
+// script.js – Finalized Roy frontend with real-time transcription, reduced lag, typewriter effect, and fixed waveform
 
 window.addEventListener('DOMContentLoaded', async () => {
   const micBtn = document.getElementById('mic-toggle');
@@ -136,8 +136,7 @@ window.addEventListener('DOMContentLoaded', async () => {
         try {
           await getToken();
 
-          // Add word_boost to improve transcription accuracy
-          const wordBoost = encodeURIComponent(JSON.stringify(["begin", "check", "test"]));
+          const wordBoost = encodeURIComponent(JSON.stringify(["begin", "check", "test", "where", "shall", "we"]));
           socket = new WebSocket(`wss://api.assemblyai.com/v2/realtime/ws?sample_rate=16000&token=${token}&word_boost=${wordBoost}`);
           socket.binaryType = 'arraybuffer';
 
@@ -168,11 +167,19 @@ window.addEventListener('DOMContentLoaded', async () => {
               if (res.message_type === 'PartialTranscript' || res.message_type === 'FinalTranscript') {
                 console.log('Transcript text:', res.text, 'Confidence:', res.confidence);
                 if (res.text && res.text.trim()) {
-                  transcriptEl.querySelector('span').textContent = res.text;
                   liveTranscript = res.text;
-                  messagesEl.scrollTop = messagesEl.scrollHeight;
+                  if (transcriptEl) {
+                    transcriptEl.querySelector('span').textContent = res.text;
+                    // Force DOM repaint
+                    transcriptEl.style.display = 'none';
+                    transcriptEl.offsetHeight; // Trigger reflow
+                    transcriptEl.style.display = 'block';
+                    messagesEl.scrollTop = messagesEl.scrollHeight;
+                  }
                 } else {
-                  transcriptEl.querySelector('span').textContent = 'Listening... (low confidence)';
+                  if (transcriptEl) {
+                    transcriptEl.querySelector('span').textContent = 'Listening... (low confidence)';
+                  }
                 }
               }
             } catch (err) {
@@ -184,6 +191,7 @@ window.addEventListener('DOMContentLoaded', async () => {
           transcriptEl.className = 'you live-transcript';
           transcriptEl.innerHTML = '<strong>You (speaking):</strong> <span style="color: yellow">...</span>';
           messagesEl.appendChild(transcriptEl);
+          messagesEl.scrollTop = messagesEl.scrollHeight;
 
           const worklet = `class PCMProcessor extends AudioWorkletProcessor {
             process(inputs) {
@@ -279,7 +287,11 @@ window.addEventListener('DOMContentLoaded', async () => {
   async function fetchRoyResponse(message) {
     const thinkingEl = document.createElement('p');
     thinkingEl.textContent = 'Roy is reflecting...';
-    thinkingEl.className = 'roy';
+    let dots = 0;
+    const thinkingInterval = setInterval(() => {
+      dots = (dots + 1) % 4;
+      thinkingEl.textContent = 'Roy is reflecting' + '.'.repeat(dots);
+    }, 500);
     messagesEl.appendChild(thinkingEl);
     messagesEl.scrollTop = messagesEl.scrollHeight;
 
@@ -293,12 +305,11 @@ window.addEventListener('DOMContentLoaded', async () => {
       console.log('Text generation time:', Date.now() - startTime, 'ms');
       if (!res.ok) throw new Error(`Chat request failed: ${res.status} - ${await res.text()}`);
       const data = await res.json();
-      appendMessage('Roy', data.text);
+      clearInterval(thinkingInterval);
 
       if (modeSelect.value !== 'text') {
         const speakingEl = document.createElement('p');
         speakingEl.textContent = 'Roy is speaking...';
-        speakingEl.className = 'roy';
         messagesEl.appendChild(speakingEl);
         messagesEl.scrollTop = messagesEl.scrollHeight;
 
@@ -312,14 +323,41 @@ window.addEventListener('DOMContentLoaded', async () => {
         if (!audioRes.ok) throw new Error(`Audio request failed: ${audioRes.status} - ${await audioRes.text()}`);
         const audioData = await audioRes.json();
         const audioEl = new Audio(`data:audio/mp3;base64,${audioData.audio}`);
+
+        // Typewriter effect synchronized with audio
+        const royMessageEl = document.createElement('p');
+        royMessageEl.className = 'roy';
+        royMessageEl.innerHTML = '<strong>Roy:</strong> <span></span>';
+        messagesEl.appendChild(royMessageEl);
+        messagesEl.scrollTop = messagesEl.scrollHeight;
+
+        const textSpan = royMessageEl.querySelector('span');
+        const fullText = data.text;
+        let currentIndex = 0;
+        const audioDuration = 10000; // Estimate 10 seconds for now; ideally, get this from audio metadata
+        const charInterval = audioDuration / fullText.length;
+
+        const typeText = () => {
+          if (currentIndex < fullText.length) {
+            textSpan.textContent += fullText[currentIndex];
+            currentIndex++;
+            messagesEl.scrollTop = messagesEl.scrollHeight;
+            setTimeout(typeText, charInterval);
+          }
+        };
+
+        audioEl.onplay = () => typeText();
         await audioEl.play();
 
         messagesEl.removeChild(speakingEl);
+      } else {
+        appendMessage('Roy', data.text);
       }
     } catch (err) {
       console.error('Fetch Roy response error:', err);
       appendMessage('Roy', 'A storm clouded my voice. Try again.');
     } finally {
+      clearInterval(thinkingInterval);
       messagesEl.removeChild(thinkingEl);
     }
   }
@@ -336,24 +374,24 @@ window.addEventListener('DOMContentLoaded', async () => {
     const sliceWidth = userCanvas.width / dataArray.length;
     let x = 0;
 
-    // Find min and max for dynamic scaling
+    // Scale based on PCM values (max observed ~9700)
     let min = 128, max = 128;
     for (let i = 0; i < dataArray.length; i++) {
       min = Math.min(min, dataArray[i]);
       max = Math.max(max, dataArray[i]);
     }
     const range = Math.max(1, max - min);
+    const scaleFactor = 10000 / range; // Normalize to PCM range
     console.log('Waveform data range:', min, max);
 
     for (let i = 0; i < dataArray.length; i++) {
-      const normalized = (dataArray[i] - 128) / range;
-      const y = (normalized * userCanvas.height * 2) + (userCanvas.height / 2); // Dynamic scaling
+      const normalized = (dataArray[i] - 128) / 128.0;
+      const y = (normalized * userCanvas.height * scaleFactor) + (userCanvas.height / 2);
       if (i === 0) userCtx.moveTo(x, y);
       else userCtx.lineTo(x, y);
       x += sliceWidth;
     }
     userCtx.stroke();
-    console.log('Waveform data sample:', dataArray[0], dataArray[Math.floor(dataArray.length / 2)]);
   }
 
   sendBtn.addEventListener('click', () => {
@@ -369,7 +407,6 @@ window.addEventListener('DOMContentLoaded', async () => {
     isRecording ? stopRecording() : startRecording();
   });
 
-  // Handle Save Log button
   document.getElementById('save-log').addEventListener('click', () => {
     const messages = Array.from(messagesEl.getElementsByTagName('p'))
       .map(p => p.textContent)
