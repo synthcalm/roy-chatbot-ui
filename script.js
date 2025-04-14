@@ -1,4 +1,4 @@
-// script.js – Real-time voice flow for Roy using AssemblyAI (copied from MIA)
+// script.js – Finalized Roy frontend using MIA's working flow
 
 window.addEventListener('DOMContentLoaded', async () => {
   const micBtn = document.getElementById('mic-toggle');
@@ -9,28 +9,33 @@ window.addEventListener('DOMContentLoaded', async () => {
   const dateSpan = document.getElementById('current-date');
   const timeSpan = document.getElementById('current-time');
   const timerSpan = document.getElementById('countdown-timer');
-  const sessionId = `session-${Date.now()}`;
-  let stream, audioContext, source, workletNode, socket, liveTranscriptEl, isRecording = false;
+  const userCanvas = document.getElementById('userWaveform');
+  const userCtx = userCanvas.getContext('2d');
 
-  const royBackend = 'https://roy-chatbo-backend.onrender.com';
-  const sessionStart = Date.now();
+  let sessionStart = Date.now();
+  let audioContext = null;
+  let analyser = null;
+  let dataArray = null;
+  let stream = null;
+  let isRecording = false;
+  let socket = null;
+  let token = null;
+  let liveTranscript = '';
+  let transcriptEl = null;
 
-  // Clock + Timer
-  function updateClock() {
-    const now = new Date();
-    const elapsed = Math.floor((Date.now() - sessionStart) / 1000);
-    const remaining = Math.max(0, 3600 - elapsed);
-    dateSpan.textContent = now.toISOString().split('T')[0];
-    timeSpan.textContent = now.toTimeString().split(' ')[0];
-    timerSpan.textContent = `Session Ends In: ${String(Math.floor(remaining / 60)).padStart(2, '0')}:${String(remaining % 60).padStart(2, '0')}`;
-  }
-  setInterval(updateClock, 1000);
   updateClock();
-
-  // Greet
+  setInterval(updateClock, 1000);
   appendMessage('Roy', "Welcome. I'm Roy. Speak when ready — your thoughts hold weight.");
 
-  // Helpers
+  function updateClock() {
+    const now = new Date();
+    dateSpan.textContent = now.toISOString().split('T')[0];
+    timeSpan.textContent = now.toTimeString().split(' ')[0];
+    const elapsed = Math.floor((Date.now() - sessionStart) / 1000);
+    const remaining = Math.max(0, 3600 - elapsed);
+    timerSpan.textContent = `Session Ends In: ${String(Math.floor(remaining / 60)).padStart(2, '0')}:${String(remaining % 60).padStart(2, '0')}`;
+  }
+
   function appendMessage(sender, text) {
     const p = document.createElement('p');
     p.classList.add(sender.toLowerCase());
@@ -39,128 +44,160 @@ window.addEventListener('DOMContentLoaded', async () => {
     messagesEl.scrollTop = messagesEl.scrollHeight;
   }
 
+  async function getToken() {
+    const res = await fetch('https://roy-chatbo-backend.onrender.com/api/assembly/token');
+    const data = await res.json();
+    token = data.token;
+  }
+
   async function startRecording() {
     try {
       stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      audioContext = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 16000 });
-      await audioContext.audioWorklet.addModule('data:application/javascript;base64,' + btoa(`
-        class PCMProcessor extends AudioWorkletProcessor {
-          process(inputs) {
-            const input = inputs[0][0];
-            if (!input) return true;
-            const int16 = new Int16Array(input.length);
-            for (let i = 0; i < input.length; i++) {
-              int16[i] = Math.max(-1, Math.min(1, input[i])) * 0x7fff;
-            }
-            this.port.postMessage(int16.buffer);
-            return true;
-          }
-        }
-        registerProcessor('pcm-processor', PCMProcessor);`));
+      audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      const source = audioContext.createMediaStreamSource(stream);
+      analyser = audioContext.createAnalyser();
+      analyser.fftSize = 2048;
+      dataArray = new Uint8Array(analyser.frequencyBinCount);
+      source.connect(analyser);
+      drawWaveform();
 
-      source = audioContext.createMediaStreamSource(stream);
-      workletNode = new AudioWorkletNode(audioContext, 'pcm-processor');
+      await getToken();
 
-      workletNode.port.onmessage = (e) => {
-        if (socket && socket.readyState === WebSocket.OPEN) {
-          socket.send(e.data);
+      socket = new WebSocket(`wss://api.assemblyai.com/v2/realtime/ws?sample_rate=16000`);
+      socket.binaryType = 'arraybuffer';
+
+      socket.onopen = () => socket.send(JSON.stringify({ token }));
+
+      socket.onmessage = (msg) => {
+        const res = JSON.parse(msg.data);
+        if (res.text) {
+          transcriptEl.querySelector('span').textContent = res.text;
+          liveTranscript = res.text;
         }
       };
 
+      transcriptEl = document.createElement('p');
+      transcriptEl.className = 'you live-transcript';
+      transcriptEl.innerHTML = '<strong>You (speaking):</strong> <span style="color: yellow">...</span>';
+      messagesEl.appendChild(transcriptEl);
+
+      const worklet = `class PCMProcessor extends AudioWorkletProcessor {
+        process(inputs) {
+          const input = inputs[0][0];
+          if (!input) return true;
+          const int16 = new Int16Array(input.length);
+          for (let i = 0; i < input.length; i++) int16[i] = Math.max(-1, Math.min(1, input[i])) * 32767;
+          this.port.postMessage(int16.buffer);
+          return true;
+        }
+      }
+      registerProcessor('pcm-processor', PCMProcessor);`;
+
+      await audioContext.audioWorklet.addModule('data:application/javascript;base64,' + btoa(worklet));
+      const workletNode = new AudioWorkletNode(audioContext, 'pcm-processor');
+      workletNode.port.onmessage = (e) => {
+        if (socket.readyState === WebSocket.OPEN) socket.send(e.data);
+      };
       source.connect(workletNode).connect(audioContext.destination);
-      await connectToAssemblyAI();
 
-      liveTranscriptEl = document.createElement('p');
-      liveTranscriptEl.className = 'you live-transcript';
-      liveTranscriptEl.innerHTML = '<strong>You (speaking):</strong> <span style="color: yellow">...</span>';
-      messagesEl.appendChild(liveTranscriptEl);
-
+      isRecording = true;
       micBtn.textContent = 'Stop';
       micBtn.classList.add('active');
-      isRecording = true;
     } catch (err) {
-      appendMessage('Roy', 'Microphone access denied or failed.');
-      console.error('Mic error:', err);
+      appendMessage('Roy', 'Could not access your microphone.');
     }
   }
 
-  async function stopRecording() {
+  function stopRecording() {
     if (socket && socket.readyState === WebSocket.OPEN) {
       socket.send(JSON.stringify({ terminate_session: true }));
       socket.close();
     }
-    if (audioContext) await audioContext.close();
-    if (stream) stream.getTracks().forEach(track => track.stop());
-    if (liveTranscriptEl) {
-      const final = liveTranscriptEl.querySelector('span').textContent.trim();
-      liveTranscriptEl.remove();
-      if (final && final !== '...') {
-        appendMessage('You', final);
-        await fetchRoyResponse(final);
-      } else {
-        appendMessage('Roy', 'Your words didn’t make it through the static. Try again.');
-      }
+    if (stream) {
+      stream.getTracks().forEach(track => track.stop());
+      stream = null;
     }
+    if (audioContext) {
+      audioContext.close();
+      audioContext = null;
+    }
+
+    if (liveTranscript.trim()) {
+      appendMessage('You', liveTranscript);
+      fetchRoyResponse(liveTranscript);
+    } else {
+      appendMessage('Roy', 'Your words didn’t make it through the static. Try again.');
+    }
+
+    if (transcriptEl) transcriptEl.remove();
+    isRecording = false;
     micBtn.textContent = 'Speak';
     micBtn.classList.remove('active');
-    isRecording = false;
   }
 
-  async function connectToAssemblyAI() {
-    const res = await fetch(`${royBackend}/api/assembly/token`);
-    const { token } = await res.json();
-    socket = new WebSocket(`wss://api.assemblyai.com/v2/realtime/ws?sample_rate=16000`);
-    socket.binaryType = 'arraybuffer';
+  async function fetchRoyResponse(message) {
+    const thinkingEl = document.createElement('p');
+    thinkingEl.textContent = 'Roy is reflecting...';
+    thinkingEl.className = 'roy';
+    messagesEl.appendChild(thinkingEl);
+    messagesEl.scrollTop = messagesEl.scrollHeight;
 
-    socket.onopen = () => {
-      socket.send(JSON.stringify({ token }));
-    };
-
-    socket.onmessage = (msg) => {
-      const data = JSON.parse(msg.data);
-      if (data.text && liveTranscriptEl) {
-        liveTranscriptEl.querySelector('span').textContent = data.text;
-        messagesEl.scrollTop = messagesEl.scrollHeight;
-      }
-    };
-  }
-
-  async function fetchRoyResponse(text) {
-    const resText = await fetch(`${royBackend}/api/chat/text`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ message: text, sessionId })
-    });
-    const { text: reply } = await resText.json();
-    appendMessage('Roy', reply);
-
-    if (modeSelect.value !== 'text') {
-      const resAudio = await fetch(`${royBackend}/api/chat/audio`, {
+    try {
+      const res = await fetch('https://roy-chatbo-backend.onrender.com/api/chat/text', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: reply })
+        body: JSON.stringify({ message })
       });
-      const { audio } = await resAudio.json();
+      const data = await res.json();
+      appendMessage('Roy', data.text);
 
-      const audioEl = new Audio(`data:audio/mp3;base64,${audio}`);
-      await audioEl.play();
+      if (modeSelect.value !== 'text') {
+        const audioRes = await fetch('https://roy-chatbo-backend.onrender.com/api/chat/audio', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text: data.text })
+        });
+        const audioData = await audioRes.json();
+        const audioEl = new Audio(`data:audio/mp3;base64,${audioData.audio}`);
+        await audioEl.play();
+      }
+    } catch (err) {
+      appendMessage('Roy', 'A storm clouded my voice. Try again.');
+    } finally {
+      thinkingEl.remove();
     }
   }
 
-  sendBtn.addEventListener('click', async () => {
+  function drawWaveform() {
+    if (!analyser) return;
+    requestAnimationFrame(drawWaveform);
+    analyser.getByteTimeDomainData(dataArray);
+    userCtx.fillStyle = '#000';
+    userCtx.fillRect(0, 0, userCanvas.width, userCanvas.height);
+    userCtx.strokeStyle = 'yellow';
+    userCtx.lineWidth = 1.5;
+    userCtx.beginPath();
+    const sliceWidth = userCanvas.width / dataArray.length;
+    let x = 0;
+    for (let i = 0; i < dataArray.length; i++) {
+      const y = (dataArray[i] / 128.0) * userCanvas.height / 2;
+      i === 0 ? userCtx.moveTo(x, y) : userCtx.lineTo(x, y);
+      x += sliceWidth;
+    }
+    userCtx.lineTo(userCanvas.width, userCanvas.height / 2);
+    userCtx.stroke();
+  }
+
+  sendBtn.addEventListener('click', () => {
     const msg = inputEl.value.trim();
     if (msg) {
       appendMessage('You', msg);
       inputEl.value = '';
-      await fetchRoyResponse(msg);
+      fetchRoyResponse(msg);
     }
   });
 
   micBtn.addEventListener('click', () => {
-    if (!isRecording) {
-      startRecording();
-    } else {
-      stopRecording();
-    }
+    isRecording ? stopRecording() : startRecording();
   });
 });
