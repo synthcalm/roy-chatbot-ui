@@ -1,4 +1,5 @@
 // script.js – Updated Roy frontend with polished UX
+// Deepgram references removed, thinking.mp3 path fixed, error handling improved
 
 window.addEventListener('DOMContentLoaded', async () => {
   const micBtn = document.getElementById('mic-toggle');
@@ -24,13 +25,8 @@ window.addEventListener('DOMContentLoaded', async () => {
   let dataArray = null;
   let stream = null;
   let isRecording = false;
-  let socket = null;
-  let liveTranscript = '';
-  let transcriptEl = null;
   let lastWaveformUpdate = 0;
-  let lastTranscriptUpdate = 0;
   const WAVEFORM_UPDATE_INTERVAL = 150;
-  const TRANSCRIPT_UPDATE_INTERVAL = 200;
 
   updateClock();
   setInterval(updateClock, 1000);
@@ -80,129 +76,17 @@ window.addEventListener('DOMContentLoaded', async () => {
       source.connect(analyser);
       drawWaveform('user');
 
-      let attempts = 0;
-      const maxAttempts = 3;
-      while (attempts < maxAttempts) {
-        try {
-          socket = new WebSocket('wss://api.deepgram.com/v1/listen?encoding=linear16&sample_rate=16000&channels=1', [
-            'token',
-            'DEEPGRAM_API_KEY'
-          ]);
-          socket.binaryType = 'arraybuffer';
-          break;
-        } catch (err) {
-          attempts++;
-          if (attempts === maxAttempts) throw err;
-          await new Promise(resolve => setTimeout(resolve, 1000 * attempts));
-        }
-      }
-
-      socket.onopen = () => {
-        console.log('Deepgram WebSocket connection opened');
-      };
-
-      socket.onmessage = (msg) => {
-        const data = JSON.parse(msg.data);
-        if (data.channel && data.channel.alternatives && data.channel.alternatives[0].transcript) {
-          liveTranscript = data.channel.alternatives[0].transcript;
-          updateLiveTranscript();
-        }
-      };
-
-      socket.onerror = (err) => {
-        console.error('Deepgram WebSocket error:', err);
-        appendMessage('Roy', 'A storm disrupted the transcription. Falling back to local recognition.');
-        startLocalTranscription();
-      };
-
-      socket.onclose = () => {
-        console.log('Deepgram WebSocket connection closed');
-      };
-
-      transcriptEl = document.createElement('p');
-      transcriptEl.className = 'you live-transcript';
-      transcriptEl.innerHTML = '<strong>You (speaking):</strong> <span style="color: yellow">...</span>';
-      messagesEl.appendChild(transcriptEl);
-
-      const worklet = `
-        class PCMProcessor extends AudioWorkletProcessor {
-          process(inputs) {
-            const input = inputs[0][0];
-            if (!input) return true;
-            const int16 = new Int16Array(input.length);
-            for (let i = 0; i < input.length; i++) {
-              int16[i] = Math.max(-1, Math.min(1, input[i])) * 32767;
-            }
-            this.port.postMessage(int16.buffer);
-            return true;
-          }
-        }
-        registerProcessor('pcm-processor', PCMProcessor);
-      `;
-
-      await audioContext.audioWorklet.addModule('data:application/javascript;base64,' + btoa(worklet));
-      const workletNode = new AudioWorkletNode(audioContext, 'pcm-processor');
-      workletNode.port.onmessage = (e) => {
-        if (socket.readyState === WebSocket.OPEN) {
-          socket.send(e.data);
-        }
-      };
-      source.connect(workletNode).connect(audioContext.destination);
-
       isRecording = true;
       micBtn.textContent = 'Stop';
       micBtn.classList.add('recording');
+      appendMessage('Roy', 'Recording started... (transcription disabled)');
     } catch (err) {
       console.error('Recording error:', err);
       appendMessage('Roy', 'Could not access your microphone.');
     }
   }
 
-  function startLocalTranscription() {
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SpeechRecognition) {
-      appendMessage('Roy', 'Local transcription not supported in this browser.');
-      return;
-    }
-
-    const recognition = new SpeechRecognition();
-    recognition.interimResults = true;
-    recognition.continuous = true;
-
-    recognition.onresult = (event) => {
-      const transcript = Array.from(event.results)
-        .map(result => result[0].transcript)
-        .join('');
-      liveTranscript = transcript;
-      updateLiveTranscript();
-    };
-
-    recognition.onerror = (err) => {
-      console.error('Local transcription error:', err);
-      appendMessage('Roy', 'Local transcription failed. Please try again.');
-    };
-
-    recognition.onend = () => {
-      if (isRecording) recognition.start();
-    };
-
-    recognition.start();
-  }
-
-  function updateLiveTranscript() {
-    const now = Date.now();
-    if (now - lastTranscriptUpdate < TRANSCRIPT_UPDATE_INTERVAL) return;
-    lastTranscriptUpdate = now;
-    if (transcriptEl) {
-      transcriptEl.querySelector('span').textContent = liveTranscript || '...';
-      messagesEl.scrollTop = messagesEl.scrollHeight;
-    }
-  }
-
   function stopRecording() {
-    if (socket && socket.readyState === WebSocket.OPEN) {
-      socket.close();
-    }
     if (stream) {
       stream.getTracks().forEach(track => track.stop());
       stream = null;
@@ -213,18 +97,7 @@ window.addEventListener('DOMContentLoaded', async () => {
       analyser = null;
     }
 
-    if (liveTranscript.trim()) {
-      appendMessage('You', liveTranscript);
-      fetchRoyResponse(liveTranscript);
-    } else {
-      appendMessage('Roy', 'Your words didn’t make it through the static. Try again.');
-    }
-
-    if (transcriptEl) {
-      transcriptEl.remove();
-      transcriptEl = null;
-    }
-    liveTranscript = '';
+    appendMessage('Roy', 'Recording stopped. Transcription unavailable.');
     isRecording = false;
     micBtn.textContent = 'Speak';
     micBtn.classList.remove('recording');
@@ -237,7 +110,13 @@ window.addEventListener('DOMContentLoaded', async () => {
     messagesEl.appendChild(thinkingEl);
     messagesEl.scrollTop = messagesEl.scrollHeight;
 
-    thinkingSound.play();
+    try {
+      thinkingSound.src = '/thinking.mp3'; // Adjusted path for GitHub Pages
+      await thinkingSound.play();
+    } catch (err) {
+      console.error('Error playing thinking sound:', err);
+      appendMessage('Roy', 'Thinking sound failed to play.');
+    }
 
     let attempts = 0;
     const maxAttempts = 3;
