@@ -1,474 +1,203 @@
-// script.js – Updated Roy frontend with corrected syntax and functional voice
-// Version: 2.7 (Improved token fetch error handling for better user feedback)
-// Note: After updating this file, ensure you redeploy to GitHub Pages (synthcalm.github.io) to apply changes.
+// Global variables (assumed to be defined elsewhere in script.js)
+let micActive = false;
+let token = null;
+let socket = null;
+let mediaRecorder = null;
+let audioContext = null;
+let analyser = null;
 
-console.log('SynthCalm App Version: 2.7');
-
-window.addEventListener('DOMContentLoaded', async () => {
-  const micBtn = document.getElementById('mic-toggle');
-  const sendBtn = document.getElementById('send-button');
-  const saveLogBtn = document.getElementById('save-log');
-  const homeBtn = document.getElementById('home-btn');
-  const inputEl = document.getElementById('user-input');
-  const messagesEl = document.getElementById('messages');
-  const modeSelect = document.getElementById('responseMode');
-  const dateSpan = document.getElementById('current-date');
-  const timeSpan = document.getElementById('current-time');
-  const timerSpan = document.getElementById('countdown-timer');
-  const userCanvas = document.getElementById('userWaveform');
-  const royCanvas = document.getElementById('royWaveform');
-  const userCtx = userCanvas.getContext('2d');
-  const royCtx = royCanvas.getContext('2d');
-  const audioEl = document.getElementById('roy-audio');
-
-  let sessionStart = Date.now();
-  let audioContext = null;
-  let analyser = null;
-  let dataArray = null;
-  let stream = null;
-  let isRecording = false;
-  let socket = null;
-  let token = null;
-  let liveTranscript = '';
-  let transcriptEl = null;
-  let transcriptionTimeout = null;
-
-  // Initialize time display
-  updateClock();
-  setInterval(updateClock, 1000);
-  appendMessage('Roy', "Welcome. I'm Roy. Speak when ready — your thoughts hold weight.");
-
-  function updateClock() {
-    const now = new Date();
-    dateSpan.textContent = now.toISOString().split('T')[0];
-    timeSpan.textContent = now.toTimeString().split(' ')[0];
-    const elapsed = Math.floor((Date.now() - sessionStart) / 1000);
-    const remaining = Math.max(0, 3600 - elapsed);
-    timerSpan.textContent = `Session Ends In: ${String(Math.floor(remaining / 60)).padStart(2, '0')}:${String(remaining % 60).padStart(2, '0')}`;
-  }
-
-  function appendMessage(sender, text, animate = false) {
-    const p = document.createElement('p');
-    p.classList.add(sender.toLowerCase());
-    if (animate && sender === 'Roy') {
-      p.innerHTML = `<strong>${sender}:</strong> <span class="typing-text"></span>`;
-      const span = p.querySelector('.typing-text');
-      let i = 0;
-      const type = () => {
-        if (i < text.length) {
-          span.textContent += text[i];
-          i++;
-          setTimeout(type, 50);
-        } else {
-          span.classList.remove('typing-text');
-        }
-      };
-      type();
-    } else {
-      p.innerHTML = `<strong>${sender}:</strong> ${text}`;
-    }
-    messagesEl.appendChild(p);
-    messagesEl.scrollTop = messagesEl.scrollHeight;
-  }
-
-  async function getToken() {
-    try {
-      const res = await fetch('https://roy-chatbo-backend.onrender.com/api/assembly/token');
-      if (!res.ok) {
-        const errorData = await res.json();
-        throw new Error(errorData.details || `Server responded with status: ${res.status}`);
+// Fetch the AssemblyAI token from the backend
+async function getToken() {
+  try {
+    console.log('Fetching token from backend...');
+    const res = await fetch('https://roy-chatbo-backend.onrender.com/api/assembly/token', {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json'
       }
-      const data = await res.json();
-      token = data.token;
-      return token;
-    } catch (err) {
-      console.error('Error getting token:', err.message);
-      appendMessage('Roy', 'Unable to connect to the speech service. The server might be down or misconfigured. Please try typing your message instead.');
-      return null;
-    }
-  }
+    });
 
-  async function startRecording() {
-    try {
-      // Get token first to avoid setting up recording if it fails
-      const tokenResult = await getToken();
-      if (!tokenResult) {
-        return;
-      }
-
-      // Access microphone
-      stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-
-      audioContext = new (window.AudioContext || window.webkitAudioContext)();
-      if (audioContext.state === 'suspended') {
-        await audioContext.resume();
-      }
-
-      const source = audioContext.createMediaStreamSource(stream);
-      analyser = audioContext.createAnalyser();
-      analyser.fftSize = 2048;
-      dataArray = new Uint8Array(analyser.frequencyBinCount);
-      source.connect(analyser);
-
-      // Start drawing waveform
-      drawUserWaveform();
-
-      // Set up WebSocket for real-time transcription
-      socket = new WebSocket('wss://api.assemblyai.com/v2/realtime/ws?sample_rate=16000');
-      socket.binaryType = 'arraybuffer';
-
-      socket.onopen = () => {
-        socket.send(JSON.stringify({ token }));
-      };
-
-      socket.onmessage = (msg) => {
-        const res = JSON.parse(msg.data);
-        if (res.text) {
-          if (transcriptEl) {
-            transcriptEl.querySelector('span').textContent = res.text;
-          }
-          liveTranscript = res.text;
-        }
-      };
-
-      socket.onerror = (err) => {
-        console.error('WebSocket error:', err);
-        appendMessage('Roy', 'Speech service connection failed. Please try again or type your message.');
-        stopRecording();
-      };
-
-      socket.onclose = () => {
-        console.log('WebSocket closed');
-      };
-
-      // Create live transcript element
-      transcriptEl = document.createElement('p');
-      transcriptEl.className = 'you live-transcript';
-      transcriptEl.innerHTML = '<strong>You (speaking):</strong> <span style="color: yellow">...</span>';
-      messagesEl.appendChild(transcriptEl);
-      messagesEl.scrollTop = messagesEl.scrollHeight;
-
-      // Set up audio processor for sending audio to AssemblyAI
-      const worklet = `class PCMProcessor extends AudioWorkletProcessor {
-        process(inputs) {
-          const input = inputs[0][0];
-          if (!input) return true;
-          const int16 = new Int16Array(input.length);
-          for (let i = 0; i < input.length; i++) int16[i] = Math.max(-1, Math.min(1, input[i])) * 32767;
-          this.port.postMessage(int16.buffer);
-          return true;
-        }
-      }
-      registerProcessor('pcm-processor', PCMProcessor);`;
-
-      const blob = new Blob([worklet], { type: 'text/javascript' });
-      const url = URL.createObjectURL(blob);
-      await audioContext.audioWorklet.addModule(url);
-      URL.revokeObjectURL(url);
-
-      const workletNode = new AudioWorkletNode(audioContext, 'pcm-processor');
-      workletNode.port.onmessage = (e) => {
-        if (socket && socket.readyState === WebSocket.OPEN) {
-          socket.send(e.data);
-        }
-      };
-      source.connect(workletNode).connect(audioContext.destination);
-
-      isRecording = true;
-      micBtn.textContent = 'Stop';
-      micBtn.classList.add('recording');
-
-      // Set a timeout to ensure transcription has time to process
-      transcriptionTimeout = setTimeout(() => {
-        if (!liveTranscript.trim() && isRecording) {
-          appendMessage('Roy', "I didn't hear anything. Please speak louder or check your microphone.");
-          stopRecording();
-        }
-      }, 5000);
-    } catch (err) {
-      console.error('Recording error:', err);
-      let errorMessage = 'Could not access your microphone.';
-      if (err.name === 'NotAllowedError') {
-        errorMessage = 'Microphone access denied. Please allow microphone permissions in your browser settings.';
-      } else if (err.name === 'NotFoundError') {
-        errorMessage = 'No microphone found. Please ensure a microphone is connected.';
-      }
-      appendMessage('Roy', errorMessage);
-    }
-  }
-
-  function stopRecording() {
-    // Clear transcription timeout
-    if (transcriptionTimeout) {
-      clearTimeout(transcriptionTimeout);
-      transcriptionTimeout = null;
-    }
-
-    // Close WebSocket
-    if (socket) {
-      if (socket.readyState === WebSocket.OPEN) {
-        socket.send(JSON.stringify({ terminate_session: true }));
-      }
-      socket.close();
-      socket = null;
-    }
-
-    // Stop media stream
-    if (stream) {
-      stream.getTracks().forEach(track => track.stop());
-      stream = null;
-    }
-
-    // Close audio context
-    if (audioContext) {
-      audioContext.close().catch(err => console.error('Error closing audio context:', err));
-      audioContext = null;
-      analyser = null;
-    }
-
-    // Clear user waveform
-    userCtx.clearRect(0, 0, userCanvas.width, userCanvas.height);
-    drawFlatLine(userCtx, userCanvas);
-
-    // Process transcript if it exists
-    if (liveTranscript.trim()) {
-      appendMessage('You', liveTranscript);
-      fetchRoyResponse(liveTranscript);
-    } else if (!transcriptionTimeout) {
-      appendMessage('Roy', "Your words didn't make it through the static. Try again or type your message.");
-    }
-    liveTranscript = '';
-
-    // Remove the live transcript element
-    if (transcriptEl) {
-      transcriptEl.remove();
-      transcriptEl = null;
-    }
-
-    // Update UI
-    isRecording = false;
-    micBtn.textContent = 'Speak';
-    micBtn.classList.remove('recording');
-  }
-
-  async function fetchRoyResponse(message) {
-    const thinkingEl = document.createElement('p');
-    thinkingEl.className = 'roy typing';
-    thinkingEl.textContent = 'Roy is reflecting...';
-    messagesEl.appendChild(thinkingEl);
-    messagesEl.scrollTop = messagesEl.scrollHeight;
-
-    let attempts = 0;
-    const maxAttempts = 3;
-    while (attempts < maxAttempts) {
+    console.log('Token fetch response status:', res.status);
+    if (!res.ok) {
+      let errorData;
       try {
-        const mode = modeSelect.value || 'both';
-        const apiMode = mode === 'text' ? 'text' : 'audio';
-        const res = await fetch(`https://roy-chatbo-backend.onrender.com/api/chat?mode=${apiMode}`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ message })
-        });
-
-        if (!res.ok) {
-          throw new Error(`Server responded with status: ${res.status}`);
-        }
-
-        const data = await res.json();
-        thinkingEl.remove();
-
-        if (mode === 'text' || mode === 'both') {
-          appendMessage('Roy', data.text, true);
-        }
-
-        if ((mode === 'voice' || mode === 'both') && data.audio) {
-          const audioData = data.audio;
-          if (audioData) {
-            try {
-              audioEl.src = `data:audio/mp3;base64,${audioData}`;
-
-              const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-              const roySource = audioCtx.createMediaElementSource(audioEl);
-              const royAnalyser = audioCtx.createAnalyser();
-              royAnalyser.fftSize = 2048;
-              const royDataArray = new Uint8Array(royAnalyser.frequencyBinCount);
-
-              roySource.connect(royAnalyser);
-              royAnalyser.connect(audioCtx.destination);
-
-              royCtx.clearRect(0, 0, royCanvas.width, royCanvas.height);
-              drawFlatLine(royCtx, royCanvas);
-
-              function drawRoyWaveform() {
-                if (audioEl.paused || audioEl.ended) {
-                  cancelAnimationFrame(drawRoyWaveform.id);
-                  royCtx.clearRect(0, 0, royCanvas.width, royCanvas.height);
-                  drawFlatLine(royCtx, royCanvas);
-                  return;
-                }
-
-                drawRoyWaveform.id = requestAnimationFrame(drawRoyWaveform);
-
-                royAnalyser.getByteTimeDomainData(royDataArray);
-
-                royCtx.clearRect(0, 0, royCanvas.width, royCanvas.height);
-
-                royCtx.fillStyle = '#000';
-                royCtx.fillRect(0, 0, royCanvas.width, royCanvas.height);
-
-                royCtx.lineWidth = 2;
-                royCtx.strokeStyle = '#0ff';
-
-                royCtx.beginPath();
-                const sliceWidth = royCanvas.width / royDataArray.length;
-                let x = 0;
-
-                for (let i = 0; i < royDataArray.length; i++) {
-                  const normalized = (royDataArray[i] / 128.0) - 1;
-                  const y = normalized * (royCanvas.height / 3) + (royCanvas.height / 2);
-
-                  if (i === 0) {
-                    royCtx.moveTo(x, y);
-                  } else {
-                    royCtx.lineTo(x, y);
-                  }
-
-                  x += sliceWidth;
-                }
-
-                royCtx.stroke();
-              }
-
-              audioEl.onplay = function() {
-                drawRoyWaveform();
-              };
-
-              audioEl.onended = function() {
-                cancelAnimationFrame(drawRoyWaveform.id);
-                audioCtx.close().catch(err => console.error('Error closing Roy audio context:', err));
-                royCtx.clearRect(0, 0, royCanvas.width, royCanvas.height);
-                drawFlatLine(royCtx, royCanvas);
-              };
-
-              setTimeout(() => {
-                audioEl.play().catch(err => {
-                  console.error('Audio playback error:', err);
-                  appendMessage('Roy', 'Voice output unavailable. Please check your audio settings.');
-                });
-              }, 200);
-            } catch (err) {
-              console.error('Error processing audio:', err);
-              appendMessage('Roy', 'Voice output failed. Please try again or use text mode.');
-            }
-          }
-        }
-
-        return;
-      } catch (err) {
-        console.error('Error fetching Roy response:', err);
-        attempts++;
-        if (attempts === maxAttempts) {
-          thinkingEl.remove();
-          appendMessage('Roy', 'A storm clouded my voice. Please try again.');
-          return;
-        }
-        await new Promise(resolve => setTimeout(resolve, 1000 * attempts));
+        errorData = await res.json();
+      } catch (jsonErr) {
+        throw new Error(`Server responded with status: ${res.status}, unable to parse error details`);
       }
-    }
-  }
-
-  function drawUserWaveform() {
-    if (!analyser || !isRecording) return;
-
-    requestAnimationFrame(drawUserWaveform);
-
-    analyser.getByteTimeDomainData(dataArray);
-
-    userCtx.clearRect(0, 0, userCanvas.width, userCanvas.height);
-
-    userCtx.fillStyle = '#000';
-    userCtx.fillRect(0, 0, userCanvas.width, userCanvas.height);
-
-    userCtx.lineWidth = 2;
-    userCtx.strokeStyle = 'yellow';
-
-    userCtx.beginPath();
-
-    const sliceWidth = userCanvas.width / dataArray.length;
-    let x = 0;
-
-    for (let i = 0; i < dataArray.length; i++) {
-      const normalized = (dataArray[i] / 128.0) - 1;
-      const y = normalized * (userCanvas.height / 3) + (userCanvas.height / 2);
-
-      if (i === 0) {
-        userCtx.moveTo(x, y);
-      } else {
-        userCtx.lineTo(x, y);
-      }
-
-      x += sliceWidth;
+      const errorMessage = errorData.details || `Server responded with status: ${res.status}`;
+      throw new Error(errorMessage);
     }
 
-    userCtx.stroke();
-  }
-
-  function drawFlatLine(ctx, canvas) {
-    ctx.fillStyle = '#000';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    ctx.beginPath();
-    ctx.strokeStyle = canvas === userCanvas ? 'yellow' : '#0ff';
-    ctx.lineWidth = 1;
-    ctx.moveTo(0, canvas.height / 2);
-    ctx.lineTo(canvas.width, canvas.height / 2);
-    ctx.stroke();
-  }
-
-  function saveConversationLog() {
-    const messages = Array.from(messagesEl.getElementsByTagName('p'))
-      .filter(p => !p.classList.contains('live-transcript') && !p.classList.contains('typing'))
-      .map(p => p.textContent);
-    const logText = messages.join('\n');
-    const blob = new Blob([logText], { type: 'text/plain' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `roy-conversation-${new Date().toISOString().split('T')[0]}.txt`;
-    a.click();
-    URL.revokeObjectURL(url);
-  }
-
-  // Initialize flat lines on canvases
-  drawFlatLine(userCtx, userCanvas);
-  drawFlatLine(royCtx, royCanvas);
-
-  // Event listeners
-  sendBtn.addEventListener('click', () => {
-    const msg = inputEl.value.trim();
-    if (msg) {
-      appendMessage('You', msg);
-      inputEl.value = '';
-      fetchRoyResponse(msg);
+    const data = await res.json();
+    if (!data.token) {
+      throw new Error('Token not found in response');
     }
-  });
 
-  micBtn.addEventListener('click', () => {
-    if (isRecording) {
+    console.log('Token fetched successfully:', data.token);
+    token = data.token;
+    return token;
+  } catch (err) {
+    console.error('Error getting token:', err.message);
+    appendMessage('Roy', 'Unable to connect to the speech service. The server might be down or misconfigured. Please try typing your message instead.');
+    return null;
+  }
+}
+
+// Start recording and set up real-time transcription
+async function startRecording() {
+  if (micActive) {
+    console.log('Recording already active, ignoring start request.');
+    return;
+  }
+
+  console.log('Starting recording...');
+
+  // Step 1: Fetch the token
+  const fetchedToken = await getToken();
+  if (!fetchedToken) {
+    console.log('Token fetch failed, aborting recording.');
+    micActive = false;
+    toggleMicButton();
+    return;
+  }
+
+  // Step 2: Request microphone access
+  let stream;
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    console.log('Microphone access granted:', stream);
+  } catch (err) {
+    console.error('Microphone access denied:', err.message);
+    appendMessage('Roy', 'Microphone access was denied. Please allow microphone access to use the speak feature.');
+    micActive = false;
+    toggleMicButton();
+    return;
+  }
+
+  // Step 3: Set up audio context and analyser for waveform visualization
+  try {
+    audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    analyser = audioContext.createAnalyser();
+    const source = audioContext.createMediaStreamSource(stream);
+    source.connect(analyser);
+    analyser.fftSize = 2048;
+    console.log('Audio context and analyser set up successfully.');
+  } catch (err) {
+    console.error('Error setting up audio context:', err.message);
+    appendMessage('Roy', 'Failed to set up audio processing. Please try again.');
+    micActive = false;
+    toggleMicButton();
+    stream.getTracks().forEach(track => track.stop());
+    return;
+  }
+
+  // Step 4: Set up WebSocket for real-time transcription
+  try {
+    micActive = true;
+    toggleMicButton();
+    console.log('Token received, setting up WebSocket...');
+
+    socket = new WebSocket('wss://api.assemblyai.com/v2/realtime/ws?sample_rate=16000');
+    socket.onopen = () => {
+      console.log('WebSocket connection opened.');
+      socket.send(JSON.stringify({
+        auth: { token: fetchedToken },
+        sample_rate: 16000
+      }));
+    };
+
+    socket.onerror = (error) => {
+      console.error('WebSocket error:', error);
+      appendMessage('Roy', 'Failed to connect to the transcription service. Please try again.');
       stopRecording();
-    } else {
-      startRecording();
-    }
-  });
+    };
 
-  saveLogBtn.addEventListener('click', saveConversationLog);
+    socket.onclose = () => {
+      console.log('WebSocket connection closed.');
+      stopRecording();
+    };
 
-  homeBtn.addEventListener('click', () => {
-    window.location.href = 'https://synthcalm.com';
-  });
+    socket.onmessage = (message) => {
+      const data = JSON.parse(message.data);
+      console.log('WebSocket message received:', data);
 
-  inputEl.addEventListener('keypress', (e) => {
-    if (e.key === 'Enter') {
-      sendBtn.click();
-    }
-  });
-});
+      if (data.message_type === 'SessionBegins') {
+        console.log('Transcription session started:', data.session_id);
+      } else if (data.message_type === 'PartialTranscript' || data.message_type === 'FinalTranscript') {
+        const transcript = data.text || '';
+        console.log('Transcript received:', transcript);
+        if (transcript) {
+          // Update the textbox with the live transcript (assumes liveTranscript is a global variable or DOM element)
+          liveTranscript = transcript;
+          document.getElementById('user-input').value = liveTranscript;
+        }
+      }
+    };
+  } catch (err) {
+    console.error('Error setting up WebSocket:', err.message);
+    appendMessage('Roy', 'Failed to set up transcription service. Please try again.');
+    stopRecording();
+    return;
+  }
+
+  // Step 5: Start recording audio and send it to AssemblyAI
+  try {
+    mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
+    mediaRecorder.ondataavailable = (event) => {
+      if (event.data.size > 0 && socket.readyState === WebSocket.OPEN) {
+        const reader = new FileReader();
+        reader.onload = () => {
+          const audioData = reader.result.split(',')[1]; // Get base64 audio data
+          socket.send(JSON.stringify({
+            audio_data: audioData
+          }));
+        };
+        reader.readAsDataURL(event.data);
+      }
+    };
+    mediaRecorder.start(250); // Send audio chunks every 250ms
+    console.log('MediaRecorder started, sending audio to AssemblyAI...');
+  } catch (err) {
+    console.error('Error starting MediaRecorder:', err.message);
+    appendMessage('Roy', 'Failed to start recording audio. Please try again.');
+    stopRecording();
+  }
+}
+
+// Helper function to stop recording (assumed to be called when stopping the mic)
+function stopRecording() {
+  if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+    mediaRecorder.stop();
+  }
+  if (audioContext) {
+    audioContext.close();
+  }
+  if (socket && socket.readyState === WebSocket.OPEN) {
+    socket.close();
+  }
+  if (mediaRecorder) {
+    mediaRecorder.stream.getTracks().forEach(track => track.stop());
+  }
+  micActive = false;
+  toggleMicButton();
+  console.log('Recording stopped.');
+}
+
+// Helper function to toggle the mic button (assumed to be defined elsewhere)
+function toggleMicButton() {
+  const micButton = document.getElementById('mic-button'); // Adjust ID as needed
+  if (micButton) {
+    micButton.textContent = micActive ? 'Stop' : 'Speak';
+    micButton.classList.toggle('active', micActive);
+  }
+}
+
+// Helper function to append messages (assumed to be defined elsewhere)
+function appendMessage(sender, message) {
+  const chatBox = document.getElementById('chat-box'); // Adjust ID as needed
+  const messageElement = document.createElement('div');
+  messageElement.textContent = `${sender}: ${message}`;
+  chatBox.appendChild(messageElement);
+  chatBox.scrollTop = chatBox.scrollHeight;
+}
