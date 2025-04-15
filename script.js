@@ -1,6 +1,10 @@
 // script.js – Roy frontend using Whisper fallback with AssemblyAI
 
 window.addEventListener('DOMContentLoaded', () => {
+  // Inject greeting and clock
+  appendMessage('Roy', "Welcome. I'm Roy. Speak when ready — your thoughts hold weight.");
+  updateClock();
+  setInterval(updateClock, 1000);
   const micBtn = document.getElementById('mic-toggle');
   const sendBtn = document.getElementById('send-button');
   const inputEl = document.getElementById('user-input');
@@ -17,6 +21,21 @@ window.addEventListener('DOMContentLoaded', () => {
   let audioContext = null;
   let analyser = null;
   let isRecording = false;
+  }
+
+  function updateClock() {
+    const now = new Date();
+    const dateSpan = document.getElementById('current-date');
+    const timeSpan = document.getElementById('current-time');
+    const timerSpan = document.getElementById('countdown-timer');
+    if (!dateSpan || !timeSpan || !timerSpan) return;
+    dateSpan.textContent = now.toISOString().split('T')[0];
+    timeSpan.textContent = now.toTimeString().split(' ')[0];
+    const elapsed = Math.floor((Date.now() - sessionStart) / 1000);
+    const remaining = Math.max(0, 3600 - elapsed);
+    timerSpan.textContent = `Session Ends In: ${String(Math.floor(remaining / 60)).padStart(2, '0')}:${String(remaining % 60).padStart(2, '0')}`;
+  
+  let sessionStart = Date.now();
 
   async function startRecording() {
     try {
