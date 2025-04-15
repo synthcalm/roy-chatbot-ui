@@ -2,6 +2,8 @@
 // Version: 2.2 (Removed thinking.mp3, ensured functional app)
 // Note: After updating this file, ensure you redeploy to GitHub Pages (synthcalm.github.io) to apply changes.
 
+console.log('SynthCalm App Version: 2.2');
+
 window.addEventListener('DOMContentLoaded', async () => {
   const micBtn = document.getElementById('mic-toggle');
   const sendBtn = document.getElementById('send-button');
