@@ -1,4 +1,4 @@
-// script.js – Roy frontend using Whisper transcription only with waveform + audio reply + typing effect
+// script.js – Roy frontend with Whisper transcription, typing effect, and synced waveform/audio
 
 window.addEventListener('DOMContentLoaded', () => {
   const micBtn = document.getElementById('mic-toggle');
@@ -18,35 +18,6 @@ window.addEventListener('DOMContentLoaded', () => {
   let analyser = null;
   let isRecording = false;
   let sessionStart = Date.now();
-
-  const quoteThemes = {
-    existential: [
-      "'I've seen things you people wouldn't believe.' – Roy Batty",
-      "'The unexamined life is not worth living.' – Socrates",
-      "'Reality is that which, when you stop believing in it, doesn't go away.' – Philip K. Dick"
-    ],
-    pragmatic: [
-      "'Do or do not. There is no try.' – Yoda",
-      "'Freedom is the freedom to say that two plus two make four.' – Orwell",
-      "'This too shall pass.'"
-    ],
-    poetic: [
-      "'There is a crack in everything. That’s how the light gets in.' – Leonard Cohen",
-      "'Not all those who wander are lost.' – Tolkien"
-    ],
-    rebellious: [
-      "'Madness, as you know, is a lot like gravity. All it takes is a little push.' – The Joker",
-      "'I am not what happened to me. I am what I choose to become.' – Jung"
-    ]
-  };
-
-  const binaryPrompts = [
-    "Would you rather feel safe or feel free?",
-    "Would you rather follow logic or intuition?",
-    "Would you rather let go or hold on?",
-    "Would you rather be understood or be left alone?",
-    "Would you rather ask or be asked?"
-  ];
 
   appendMessage('Roy', "Welcome. I'm Roy. Speak when ready — your thoughts hold weight.");
   updateClock();
@@ -110,7 +81,7 @@ window.addEventListener('DOMContentLoaded', () => {
     analyser = audioContext.createAnalyser();
     analyser.fftSize = 2048;
     source.connect(analyser);
-    drawLiveWaveform(userCtx, userCanvas, analyser, 'yellow');
+    drawWaveform(userCtx, userCanvas, analyser, 'yellow');
   }
 
   function stopRecording() {
@@ -121,39 +92,25 @@ window.addEventListener('DOMContentLoaded', () => {
     isRecording = false;
   }
 
-  function appendMessage(sender, text) {
+  function appendMessage(sender, text, animate = false) {
     const p = document.createElement('p');
     p.className = sender.toLowerCase();
     const color = sender === 'Roy' ? 'yellow' : 'white';
-    p.innerHTML = `<strong style='color: ${color}'>${sender}:</strong> <span style='color: ${color}'>${text}</span>`;
+    p.innerHTML = `<strong style='color: ${color}'>${sender}:</strong> <span style='color: ${color}'></span>`;
     messagesEl.appendChild(p);
     messagesEl.scrollTop = messagesEl.scrollHeight;
-  }
 
-  async function typeRoyMessage(text) {
-    return new Promise(resolve => {
-      const line = document.createElement('p');
-      line.className = 'roy';
-      const strong = document.createElement('strong');
-      strong.style.color = 'yellow';
-      strong.textContent = 'Roy: ';
-      line.appendChild(strong);
-      const span = document.createElement('span');
-      span.style.color = 'yellow';
-      line.appendChild(span);
-      messagesEl.appendChild(line);
-
+    if (animate && sender === 'Roy') {
+      const span = p.querySelector('span');
       let i = 0;
       const interval = setInterval(() => {
-        if (i < text.length) {
-          span.textContent += text[i++];
-          messagesEl.scrollTop = messagesEl.scrollHeight;
-        } else {
-          clearInterval(interval);
-          resolve();
-        }
-      }, 18);
-    });
+        span.textContent += text[i++];
+        messagesEl.scrollTop = messagesEl.scrollHeight;
+        if (i >= text.length) clearInterval(interval);
+      }, 50);
+    } else {
+      p.querySelector('span').textContent = text;
+    }
   }
 
   async function fetchRoyResponse(message) {
@@ -169,19 +126,16 @@ window.addEventListener('DOMContentLoaded', () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message, mode: modeSelect.value })
       });
+
       const data = await res.json();
       thinking.remove();
-      const affirmation = getRandomAffirmation();
-      const quote = getRandomThematicQuote();
-      const prompt = Math.random() < 0.3 ? `\n\n${binaryPrompts[Math.floor(Math.random() * binaryPrompts.length)]}` : '';
 
-      const fullText = `${affirmation}\n\n${quote}\n\n${data.text}${prompt}`;
-      await typeRoyMessage(fullText);
+      appendMessage('Roy', data.text, true);
 
       if ((modeSelect.value === 'voice' || modeSelect.value === 'both') && data.audio) {
         const audio = new Audio(`data:audio/mp3;base64,${data.audio}`);
         audio.play();
-        drawPlaybackWaveform(royCtx, royCanvas, audio, 'magenta');
+        drawWaveform(royCtx, royCanvas, audio, 'magenta');
       }
     } catch (err) {
       thinking.remove();
@@ -189,54 +143,11 @@ window.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  function getRandomAffirmation() {
-    const affirmations = [
-      "Alright.", "Okay.", "Got it.", "Right...",
-      "I see.", "Understood.", "Heard you.",
-      "That’s clear.", "Go on.", "I’m listening.",
-      "You have my attention.", "Speak your truth.",
-      "That’s significant.", "Continue.",
-      "Now we’re getting somewhere.", "Interesting.",
-      "You’re not wrong.", "Hmm.", "Say more.", "Let’s unpack that."
-    ];
-    return affirmations[Math.floor(Math.random() * affirmations.length)];
-  }
-
-  function getRandomThematicQuote() {
-    const categories = Object.keys(quoteThemes);
-    const theme = categories[Math.floor(Math.random() * categories.length)];
-    const quoteList = quoteThemes[theme];
-    return quoteList[Math.floor(Math.random() * quoteList.length)];
-  }
-
-  function drawLiveWaveform(ctx, canvas, analyser, color) {
-    const buffer = new Uint8Array(analyser.frequencyBinCount);
-    function draw() {
-      requestAnimationFrame(draw);
-      analyser.getByteTimeDomainData(buffer);
-      ctx.fillStyle = '#000';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-      ctx.strokeStyle = color;
-      ctx.beginPath();
-      const slice = canvas.width / buffer.length;
-      let x = 0;
-      for (let i = 0; i < buffer.length; i++) {
-        const y = (buffer[i] / 128.0) * canvas.height / 2;
-        if (i === 0) ctx.moveTo(x, y);
-        else ctx.lineTo(x, y);
-        x += slice;
-      }
-      ctx.lineTo(canvas.width, canvas.height / 2);
-      ctx.stroke();
-    }
-    draw();
-  }
-
-  function drawPlaybackWaveform(ctx, canvas, audio, color) {
+  function drawWaveform(ctx, canvas, source, color) {
     const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
     const analyser = audioCtx.createAnalyser();
-    const source = audioCtx.createMediaElementSource(audio);
-    source.connect(analyser);
+    const srcNode = audioCtx.createMediaElementSource(source);
+    srcNode.connect(analyser);
     analyser.connect(audioCtx.destination);
     analyser.fftSize = 2048;
     const buffer = new Uint8Array(analyser.frequencyBinCount);
@@ -252,13 +163,13 @@ window.addEventListener('DOMContentLoaded', () => {
       let x = 0;
       for (let i = 0; i < buffer.length; i++) {
         const y = (buffer[i] / 128.0) * canvas.height / 2;
-        if (i === 0) ctx.moveTo(x, y);
-        else ctx.lineTo(x, y);
+        i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
         x += slice;
       }
       ctx.lineTo(canvas.width, canvas.height / 2);
       ctx.stroke();
     }
+
     draw();
   }
 });
