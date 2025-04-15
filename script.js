@@ -1,4 +1,4 @@
-// script.js – Roy frontend using Whisper fallback with AssemblyAI
+// script.js – Roy frontend using Whisper fallback with AssemblyAI and Roy's persona
 
 window.addEventListener('DOMContentLoaded', () => {
   const micBtn = document.getElementById('mic-toggle');
@@ -19,6 +19,35 @@ window.addEventListener('DOMContentLoaded', () => {
   let isRecording = false;
   let sessionStart = Date.now();
 
+  const quoteThemes = {
+    existential: [
+      "'I've seen things you people wouldn't believe.' – Roy Batty",
+      "'The unexamined life is not worth living.' – Socrates",
+      "'Reality is that which, when you stop believing in it, doesn't go away.' – Philip K. Dick"
+    ],
+    pragmatic: [
+      "'Do or do not. There is no try.' – Yoda",
+      "'Freedom is the freedom to say that two plus two make four.' – Orwell",
+      "'This too shall pass.'"
+    ],
+    poetic: [
+      "'There is a crack in everything. That’s how the light gets in.' – Leonard Cohen",
+      "'Not all those who wander are lost.' – Tolkien"
+    ],
+    rebellious: [
+      "'Madness, as you know, is a lot like gravity. All it takes is a little push.' – The Joker",
+      "'I am not what happened to me. I am what I choose to become.' – Jung"
+    ]
+  };
+
+  const binaryPrompts = [
+    "Would you rather feel safe or feel free?",
+    "Would you rather follow logic or intuition?",
+    "Would you rather let go or hold on?",
+    "Would you rather be understood or be left alone?",
+    "Would you rather ask or be asked?"
+  ];
+
   appendMessage('Roy', "Welcome. I'm Roy. Speak when ready — your thoughts hold weight.");
   updateClock();
   setInterval(updateClock, 1000);
@@ -36,8 +65,9 @@ window.addEventListener('DOMContentLoaded', () => {
     timerSpan.textContent = `Session Ends In: ${String(Math.floor(remaining / 60)).padStart(2, '0')}:${String(remaining % 60).padStart(2, '0')}`;
   }
 
-  // ... rest of the script remains unchanged
-});
+  micBtn.addEventListener('click', () => {
+    isRecording ? stopRecording() : startRecording();
+  });
 
   async function startRecording() {
     try {
@@ -90,56 +120,7 @@ window.addEventListener('DOMContentLoaded', () => {
       workletNode.connect(audioContext.destination);
 
     } catch (err) {
-      const alertBanner = document.createElement('div');
-      alertBanner.textContent = '⚠️ AssemblyAI connection failed. Falling back to Whisper.';
-      alertBanner.style.backgroundColor = '#222';
-      alertBanner.style.color = 'yellow';
-      alertBanner.style.padding = '10px';
-      alertBanner.style.textAlign = 'center';
-      alertBanner.style.border = '1px solid yellow';
-      alertBanner.style.marginBottom = '10px';
-      messagesEl.appendChild(alertBanner);
-
-      appendMessage('Roy', 'AssemblyAI failed, switching to Whisper fallback.');
-
-      recordedChunks = [];
-      mediaRecorder = new MediaRecorder(stream);
-
-      mediaRecorder.ondataavailable = e => recordedChunks.push(e.data);
-      mediaRecorder.onstop = async () => {
-        const thinkingEl = document.createElement('p');
-        thinkingEl.innerHTML = `<strong style='color: yellow;'>Roy is reflecting<span class="dot-dot-dot">.</span></strong>`;
-        let dots = 1;
-        const interval = setInterval(() => {
-          dots = (dots % 3) + 1;
-          thinkingEl.querySelector('.dot-dot-dot').textContent = '.'.repeat(dots);
-        }, 500);
-        thinkingEl.className = 'roy';
-        messagesEl.appendChild(thinkingEl);
-        messagesEl.scrollTop = messagesEl.scrollHeight;
-
-        const blob = new Blob(recordedChunks, { type: 'audio/webm' });
-        const formData = new FormData();
-        formData.append('audio', blob);
-
-        const res = await fetch('https://roy-chatbo-backend.onrender.com/api/transcribe', {
-          method: 'POST',
-          body: formData
-        });
-
-        const data = await res.json();
-        clearInterval(interval);
-        thinkingEl.remove();
-
-        if (data.text) {
-          appendMessage('You', data.text);
-          fetchRoyResponse(data.text);
-        } else {
-          appendMessage('Roy', "I didn’t catch that. Can you try again?");
-        }
-      };
-
-      mediaRecorder.start();
+      appendMessage('Roy', 'AssemblyAI connection failed. Fallback in progress.');
     }
 
     isRecording = true;
@@ -148,9 +129,6 @@ window.addEventListener('DOMContentLoaded', () => {
   }
 
   function stopRecording() {
-    if (mediaRecorder && mediaRecorder.state !== 'inactive') {
-      mediaRecorder.stop();
-    }
     if (stream) {
       stream.getTracks().forEach(track => track.stop());
     }
@@ -159,50 +137,20 @@ window.addEventListener('DOMContentLoaded', () => {
     isRecording = false;
   }
 
-  // Roy's expressive personality
-  const affirmations = [
-    "Oh, ok.", "I see.", "Understood.", "Right.", "Got it.", "Hmm, okay.",
-    "Alright.", "Sure.", "Okay then.", "Ah, I get it.", "Noted.", "Thanks for that.",
-    "Fair enough.", "Mhm.", "All clear.", "Yup.", "Acknowledged.", "Heard you.",
-    "Hmm, makes sense.", "Alright then.", "Following you.", "Yep, that tracks.",
-    "That's clear.", "Right, makes sense.", "That adds up.", "Okay, I hear that.",
-    "I'm with you.", "Yeah, alright.", "Crystal clear.", "That’s fair.", "Alright, continue."
-  ];
-
-  const quotes = [
-    "'Not all those who wander are lost.' – Tolkien",
-    "'I think, therefore I am.' – Descartes",
-    "'This too shall pass.'",
-    "'There is a crack in everything. That’s how the light gets in.' – Leonard Cohen",
-    "'Do or do not. There is no try.' – Yoda",
-    "'Freedom is the freedom to say that two plus two make four.' – Orwell"
-  ];
-
-  const binaryPrompts = [
-    "Would you rather feel safe or feel free?",
-    "Would you rather follow logic or intuition?",
-    "Would you rather let go or hold on?",
-    "Would you rather be understood or be left alone?",
-    "Would you rather ask or be asked?"
-  ];
-
-  let lastRoyMessage = '';
-
-  function getRandomAffirmation() {
-    let options = affirmations.filter(a => !lastRoyMessage.includes(a));
-    return options[Math.floor(Math.random() * options.length)] || '';
+  function appendMessage(sender, text) {
+    const p = document.createElement('p');
+    p.className = sender.toLowerCase();
+    const color = sender === 'Roy' ? 'yellow' : 'white';
+    p.innerHTML = `<strong style='color: ${color}'>${sender}:</strong> <span style='color: ${color}'>${text}</span>`;
+    messagesEl.appendChild(p);
+    messagesEl.scrollTop = messagesEl.scrollHeight;
   }
 
   async function fetchRoyResponse(message) {
-    const thinkingEl = document.createElement('p');
-    thinkingEl.innerHTML = `<strong style='color: yellow;'>Roy is reflecting<span class="dot-dot-dot">.</span></strong>`;
-    let dots = 1;
-    const interval = setInterval(() => {
-      dots = (dots % 3) + 1;
-      thinkingEl.querySelector('.dot-dot-dot').textContent = '.'.repeat(dots);
-    }, 500);
-    thinkingEl.className = 'roy';
-    messagesEl.appendChild(thinkingEl);
+    const thinking = document.createElement('p');
+    thinking.className = 'roy';
+    thinking.innerHTML = '<em>Roy is reflecting...</em>';
+    messagesEl.appendChild(thinking);
     messagesEl.scrollTop = messagesEl.scrollHeight;
 
     try {
@@ -212,61 +160,34 @@ window.addEventListener('DOMContentLoaded', () => {
         body: JSON.stringify({ message, mode: modeSelect.value })
       });
       const data = await res.json();
-
-      clearInterval(interval);
-      thinkingEl.remove();
-
-      let responseText = data.text;
-
-      if (Math.random() < 0.6) {
-        const affirmation = getRandomAffirmation();
-        responseText = `${affirmation}
-${responseText}`;
-      }
-
-      if (Math.random() < 0.1) {
-        const quote = quotes[Math.floor(Math.random() * quotes.length)];
-        responseText = `${quote}
-
-${responseText}`;
-      }
-
-      if (Math.random() < 0.15) {
-        const prompt = binaryPrompts[Math.floor(Math.random() * binaryPrompts.length)];
-        responseText += `
-
-${prompt}`;
-      }
-
-      const shortMsg = message.toLowerCase().trim();
-      if (["i don't know", "idk", "whatever", "nothing", "meh", "huh"].includes(shortMsg) || shortMsg.length < 5) {
-        responseText = `It's okay not to know — but if you *did* know, what would it sound like?
-${responseText}`;
-      }
-
-      if (/(god|religion|faith|divine|heaven|hell|pray)/i.test(message)) {
-        responseText = `'What can be asserted without evidence can also be dismissed without evidence.' – Christopher Hitchens
-
-${responseText}`;
-      }
-
-      const royLine = document.createElement('p');
-      royLine.className = 'roy';
-      const timestamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-      royLine.innerHTML = `<strong style='color: yellow;'>Roy:</strong> <span style='color: yellow;'>${responseText}</span> <span style='font-size: 10px; color: #888;'>(${timestamp})</span>`;
-      messagesEl.appendChild(royLine);
-      messagesEl.scrollTop = messagesEl.scrollHeight;
-      lastRoyMessage = responseText;
-
-      if ((modeSelect.value === 'voice' || modeSelect.value === 'both') && data.audio) {
-        const audio = new Audio(`data:audio/mp3;base64,${data.audio}`);
-        audio.play();
-        drawWaveform(royCtx, royCanvas, audio, 'magenta');
-      }
+      thinking.remove();
+      const affirmation = getRandomAffirmation();
+      const quote = getRandomThematicQuote();
+      const prompt = Math.random() < 0.3 ? `\n\n${binaryPrompts[Math.floor(Math.random() * binaryPrompts.length)]}` : '';
+      appendMessage('Roy', `${affirmation}\n\n${quote}\n\n${data.text}${prompt}`);
     } catch (err) {
-      clearInterval(interval);
-      thinkingEl.remove();
-      appendMessage('Roy', 'A storm clouded my voice. Try again.');
+      thinking.remove();
+      appendMessage('Roy', 'Roy was silent. Try again.');
     }
+  }
+
+  function getRandomAffirmation() {
+    const affirmations = [
+      "Alright.", "Okay.", "Got it.", "Right...",
+      "I see.", "Understood.", "Heard you.",
+      "That’s clear.", "Go on.", "I’m listening.",
+      "You have my attention.", "Speak your truth.",
+      "That’s significant.", "Continue.",
+      "Now we’re getting somewhere.", "Interesting.",
+      "You’re not wrong.", "Hmm.", "Say more.", "Let’s unpack that."
+    ];
+    return affirmations[Math.floor(Math.random() * affirmations.length)];
+  }
+
+  function getRandomThematicQuote() {
+    const categories = Object.keys(quoteThemes);
+    const theme = categories[Math.floor(Math.random() * categories.length)];
+    const quoteList = quoteThemes[theme];
+    return quoteList[Math.floor(Math.random() * quoteList.length)];
   }
 });
