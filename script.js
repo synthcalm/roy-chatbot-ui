@@ -140,9 +140,7 @@ window.addEventListener('DOMContentLoaded', () => {
       const { token } = await res.json();
 
       const socket = new WebSocket(`wss://api.assemblyai.com/v2/realtime/ws?sample_rate=16000`);
-      socket.onopen = () => {
-        socket.send(JSON.stringify({ token }));
-      };
+      socket.onopen = () => socket.send(JSON.stringify({ token }));
 
       socket.onmessage = (msg) => {
         const res = JSON.parse(msg.data);
@@ -178,9 +176,39 @@ window.addEventListener('DOMContentLoaded', () => {
       source.connect(workletNode);
       workletNode.connect(audioContext.destination);
 
-      isRecording = true;
-      micBtn.textContent = 'Stop';
-      micBtn.classList.add('recording');
+    } catch (err) {
+      // fallback to Whisper
+      appendMessage('Roy', 'AssemblyAI failed, switching to Whisper fallback.');
+      recordedChunks = [];
+      mediaRecorder = new MediaRecorder(stream);
+
+      mediaRecorder.ondataavailable = e => recordedChunks.push(e.data);
+      mediaRecorder.onstop = async () => {
+        const blob = new Blob(recordedChunks, { type: 'audio/webm' });
+        const formData = new FormData();
+        formData.append('audio', blob);
+
+        const res = await fetch('https://roy-chatbo-backend.onrender.com/api/transcribe', {
+          method: 'POST',
+          body: formData
+        });
+
+        const data = await res.json();
+        if (data.text) {
+          appendMessage('You', data.text);
+          fetchRoyResponse(data.text);
+        } else {
+          appendMessage('Roy', "I didn’t catch that. Can you try again?");
+        }
+      };
+
+      mediaRecorder.start();
+    }
+
+    isRecording = true;
+    micBtn.textContent = 'Stop';
+    micBtn.classList.add('recording');
+  }
     } catch (err) {
       appendMessage('Roy', 'Microphone access was denied or AssemblyAI failed.');
     }
