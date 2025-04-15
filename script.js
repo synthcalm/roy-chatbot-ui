@@ -205,7 +205,7 @@ window.addEventListener('DOMContentLoaded', async () => {
       fetchRoyResponse(liveTranscript);
       liveTranscript = '';
     } else {
-      appendMessage('Roy', 'Your words didn't make it through the static. Try again or type your message.');
+      appendMessage('Roy', "Your words didn't make it through the static. Try again or type your message.");
     }
 
     // Remove the live transcript element
