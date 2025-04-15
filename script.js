@@ -6,7 +6,6 @@ window.addEventListener('DOMContentLoaded', () => {
   const inputEl = document.getElementById('user-input');
   const messagesEl = document.getElementById('messages');
   const modeSelect = document.getElementById('responseMode');
-  const royAudio = document.getElementById('roy-audio');
   const dateSpan = document.getElementById('current-date');
   const timeSpan = document.getElementById('current-time');
   const timerSpan = document.getElementById('countdown-timer');
@@ -73,8 +72,10 @@ window.addEventListener('DOMContentLoaded', () => {
         }
       };
 
-      const source = new (window.AudioContext || window.webkitAudioContext)().createMediaStreamSource(stream);
-      analyser = source.context.createAnalyser();
+      const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      audioContext = audioCtx;
+      const source = audioCtx.createMediaStreamSource(stream);
+      analyser = audioCtx.createAnalyser();
       source.connect(analyser);
       drawWaveform(userCtx, userCanvas, analyser, 'yellow');
 
@@ -120,10 +121,9 @@ window.addEventListener('DOMContentLoaded', () => {
       appendMessage('Roy', data.text);
 
       if ((modeSelect.value === 'voice' || modeSelect.value === 'both') && data.audio) {
-        royAudio.src = `data:audio/mp3;base64,${data.audio}`;
-        royAudio.style.display = 'block';
-        royAudio.play();
-        drawWaveform(royCtx, royCanvas, royAudio, '#0ff');
+        const audio = new Audio(`data:audio/mp3;base64,${data.audio}`);
+        audio.play();
+        drawWaveform(royCtx, royCanvas, audio, 'magenta');
       }
     } catch (err) {
       thinkingEl.remove();
@@ -135,8 +135,18 @@ window.addEventListener('DOMContentLoaded', () => {
     const buffer = new Uint8Array(2048);
     const draw = () => {
       requestAnimationFrame(draw);
-      if (!analyser) return;
-      analyser.getByteTimeDomainData(buffer);
+      if (source instanceof AnalyserNode) {
+        source.getByteTimeDomainData(buffer);
+      } else if (source instanceof Audio) {
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const analyser = audioCtx.createAnalyser();
+        const track = audioCtx.createMediaElementSource(source);
+        track.connect(analyser);
+        analyser.connect(audioCtx.destination);
+        analyser.getByteTimeDomainData(buffer);
+      } else {
+        return;
+      }
       ctx.fillStyle = '#000';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
       ctx.strokeStyle = color;
