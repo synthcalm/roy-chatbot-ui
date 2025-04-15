@@ -1,45 +1,47 @@
-/* Updated style.css for Roy Chatbot UI - Optimized for smartphones (iPhone) */
+/* Roy Chatbot UI - SynthCalm Style */
 
 body {
   margin: 0;
   font-family: 'Courier New', monospace;
   background-color: black;
-  color: white;
+  color: #0ff;
   display: flex;
   justify-content: center;
   align-items: center;
   min-height: 100vh;
-  padding-top: env(safe-area-inset-top);
-  padding-bottom: env(safe-area-inset-bottom);
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
 }
 
 .container {
   width: 90%;
-  max-width: 600px;
-  padding: 10px;
-  border: 2px solid cyan;
-  border-radius: 12px;
+  max-width: 650px;
+  padding: 20px;
+  border: 2px solid #0ff;
+  border-radius: 16px;
   display: flex;
   flex-direction: column;
+  background-color: #111;
+  box-shadow: 0 0 20px rgba(0, 255, 255, 0.2);
 }
 
-canvas {
-  background-color: black;
-  background-image: linear-gradient(to right, rgba(0, 255, 255, 0.3) 1px, transparent 1px),
-                    linear-gradient(to bottom, rgba(0, 255, 255, 0.3) 1px, transparent 1px);
-  background-size: 20px 20px;
-  border: 1px solid cyan;
+.title-bar {
+  display: flex;
+  justify-content: space-between;
+  font-size: 14px;
+  margin-bottom: 10px;
+  color: #ff0;
 }
 
 #messages {
-  height: 40vh !important; /* Changed from fixed 150px to 40% of viewport height */
-  max-height: 300px !important; /* Prevent overflow on larger screens */
+  min-height: 200px;
+  max-height: 260px;
   overflow-y: auto;
-  border: 1px solid cyan;
-  padding: 8px;
+  background-color: #000;
+  border: 1px solid #0ff;
+  padding: 10px;
+  margin: 10px 0;
   font-size: 14px;
-  line-height: 1.6;
-  color: white;
+  line-height: 1.4;
   scroll-behavior: smooth;
 }
 
@@ -48,11 +50,11 @@ canvas {
 }
 
 #messages p.roy strong {
-  color: cyan;
+  color: #0ff;
 }
 
 #messages p.you strong {
-  color: yellow;
+  color: #ff0;
 }
 
 #messages p.live-transcript {
@@ -60,121 +62,99 @@ canvas {
   opacity: 0.7;
 }
 
-#messages p.live-transcript strong {
-  color: yellow;
-}
-
 #messages p.live-transcript span {
   color: #ffd700;
 }
 
-.input-area {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  margin-top: 10px;
+canvas {
+  background-color: #000;
+  background-image: linear-gradient(to right, rgba(255, 255, 0, 0.3) 1px, transparent 1px),
+                    linear-gradient(to bottom, rgba(255, 255, 0, 0.3) 1px, transparent 1px);
+  background-size: 20px 20px;
+  border: 1px solid #0ff;
+  border-radius: 8px;
+  margin-bottom: 10px;
 }
 
-.input-group {
+.input-area {
   display: flex;
-  gap: 8px;
-  align-items: stretch;
-  width: 100%;
+  gap: 10px;
+  margin-bottom: 10px;
 }
 
 #user-input {
-  width: 100%;
-  padding: 8px;
-  font-size: 16px;
-  border: 1px solid cyan;
-  background: black;
-  color: white;
-  font-family: 'Courier New', monospace;
-  height: 40px !important; /* Reduced from 96px */
-  box-sizing: border-box;
-}
-
-select.button, button.button {
+  flex: 1;
+  padding: 10px;
+  background: #000;
+  border: 1px solid #0ff;
+  color: #0ff;
   font-family: 'Courier New', monospace;
   font-size: 14px;
-  padding: 10px 18px;
-  background: black;
-  color: cyan;
-  border: 2px solid cyan;
-  border-radius: 6px;
+}
+
+.button {
+  background: #000;
+  border: 1px solid #0ff;
+  color: #0ff;
+  padding: 10px 16px;
+  font-family: 'Courier New', monospace;
+  font-size: 14px;
   cursor: pointer;
-  height: 44px;
-  flex: 1;
+  border-radius: 8px;
   transition: all 0.2s ease-in-out;
 }
 
-button.button.active {
-  background-color: red;
-  color: white;
+.button:hover {
+  background-color: #0ff;
+  color: #000;
+}
+
+#mic-toggle.recording {
   border-color: red;
+  color: red;
+  animation: blink 1s infinite;
+}
+
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
 }
 
 .button-group {
   display: flex;
-  justify-content: space-between;
   gap: 10px;
+  justify-content: space-between;
   margin-top: 10px;
 }
 
-.title-bar {
-  display: flex;
-  justify-content: space-between;
-  font-size: 14px;
-  color: yellow;
-  margin-bottom: 10px;
+audio {
+  margin-top: 8px;
+  width: 100%;
+  display: none;
 }
 
-/* Adjusted media queries for better smartphone optimization */
 @media (max-width: 768px) {
   .container {
     width: 95%;
+    padding: 16px;
   }
   #messages {
     font-size: 13px;
   }
-  select.button, button.button {
+  .button {
     font-size: 12px;
-    padding: 8px;
+    padding: 8px 12px;
   }
   #user-input {
-    font-size: 14px;
+    font-size: 13px;
   }
 }
 
-/* Media query for iPhone-sized screens (broadened to 450px to ensure coverage) */
 @media (max-width: 450px) {
-  .container {
-    width: 98% !important;
-    padding: 8px !important;
-  }
   #messages {
-    height: 50vh !important;
-    max-height: 250px !important;
-    font-size: 12px !important;
-    line-height: 1.4 !important;
-    padding: 6px !important;
-  }
-  #user-input {
-    height: 35px !important;
-    font-size: 13px !important;
-    padding: 6px !important;
-  }
-  select.button, button.button {
-    font-size: 11px !important;
-    padding: 6px 12px !important;
-    height: 35px !important;
-  }
-  .title-bar {
-    font-size: 12px !important;
-    margin-bottom: 8px !important;
+    max-height: 200px;
   }
   .button-group {
-    gap: 8px !important;
-    margin-top: 8px !important;
+    flex-direction: column;
   }
 }
