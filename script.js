@@ -132,7 +132,7 @@ window.addEventListener('DOMContentLoaded', () => {
 
       appendMessage('Roy', data.text, true);
 
-    if ((modeSelect.value === 'voice' || modeSelect.value === 'both') && data.audio) {
+      if ((modeSelect.value === 'voice' || modeSelect.value === 'both') && data.audio) {
         const audio = new Audio(`data:audio/mp3;base64,${data.audio}`);
         audio.play();
         drawWaveform(royCtx, royCanvas, audio, 'magenta');
@@ -144,12 +144,15 @@ window.addEventListener('DOMContentLoaded', () => {
   }
 
   function drawWaveform(ctx, canvas, source, color) {
+    if (!(source instanceof HTMLMediaElement)) return;
+
     const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
     const analyser = audioCtx.createAnalyser();
     const srcNode = audioCtx.createMediaElementSource(source);
     srcNode.connect(analyser);
     analyser.connect(audioCtx.destination);
     analyser.fftSize = 2048;
+
     const buffer = new Uint8Array(analyser.frequencyBinCount);
 
     function draw() {
@@ -163,7 +166,8 @@ window.addEventListener('DOMContentLoaded', () => {
       let x = 0;
       for (let i = 0; i < buffer.length; i++) {
         const y = (buffer[i] / 128.0) * canvas.height / 2;
-        i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
         x += slice;
       }
       ctx.lineTo(canvas.width, canvas.height / 2);
