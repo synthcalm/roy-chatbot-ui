@@ -74,6 +74,18 @@ window.addEventListener('DOMContentLoaded', async () => {
       console.log('Microphone access granted:', stream);
       console.log('Audio tracks:', stream.getAudioTracks());
       console.log('Stream active:', stream.active);
+      console.log('Track state:', stream.getAudioTracks()[0].readyState);
+
+      // If the stream is inactive or track is ended, try to restart
+      if (!stream.active || stream.getAudioTracks()[0].readyState === 'ended') {
+        console.log('Stream inactive or track ended, attempting to restart...');
+        stream.getTracks().forEach(track => track.stop());
+        stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        console.log('New stream:', stream);
+        console.log('New audio tracks:', stream.getAudioTracks());
+        console.log('New stream active:', stream.active);
+        console.log('New track state:', stream.getAudioTracks()[0].readyState);
+      }
 
       audioContext = new (window.AudioContext || window.webkitAudioContext)();
       console.log('AudioContext created:', audioContext);
@@ -95,7 +107,6 @@ window.addEventListener('DOMContentLoaded', async () => {
       micBtn.classList.add('recording');
       appendMessage('Roy', 'Recording started. Speak now, then press Stop to type or send your message.');
 
-      // Draw the waveform immediately, then start the loop
       drawWaveformOnce('user');
       drawWaveform('user');
     } catch (err) {
@@ -202,6 +213,9 @@ window.addEventListener('DOMContentLoaded', async () => {
     const ctx = type === 'user' ? userCtx : royCtx;
 
     analyser.getByteTimeDomainData(dataArray);
+    const minVal = Math.min(...dataArray);
+    const maxVal = Math.max(...dataArray);
+    console.log('Immediate audio data range:', { min: minVal, max: maxVal });
     console.log('Immediate audio data sample:', dataArray.slice(0, 5));
 
     ctx.fillStyle = '#000';
@@ -212,11 +226,10 @@ window.addEventListener('DOMContentLoaded', async () => {
     const sliceWidth = canvas.width / dataArray.length;
     let x = 0;
     for (let i = 0; i < dataArray.length; i++) {
-      const y = (dataArray[i] / 128.0) * canvas.height / 2;
+      const y = ((dataArray[i] - 128) * 2 / 128.0) * canvas.height / 2 + canvas.height / 2;
       i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
       x += sliceWidth;
     }
-    ctx.lineTo(canvas.width, canvas.height / 2);
     ctx.stroke();
   }
 
@@ -236,6 +249,9 @@ window.addEventListener('DOMContentLoaded', async () => {
     const ctx = type === 'user' ? userCtx : royCtx;
 
     analyser.getByteTimeDomainData(dataArray);
+    const minVal = Math.min(...dataArray);
+    const maxVal = Math.max(...dataArray);
+    console.log('Audio data range:', { min: minVal, max: maxVal });
     console.log('Audio data sample:', dataArray.slice(0, 5));
 
     ctx.fillStyle = '#000';
@@ -246,11 +262,10 @@ window.addEventListener('DOMContentLoaded', async () => {
     const sliceWidth = canvas.width / dataArray.length;
     let x = 0;
     for (let i = 0; i < dataArray.length; i++) {
-      const y = (dataArray[i] / 128.0) * canvas.height / 2;
+      const y = ((dataArray[i] - 128) * 2 / 128.0) * canvas.height / 2 + canvas.height / 2;
       i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
       x += sliceWidth;
     }
-    ctx.lineTo(canvas.width, canvas.height / 2);
     ctx.stroke();
 
     requestAnimationFrame(() => drawWaveform(type));
