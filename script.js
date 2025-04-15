@@ -68,42 +68,45 @@ window.addEventListener('DOMContentLoaded', async () => {
   }
 
   async function startRecording() {
-  try {
-    console.log('Attempting to access microphone...');
-    stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    console.log('Microphone access granted:', stream);
-    console.log('Audio tracks:', stream.getAudioTracks());
+    try {
+      console.log('Attempting to access microphone...');
+      stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      console.log('Microphone access granted:', stream);
+      console.log('Audio tracks:', stream.getAudioTracks());
 
-    audioContext = new (window.AudioContext || window.webkitAudioContext)();
-    console.log('AudioContext created:', audioContext);
-    console.log('AudioContext state:', audioContext.state);
-    if (audioContext.state === 'suspended') {
-      await audioContext.resume();
-      console.log('AudioContext resumed, new state:', audioContext.state);
+      audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      console.log('AudioContext created:', audioContext);
+      console.log('AudioContext state:', audioContext.state);
+      if (audioContext.state === 'suspended') {
+        await audioContext.resume();
+        console.log('AudioContext resumed, new state:', audioContext.state);
+      }
+
+      const source = audioContext.createMediaStreamSource(stream);
+      analyser = audioContext.createAnalyser();
+      analyser.fftSize = 2048;
+      dataArray = new Uint8Array(analyser.frequencyBinCount);
+      source.connect(analyser);
+
+      isRecording = true;
+      console.log('isRecording set to true:', isRecording);
+      micBtn.textContent = 'Stop';
+      micBtn.classList.add('recording');
+      appendMessage('Roy', 'Recording started. Speak now, then press Stop to type or send your message.');
+
+      // Start the waveform drawing loop immediately
+      drawWaveform('user');
+    } catch (err) {
+      console.error('Recording error:', err);
+      let errorMessage = 'Could not access your microphone.';
+      if (err.name === 'NotAllowedError') {
+        errorMessage = 'Microphone access denied. Please allow microphone permissions in your browser settings.';
+      } else if (err.name === 'NotFoundError') {
+        errorMessage = 'No microphone found. Please ensure a microphone is connected.';
+      }
+      appendMessage('Roy', errorMessage);
     }
-
-    const source = audioContext.createMediaStreamSource(stream);
-    analyser = audioContext.createAnalyser();
-    analyser.fftSize = 2048;
-    dataArray = new Uint8Array(analyser.frequencyBinCount);
-    source.connect(analyser);
-    drawWaveform('user');
-
-    isRecording = true;
-    micBtn.textContent = 'Stop';
-    micBtn.classList.add('recording');
-    appendMessage('Roy', 'Recording started. Speak now, then press Stop to type or send your message.');
-  } catch (err) {
-    console.error('Recording error:', err);
-    let errorMessage = 'Could not access your microphone.';
-    if (err.name === 'NotAllowedError') {
-      errorMessage = 'Microphone access denied. Please allow microphone permissions in your browser settings.';
-    } else if (err.name === 'NotFoundError') {
-      errorMessage = 'No microphone found. Please ensure a microphone is connected.';
-    }
-    appendMessage('Roy', errorMessage);
   }
-}
 
   function stopRecording() {
     if (stream) {
@@ -120,6 +123,7 @@ window.addEventListener('DOMContentLoaded', async () => {
 
     appendMessage('Roy', 'Recording stopped. Please type or send your message to continue.');
     isRecording = false;
+    console.log('isRecording set to false:', isRecording);
     micBtn.textContent = 'Speak';
     micBtn.classList.remove('recording');
   }
@@ -182,40 +186,41 @@ window.addEventListener('DOMContentLoaded', async () => {
   }
 
   function drawWaveform(type) {
-  if ((type === 'user' && !isRecording) || !analyser) {
-    console.log('Waveform drawing skipped: isRecording=', isRecording, 'analyser=', analyser);
-    return;
-  }
-  const now = Date.now();
-  if (now - lastWaveformUpdate < WAVEFORM_UPDATE_INTERVAL) {
+    if ((type === 'user' && !isRecording) || !analyser) {
+      console.log('Waveform drawing skipped: isRecording=', isRecording, 'analyser=', analyser);
+      return;
+    }
+    const now = Date.now();
+    if (now - lastWaveformUpdate < WAVEFORM_UPDATE_INTERVAL) {
+      requestAnimationFrame(() => drawWaveform(type));
+      return;
+    }
+    lastWaveformUpdate = now;
+
+    const canvas = type === 'user' ? userCanvas : royCanvas;
+    const ctx = type === 'user' ? userCtx : royCtx;
+
+    analyser.getByteTimeDomainData(dataArray);
+    console.log('Audio data sample:', dataArray.slice(0, 5)); // Log first 5 values to check if data is non-zero
+
+    ctx.fillStyle = '#000';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.strokeStyle = type === 'user' ? 'yellow' : '#0ff';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    const sliceWidth = canvas.width / dataArray.length;
+    let x = 0;
+    for (let i = 0; i < dataArray.length; i++) {
+      const y = (dataArray[i] / 128.0) * canvas.height / 2;
+      i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+      x += sliceWidth;
+    }
+    ctx.lineTo(canvas.width, canvas.height / 2);
+    ctx.stroke();
+
     requestAnimationFrame(() => drawWaveform(type));
-    return;
   }
-  lastWaveformUpdate = now;
 
-  const canvas = type === 'user' ? userCanvas : royCanvas;
-  const ctx = type === 'user' ? userCtx : royCtx;
-
-  analyser.getByteTimeDomainData(dataArray);
-  console.log('Audio data sample:', dataArray.slice(0, 5)); // Log first 5 values to check if data is non-zero
-
-  ctx.fillStyle = '#000';
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-  ctx.strokeStyle = type === 'user' ? 'yellow' : '#0ff';
-  ctx.lineWidth = 1.5;
-  ctx.beginPath();
-  const sliceWidth = canvas.width / dataArray.length;
-  let x = 0;
-  for (let i = 0; i < dataArray.length; i++) {
-    const y = (dataArray[i] / 128.0) * canvas.height / 2;
-    i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
-    x += sliceWidth;
-  }
-  ctx.lineTo(canvas.width, canvas.height / 2);
-  ctx.stroke();
-
-  requestAnimationFrame(() => drawWaveform(type));
-}
   function saveConversationLog() {
     const messages = Array.from(messagesEl.getElementsByTagName('p')).map(p => p.textContent);
     const logText = messages.join('\n');
