@@ -1,4 +1,4 @@
-// script.js – Roy frontend using Whisper transcription only with waveform + audio reply
+// script.js – Roy frontend using Whisper transcription only with waveform + audio reply + typing effect
 
 window.addEventListener('DOMContentLoaded', () => {
   const micBtn = document.getElementById('mic-toggle');
@@ -105,7 +105,6 @@ window.addEventListener('DOMContentLoaded', () => {
     micBtn.textContent = 'Stop';
     micBtn.classList.add('recording');
 
-    // Visualize user voice
     audioContext = new (window.AudioContext || window.webkitAudioContext)();
     const source = audioContext.createMediaStreamSource(stream);
     analyser = audioContext.createAnalyser();
@@ -122,13 +121,30 @@ window.addEventListener('DOMContentLoaded', () => {
     isRecording = false;
   }
 
-  function appendMessage(sender, text) {
-    const p = document.createElement('p');
-    p.className = sender.toLowerCase();
-    const color = sender === 'Roy' ? 'yellow' : 'white';
-    p.innerHTML = `<strong style='color: ${color}'>${sender}:</strong> <span style='color: ${color}'>${text}</span>`;
-    messagesEl.appendChild(p);
-    messagesEl.scrollTop = messagesEl.scrollHeight;
+  async function typeRoyMessage(text) {
+    return new Promise(resolve => {
+      const line = document.createElement('p');
+      line.className = 'roy';
+      const strong = document.createElement('strong');
+      strong.style.color = 'yellow';
+      strong.textContent = 'Roy: ';
+      line.appendChild(strong);
+      const span = document.createElement('span');
+      span.style.color = 'yellow';
+      line.appendChild(span);
+      messagesEl.appendChild(line);
+
+      let i = 0;
+      const interval = setInterval(() => {
+        if (i < text.length) {
+          span.textContent += text[i++];
+          messagesEl.scrollTop = messagesEl.scrollHeight;
+        } else {
+          clearInterval(interval);
+          resolve();
+        }
+      }, 18);
+    });
   }
 
   async function fetchRoyResponse(message) {
@@ -149,7 +165,9 @@ window.addEventListener('DOMContentLoaded', () => {
       const affirmation = getRandomAffirmation();
       const quote = getRandomThematicQuote();
       const prompt = Math.random() < 0.3 ? `\n\n${binaryPrompts[Math.floor(Math.random() * binaryPrompts.length)]}` : '';
-      appendMessage('Roy', `${affirmation}\n\n${quote}\n\n${data.text}${prompt}`);
+
+      const fullText = `${affirmation}\n\n${quote}\n\n${data.text}${prompt}`;
+      await typeRoyMessage(fullText);
 
       if ((modeSelect.value === 'voice' || modeSelect.value === 'both') && data.audio) {
         const audio = new Audio(`data:audio/mp3;base64,${data.audio}`);
