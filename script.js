@@ -68,31 +68,36 @@ window.addEventListener('DOMContentLoaded', async () => {
   }
 
   async function startRecording() {
-    try {
-      stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      audioContext = new (window.AudioContext || window.webkitAudioContext)();
-      const source = audioContext.createMediaStreamSource(stream);
-      analyser = audioContext.createAnalyser();
-      analyser.fftSize = 2048;
-      dataArray = new Uint8Array(analyser.frequencyBinCount);
-      source.connect(analyser);
-      drawWaveform('user');
+  try {
+    console.log('Attempting to access microphone...');
+    stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    console.log('Microphone access granted:', stream);
 
-      isRecording = true;
-      micBtn.textContent = 'Stop';
-      micBtn.classList.add('recording');
-      appendMessage('Roy', 'Recording started. Speak now, then press Stop to type or send your message.');
-    } catch (err) {
-      console.error('Recording error:', err);
-      let errorMessage = 'Could not access your microphone.';
-      if (err.name === 'NotAllowedError') {
-        errorMessage = 'Microphone access denied. Please allow microphone permissions in your browser settings.';
-      } else if (err.name === 'NotFoundError') {
-        errorMessage = 'No microphone found. Please ensure a microphone is connected.';
-      }
-      appendMessage('Roy', errorMessage);
+    audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    console.log('AudioContext created:', audioContext);
+
+    const source = audioContext.createMediaStreamSource(stream);
+    analyser = audioContext.createAnalyser();
+    analyser.fftSize = 2048;
+    dataArray = new Uint8Array(analyser.frequencyBinCount);
+    source.connect(analyser);
+    drawWaveform('user');
+
+    isRecording = true;
+    micBtn.textContent = 'Stop';
+    micBtn.classList.add('recording');
+    appendMessage('Roy', 'Recording started. Speak now, then press Stop to type or send your message.');
+  } catch (err) {
+    console.error('Recording error:', err);
+    let errorMessage = 'Could not access your microphone.';
+    if (err.name === 'NotAllowedError') {
+      errorMessage = 'Microphone access denied. Please allow microphone permissions in your browser settings.';
+    } else if (err.name === 'NotFoundError') {
+      errorMessage = 'No microphone found. Please ensure a microphone is connected.';
     }
+    appendMessage('Roy', errorMessage);
   }
+}
 
   function stopRecording() {
     if (stream) {
