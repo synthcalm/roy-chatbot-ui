@@ -72,9 +72,15 @@ window.addEventListener('DOMContentLoaded', async () => {
     console.log('Attempting to access microphone...');
     stream = await navigator.mediaDevices.getUserMedia({ audio: true });
     console.log('Microphone access granted:', stream);
+    console.log('Audio tracks:', stream.getAudioTracks());
 
     audioContext = new (window.AudioContext || window.webkitAudioContext)();
     console.log('AudioContext created:', audioContext);
+    console.log('AudioContext state:', audioContext.state);
+    if (audioContext.state === 'suspended') {
+      await audioContext.resume();
+      console.log('AudioContext resumed, new state:', audioContext.state);
+    }
 
     const source = audioContext.createMediaStreamSource(stream);
     analyser = audioContext.createAnalyser();
@@ -191,6 +197,8 @@ window.addEventListener('DOMContentLoaded', async () => {
   const ctx = type === 'user' ? userCtx : royCtx;
 
   analyser.getByteTimeDomainData(dataArray);
+  console.log('Audio data sample:', dataArray.slice(0, 5)); // Log first 5 values to check if data is non-zero
+
   ctx.fillStyle = '#000';
   ctx.fillRect(0, 0, canvas.width, canvas.height);
   ctx.strokeStyle = type === 'user' ? 'yellow' : '#0ff';
