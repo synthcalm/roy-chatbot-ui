@@ -87,8 +87,8 @@ window.addEventListener('DOMContentLoaded', () => {
       await new Promise(resolve => setTimeout(resolve, 500));
 
       let preface = getRandomAffirmation();
-      let poetic = Math.random() < 0.3 ? `\n${quotes[Math.floor(Math.random() * quotes.length)]}` : '';
-      let binary = Math.random() < 0.2 ? `\n${binaryPrompts[Math.floor(Math.random() * binaryPrompts.length)]}` : '';
+      let poetic = Math.random() < 0.1 ? `\n${quotes[Math.floor(Math.random() * quotes.length)]}` : '';
+      let binary = Math.random() < 0.15 ? `\n${binaryPrompts[Math.floor(Math.random() * binaryPrompts.length)]}` : '';
       let paraphrase = '';
 
       const msgLower = message.trim().toLowerCase();
@@ -124,34 +124,59 @@ window.addEventListener('DOMContentLoaded', () => {
     return options[Math.floor(Math.random() * options.length)] || '';
   }
 
+  function startRecording() {
+    navigator.mediaDevices.getUserMedia({ audio: true }).then(streamData => {
+      stream = streamData;
+      mediaRecorder = new MediaRecorder(stream);
+      recordedChunks = [];
+
+      mediaRecorder.ondataavailable = e => recordedChunks.push(e.data);
+      mediaRecorder.onstop = async () => {
+        const blob = new Blob(recordedChunks, { type: 'audio/webm' });
+        const formData = new FormData();
+        formData.append('audio', blob);
+
+        const res = await fetch('https://roy-chatbo-backend.onrender.com/api/transcribe', {
+          method: 'POST',
+          body: formData
+        });
+
+        const data = await res.json();
+        if (data.text) {
+          appendMessage('You', data.text);
+          fetchRoyResponse(data.text);
+        } else {
+          appendMessage('Roy', "I didn’t catch that. Can you try again?");
+        }
+      };
+
+      mediaRecorder.start();
+      isRecording = true;
+      micBtn.textContent = 'Stop';
+      micBtn.classList.add('recording');
+    });
+  }
+
+  function stopRecording() {
+    if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+      mediaRecorder.stop();
+    }
+    if (stream) {
+      stream.getTracks().forEach(track => track.stop());
+    }
+    micBtn.textContent = 'Speak';
+    micBtn.classList.remove('recording');
+    isRecording = false;
+  }
+
   function drawWaveform(ctx, canvas, source, color) {
-    const buffer = new Uint8Array(2048);
     const draw = () => {
       requestAnimationFrame(draw);
-      if (source instanceof AnalyserNode) {
-        source.getByteTimeDomainData(buffer);
-      } else if (source instanceof Audio) {
-        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        const analyser = audioCtx.createAnalyser();
-        const track = audioCtx.createMediaElementSource(source);
-        track.connect(analyser);
-        analyser.connect(audioCtx.destination);
-        analyser.getByteTimeDomainData(buffer);
-      } else {
-        return;
-      }
       ctx.fillStyle = '#000';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
       ctx.strokeStyle = color;
-      ctx.lineWidth = 1.5;
       ctx.beginPath();
-      const sliceWidth = canvas.width / buffer.length;
-      let x = 0;
-      for (let i = 0; i < buffer.length; i++) {
-        const y = (buffer[i] / 128.0) * canvas.height / 2;
-        i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
-        x += sliceWidth;
-      }
+      ctx.moveTo(0, canvas.height / 2);
       ctx.lineTo(canvas.width, canvas.height / 2);
       ctx.stroke();
     };
