@@ -2,38 +2,46 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Roy – AI Therapist</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Roy – a CBT therapist inspired by Steve Jobs and Roy Batty. Voice-powered, emotionally aware." />
+  <title>Roy // SynthCalm</title>
   <link rel="stylesheet" href="style.css" />
+  <link rel="icon" href="favicon.ico" />
 </head>
 <body>
   <div class="container">
-    <div class="top-bar">
-      <span id="current-date">----</span>
-      <span id="current-time">--:--:--</span>
+    <div class="title-bar">
+      <span id="current-date"></span>
+      <span id="current-time"></span>
       <span id="countdown-timer">Session Ends In: 60:00</span>
     </div>
 
-    <canvas id="userWaveform" width="700" height="100"></canvas>
+    <canvas id="userWaveform" height="60"></canvas>
+    <div id="messages"></div>
+    <canvas id="royWaveform" height="60"></canvas>
 
-    <div id="messages" class="messages"></div>
+    <div class="input-area">
+      <div class="input-group">
+        <textarea
+          id="user-input"
+          placeholder="Say or type something..."
+          rows="4"
+        ></textarea>
+        <button id="send-button" class="button">Send</button>
+      </div>
 
-    <canvas id="royWaveform" width="700" height="100"></canvas>
-
-    <div class="input-bar">
-      <input id="user-input" type="text" placeholder="Say or type something..." />
-      <button id="send-button">Send</button>
-    </div>
-
-    <div class="control-bar">
-      <select id="responseMode">
+      <label for="responseMode">Roy Response Mode:</label>
+      <select id="responseMode" class="button">
         <option value="both">Text + Voice</option>
         <option value="text">Text Only</option>
         <option value="voice">Voice Only</option>
       </select>
-      <button id="mic-toggle">Speak</button>
-      <button id="save-log">Save Log</button>
-      <button id="home-btn">SynthCalm Home</button>
+
+      <div class="button-group">
+        <button id="mic-toggle" class="button">Speak</button>
+        <button id="save-log" class="button">Save Log</button>
+        <button id="home-btn" class="button">SynthCalm Home</button>
+      </div>
     </div>
   </div>
 
