@@ -1,8 +1,8 @@
 // script.js – Updated Roy frontend with corrected syntax and functional voice
-// Version: 2.5 (Fixed syntax errors and workflow)
+// Version: 2.6 (Fixed token fetch handling and premature static message)
 // Note: After updating this file, ensure you redeploy to GitHub Pages (synthcalm.github.io) to apply changes.
 
-console.log('SynthCalm App Version: 2.5');
+console.log('SynthCalm App Version: 2.6');
 
 window.addEventListener('DOMContentLoaded', async () => {
   const micBtn = document.getElementById('mic-toggle');
@@ -31,6 +31,7 @@ window.addEventListener('DOMContentLoaded', async () => {
   let token = null;
   let liveTranscript = '';
   let transcriptEl = null;
+  let transcriptionTimeout = null; // To ensure transcription has time to process
 
   // Initialize time display
   updateClock();
@@ -73,20 +74,30 @@ window.addEventListener('DOMContentLoaded', async () => {
   async function getToken() {
     try {
       const res = await fetch('https://roy-chatbo-backend.onrender.com/api/assembly/token');
+      if (!res.ok) {
+        throw new Error(`Server responded with status: ${res.status}`);
+      }
       const data = await res.json();
       token = data.token;
       return token;
     } catch (err) {
       console.error('Error getting token:', err);
-      appendMessage('Roy', 'Communication error with speech service. Try typing instead.');
+      appendMessage('Roy', 'Unable to connect to the speech service. Please try typing your message instead.');
       return null;
     }
   }
 
   async function startRecording() {
     try {
+      // Get token first to avoid setting up recording if it fails
+      const tokenResult = await getToken();
+      if (!tokenResult) {
+        return; // Stop if token fetch fails
+      }
+
+      // Access microphone
       stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      
+
       audioContext = new (window.AudioContext || window.webkitAudioContext)();
       if (audioContext.state === 'suspended') {
         await audioContext.resume();
@@ -97,16 +108,9 @@ window.addEventListener('DOMContentLoaded', async () => {
       analyser.fftSize = 2048;
       dataArray = new Uint8Array(analyser.frequencyBinCount);
       source.connect(analyser);
-      
+
       // Start drawing waveform
       drawUserWaveform();
-
-      // Get token for AssemblyAI
-      const tokenResult = await getToken();
-      if (!tokenResult) {
-        stopRecording();
-        return;
-      }
 
       // Set up WebSocket for real-time transcription
       socket = new WebSocket('wss://api.assemblyai.com/v2/realtime/ws?sample_rate=16000');
@@ -124,6 +128,16 @@ window.addEventListener('DOMContentLoaded', async () => {
           }
           liveTranscript = res.text;
         }
+      };
+
+      socket.onerror = (err) => {
+        console.error('WebSocket error:', err);
+        appendMessage('Roy', 'Speech service connection failed. Please try again or type your message.');
+        stopRecording();
+      };
+
+      socket.onclose = () => {
+        console.log('WebSocket closed');
       };
 
       // Create live transcript element
@@ -150,7 +164,7 @@ window.addEventListener('DOMContentLoaded', async () => {
       const url = URL.createObjectURL(blob);
       await audioContext.audioWorklet.addModule(url);
       URL.revokeObjectURL(url);
-      
+
       const workletNode = new AudioWorkletNode(audioContext, 'pcm-processor');
       workletNode.port.onmessage = (e) => {
         if (socket && socket.readyState === WebSocket.OPEN) {
@@ -162,6 +176,14 @@ window.addEventListener('DOMContentLoaded', async () => {
       isRecording = true;
       micBtn.textContent = 'Stop';
       micBtn.classList.add('recording');
+
+      // Set a timeout to ensure transcription has time to process
+      transcriptionTimeout = setTimeout(() => {
+        if (!liveTranscript.trim() && isRecording) {
+          appendMessage('Roy', "I didn't hear anything. Please speak louder or check your microphone.");
+          stopRecording();
+        }
+      }, 5000); // 5 seconds to detect speech
     } catch (err) {
       console.error('Recording error:', err);
       let errorMessage = 'Could not access your microphone.';
@@ -175,19 +197,27 @@ window.addEventListener('DOMContentLoaded', async () => {
   }
 
   function stopRecording() {
+    // Clear transcription timeout
+    if (transcriptionTimeout) {
+      clearTimeout(transcriptionTimeout);
+      transcriptionTimeout = null;
+    }
+
     // Close WebSocket
-    if (socket && socket.readyState === WebSocket.OPEN) {
-      socket.send(JSON.stringify({ terminate_session: true }));
+    if (socket) {
+      if (socket.readyState === WebSocket.OPEN) {
+        socket.send(JSON.stringify({ terminate_session: true }));
+      }
       socket.close();
       socket = null;
     }
-    
+
     // Stop media stream
     if (stream) {
       stream.getTracks().forEach(track => track.stop());
       stream = null;
     }
-    
+
     // Close audio context
     if (audioContext) {
       audioContext.close().catch(err => console.error('Error closing audio context:', err));
@@ -203,10 +233,11 @@ window.addEventListener('DOMContentLoaded', async () => {
     if (liveTranscript.trim()) {
       appendMessage('You', liveTranscript);
       fetchRoyResponse(liveTranscript);
-      liveTranscript = '';
-    } else {
+    } else if (!transcriptionTimeout) {
+      // Only show the "static" message if the timeout didn't already handle it
       appendMessage('Roy', "Your words didn't make it through the static. Try again or type your message.");
     }
+    liveTranscript = '';
 
     // Remove the live transcript element
     if (transcriptEl) {
@@ -238,101 +269,87 @@ window.addEventListener('DOMContentLoaded', async () => {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ message })
         });
-        
+
         if (!res.ok) {
           throw new Error(`Server responded with status: ${res.status}`);
         }
-        
+
         const data = await res.json();
         thinkingEl.remove();
 
         if (mode === 'text' || mode === 'both') {
           appendMessage('Roy', data.text, true);
         }
-        
+
         if ((mode === 'voice' || mode === 'both') && data.audio) {
-          // Create and play audio for Roy
           const audioData = data.audio;
           if (audioData) {
             try {
               audioEl.src = `data:audio/mp3;base64,${audioData}`;
-              
-              // Set up audio context and analyzer for Roy's voice
+
               const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
               const roySource = audioCtx.createMediaElementSource(audioEl);
               const royAnalyser = audioCtx.createAnalyser();
               royAnalyser.fftSize = 2048;
               const royDataArray = new Uint8Array(royAnalyser.frequencyBinCount);
-              
+
               roySource.connect(royAnalyser);
               royAnalyser.connect(audioCtx.destination);
-              
-              // Clear any previous waveform
+
               royCtx.clearRect(0, 0, royCanvas.width, royCanvas.height);
               drawFlatLine(royCtx, royCanvas);
-              
-              // Function to draw Roy's waveform
+
               function drawRoyWaveform() {
                 if (audioEl.paused || audioEl.ended) {
-                  // Stop animation when audio ends
                   cancelAnimationFrame(drawRoyWaveform.id);
                   royCtx.clearRect(0, 0, royCanvas.width, royCanvas.height);
                   drawFlatLine(royCtx, royCanvas);
                   return;
                 }
-                
-                // Request next frame
+
                 drawRoyWaveform.id = requestAnimationFrame(drawRoyWaveform);
-                
-                // Get waveform data
+
                 royAnalyser.getByteTimeDomainData(royDataArray);
-                
-                // Clear previous frame
+
                 royCtx.clearRect(0, 0, royCanvas.width, royCanvas.height);
-                
-                // Background fill
+
                 royCtx.fillStyle = '#000';
                 royCtx.fillRect(0, 0, royCanvas.width, royCanvas.height);
-                
-                // Waveform style
+
                 royCtx.lineWidth = 2;
                 royCtx.strokeStyle = '#0ff';
-                
-                // Draw waveform
+
                 royCtx.beginPath();
                 const sliceWidth = royCanvas.width / royDataArray.length;
                 let x = 0;
-                
+
                 for (let i = 0; i < royDataArray.length; i++) {
-                  // Transform data for better visualization
                   const normalized = (royDataArray[i] / 128.0) - 1;
                   const y = normalized * (royCanvas.height / 3) + (royCanvas.height / 2);
-                  
+
                   if (i === 0) {
                     royCtx.moveTo(x, y);
                   } else {
                     royCtx.lineTo(x, y);
                   }
-                  
+
                   x += sliceWidth;
                 }
-                
+
                 royCtx.stroke();
               }
-              
-              // Play audio and start visualization
+
               audioEl.onplay = function() {
                 drawRoyWaveform();
               };
-              
+
               audioEl.onended = function() {
                 cancelAnimationFrame(drawRoyWaveform.id);
                 audioCtx.close().catch(err => console.error('Error closing Roy audio context:', err));
                 royCtx.clearRect(0, 0, royCanvas.width, royCanvas.height);
                 drawFlatLine(royCtx, royCanvas);
               };
-              
-              // Play audio after a small delay to ensure setup is complete
+
               setTimeout(() => {
                 audioEl.play().catch(err => {
                   console.error('Audio playback error:', err);
@@ -345,7 +362,7 @@ window.addEventListener('DOMContentLoaded', async () => {
             }
           }
         }
-        
+
         return;
       } catch (err) {
         console.error('Error fetching Roy response:', err);
@@ -362,48 +379,41 @@ window.addEventListener('DOMContentLoaded', async () => {
 
   function drawUserWaveform() {
     if (!analyser || !isRecording) return;
-    
+
     requestAnimationFrame(drawUserWaveform);
-    
+
     analyser.getByteTimeDomainData(dataArray);
-    
-    // Clear previous frame
+
     userCtx.clearRect(0, 0, userCanvas.width, userCanvas.height);
-    
-    // Background
+
     userCtx.fillStyle = '#000';
     userCtx.fillRect(0, 0, userCanvas.width, userCanvas.height);
-    
-    // Waveform style
+
     userCtx.lineWidth = 2;
     userCtx.strokeStyle = 'yellow';
-    
-    // Begin drawing waveform
+
     userCtx.beginPath();
-    
+
     const sliceWidth = userCanvas.width / dataArray.length;
     let x = 0;
-    
-    // Draw smooth waveform with enhanced visibility
+
     for (let i = 0; i < dataArray.length; i++) {
-      // Apply a cleaner, more pronounced transformation
       const normalized = (dataArray[i] / 128.0) - 1;
       const y = normalized * (userCanvas.height / 3) + (userCanvas.height / 2);
-      
+
       if (i === 0) {
         userCtx.moveTo(x, y);
       } else {
         userCtx.lineTo(x, y);
       }
-      
+
       x += sliceWidth;
     }
-    
+
     userCtx.stroke();
   }
 
   function drawFlatLine(ctx, canvas) {
-    // Draw a flat line in the middle of the canvas
     ctx.fillStyle = '#000';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     ctx.beginPath();
@@ -456,7 +466,6 @@ window.addEventListener('DOMContentLoaded', async () => {
     window.location.href = 'https://synthcalm.com';
   });
 
-  // Add event listener for Enter key in text input
   inputEl.addEventListener('keypress', (e) => {
     if (e.key === 'Enter') {
       sendBtn.click();
