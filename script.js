@@ -72,7 +72,14 @@ window.addEventListener('DOMContentLoaded', () => {
 
   async function fetchRoyResponse(message) {
     const thinkingEl = document.createElement('p');
-    thinkingEl.textContent = 'Roy is reflecting...';
+    thinkingEl.innerHTML = `<strong style='color: yellow;'>Roy is reflecting<span class="dot-dot-dot">.</span></strong>`;
+      let dots = 1;
+      const interval = setInterval(() => {
+        dots = (dots % 3) + 1;
+        thinkingEl.querySelector('.dot-dot-dot').textContent = '.'.repeat(dots);
+      }, 500);
+
+      thinkingEl.setAttribute('data-loader-id', Date.now());
     thinkingEl.className = 'roy';
     messagesEl.appendChild(thinkingEl);
     messagesEl.scrollTop = messagesEl.scrollHeight;
@@ -85,7 +92,8 @@ window.addEventListener('DOMContentLoaded', () => {
       });
       const data = await res.json();
 
-      thinkingEl.remove();
+      clearInterval(interval);
+thinkingEl.remove();
       await new Promise(resolve => setTimeout(resolve, 500));
 
       let preface = getRandomAffirmation();
@@ -107,7 +115,12 @@ window.addEventListener('DOMContentLoaded', () => {
       }
 
       const finalMessage = `${preface}${poetic}${paraphrase}\n${data.text}${binary}`;
-      appendMessage('Roy', finalMessage);
+      const royLine = document.createElement('p');
+      royLine.className = 'roy';
+      const timestamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      royLine.innerHTML = `<strong style='color: yellow;'>Roy:</strong> <span style='color: yellow;'>${finalMessage}</span> <span style='font-size: 10px; color: #888;'>(${timestamp})</span>`;
+      messagesEl.appendChild(royLine);
+      messagesEl.scrollTop = messagesEl.scrollHeight;
       lastRoyMessage = finalMessage;
 
       if ((modeSelect.value === 'voice' || modeSelect.value === 'both') && data.audio) {
@@ -178,6 +191,15 @@ window.addEventListener('DOMContentLoaded', () => {
 
     } catch (err) {
       // fallback to Whisper
+      const alertBanner = document.createElement('div');
+      alertBanner.textContent = '⚠️ AssemblyAI connection failed. Falling back to Whisper.';
+      alertBanner.style.backgroundColor = '#222';
+      alertBanner.style.color = 'yellow';
+      alertBanner.style.padding = '10px';
+      alertBanner.style.textAlign = 'center';
+      alertBanner.style.border = '1px solid yellow';
+      alertBanner.style.marginBottom = '10px';
+      messagesEl.appendChild(alertBanner);
       appendMessage('Roy', 'AssemblyAI failed, switching to Whisper fallback.');
       recordedChunks = [];
       mediaRecorder = new MediaRecorder(stream);
@@ -248,7 +270,12 @@ window.addEventListener('DOMContentLoaded', () => {
   sendBtn.addEventListener('click', () => {
     const msg = inputEl.value.trim();
     if (msg) {
-      appendMessage('You', msg);
+      const userLine = document.createElement('p');
+      userLine.className = 'you';
+      const timestamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      userLine.innerHTML = `<strong style='color: white;'>You:</strong> <span style='color: white;'>${msg}</span> <span style='font-size: 10px; color: #888;'>(${timestamp})</span>`;
+      messagesEl.appendChild(userLine);
+      messagesEl.scrollTop = messagesEl.scrollHeight;
       inputEl.value = '';
       fetchRoyResponse(msg);
     }
