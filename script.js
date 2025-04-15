@@ -1,8 +1,8 @@
-// script.js – Updated Roy frontend with polished UX and functional voice
-// Version: 2.4 (Fixed voice functionality and improved waveforms)
+// script.js – Updated Roy frontend with corrected syntax and functional voice
+// Version: 2.5 (Fixed syntax errors and workflow)
 // Note: After updating this file, ensure you redeploy to GitHub Pages (synthcalm.github.io) to apply changes.
 
-console.log('SynthCalm App Version: 2.4');
+console.log('SynthCalm App Version: 2.5');
 
 window.addEventListener('DOMContentLoaded', async () => {
   const micBtn = document.getElementById('mic-toggle');
@@ -87,7 +87,7 @@ window.addEventListener('DOMContentLoaded', async () => {
     try {
       stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       
-      audioContext = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 16000 });
+      audioContext = new (window.AudioContext || window.webkitAudioContext)();
       if (audioContext.state === 'suspended') {
         await audioContext.resume();
       }
@@ -109,7 +109,7 @@ window.addEventListener('DOMContentLoaded', async () => {
       }
 
       // Set up WebSocket for real-time transcription
-      socket = new WebSocket(`wss://api.assemblyai.com/v2/realtime/ws?sample_rate=16000`);
+      socket = new WebSocket('wss://api.assemblyai.com/v2/realtime/ws?sample_rate=16000');
       socket.binaryType = 'arraybuffer';
 
       socket.onopen = () => {
@@ -119,7 +119,9 @@ window.addEventListener('DOMContentLoaded', async () => {
       socket.onmessage = (msg) => {
         const res = JSON.parse(msg.data);
         if (res.text) {
-          transcriptEl.querySelector('span').textContent = res.text;
+          if (transcriptEl) {
+            transcriptEl.querySelector('span').textContent = res.text;
+          }
           liveTranscript = res.text;
         }
       };
@@ -144,7 +146,11 @@ window.addEventListener('DOMContentLoaded', async () => {
       }
       registerProcessor('pcm-processor', PCMProcessor);`;
 
-      await audioContext.audioWorklet.addModule('data:application/javascript;base64,' + btoa(worklet));
+      const blob = new Blob([worklet], { type: 'text/javascript' });
+      const url = URL.createObjectURL(blob);
+      await audioContext.audioWorklet.addModule(url);
+      URL.revokeObjectURL(url);
+      
       const workletNode = new AudioWorkletNode(audioContext, 'pcm-processor');
       workletNode.port.onmessage = (e) => {
         if (socket && socket.readyState === WebSocket.OPEN) {
@@ -184,7 +190,7 @@ window.addEventListener('DOMContentLoaded', async () => {
     
     // Close audio context
     if (audioContext) {
-      audioContext.close();
+      audioContext.close().catch(err => console.error('Error closing audio context:', err));
       audioContext = null;
       analyser = null;
     }
@@ -245,86 +251,99 @@ window.addEventListener('DOMContentLoaded', async () => {
         }
         
         if ((mode === 'voice' || mode === 'both') && data.audio) {
-          // Create and setup audio for Roy
-          audioEl.src = `data:audio/mp3;base64,${data.audio}`;
-          audioEl.style.display = 'block';
-          
-          // Set up visualizer for Roy's voice
-          const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-          const source = audioCtx.createMediaElementSource(audioEl);
-          const royAnalyser = audioCtx.createAnalyser();
-          royAnalyser.fftSize = 2048;
-          const royDataArray = new Uint8Array(royAnalyser.frequencyBinCount);
-          
-          source.connect(royAnalyser);
-          royAnalyser.connect(audioCtx.destination);
-          
-          // Clear any previous waveform
-          royCtx.clearRect(0, 0, royCanvas.width, royCanvas.height);
-          drawFlatLine(royCtx, royCanvas);
-          
-          // Start drawing Roy's waveform when audio plays
-          audioEl.onplay = function() {
-            function drawRoyWaveform() {
-              if (!royAnalyser || audioEl.paused || audioEl.ended) {
-                royCtx.clearRect(0, 0, royCanvas.width, royCanvas.height);
-                drawFlatLine(royCtx, royCanvas);
-                return;
-              }
+          // Create and play audio for Roy
+          const audioData = data.audio;
+          if (audioData) {
+            try {
+              audioEl.src = `data:audio/mp3;base64,${audioData}`;
               
-              requestAnimationFrame(drawRoyWaveform);
+              // Set up audio context and analyzer for Roy's voice
+              const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+              const roySource = audioCtx.createMediaElementSource(audioEl);
+              const royAnalyser = audioCtx.createAnalyser();
+              royAnalyser.fftSize = 2048;
+              const royDataArray = new Uint8Array(royAnalyser.frequencyBinCount);
               
-              royAnalyser.getByteTimeDomainData(royDataArray);
+              roySource.connect(royAnalyser);
+              royAnalyser.connect(audioCtx.destination);
               
-              // Clear previous frame
+              // Clear any previous waveform
               royCtx.clearRect(0, 0, royCanvas.width, royCanvas.height);
+              drawFlatLine(royCtx, royCanvas);
               
-              // Style settings
-              royCtx.fillStyle = '#000';
-              royCtx.fillRect(0, 0, royCanvas.width, royCanvas.height);
-              royCtx.lineWidth = 2;
-              royCtx.strokeStyle = '#0ff';
-              
-              // Draw waveform with smooth curves
-              royCtx.beginPath();
-              
-              const sliceWidth = royCanvas.width / royDataArray.length;
-              let x = 0;
-              
-              for (let i = 0; i < royDataArray.length; i++) {
-                // Apply a cleaner, more pronounced transformation
-                const normalized = (royDataArray[i] / 128.0) - 1;
-                const y = normalized * (royCanvas.height / 3) + (royCanvas.height / 2);
-                
-                if (i === 0) {
-                  royCtx.moveTo(x, y);
-                } else {
-                  royCtx.lineTo(x, y);
+              // Function to draw Roy's waveform
+              function drawRoyWaveform() {
+                if (audioEl.paused || audioEl.ended) {
+                  // Stop animation when audio ends
+                  cancelAnimationFrame(drawRoyWaveform.id);
+                  royCtx.clearRect(0, 0, royCanvas.width, royCanvas.height);
+                  drawFlatLine(royCtx, royCanvas);
+                  return;
                 }
                 
-                x += sliceWidth;
+                // Request next frame
+                drawRoyWaveform.id = requestAnimationFrame(drawRoyWaveform);
+                
+                // Get waveform data
+                royAnalyser.getByteTimeDomainData(royDataArray);
+                
+                // Clear previous frame
+                royCtx.clearRect(0, 0, royCanvas.width, royCanvas.height);
+                
+                // Background fill
+                royCtx.fillStyle = '#000';
+                royCtx.fillRect(0, 0, royCanvas.width, royCanvas.height);
+                
+                // Waveform style
+                royCtx.lineWidth = 2;
+                royCtx.strokeStyle = '#0ff';
+                
+                // Draw waveform
+                royCtx.beginPath();
+                const sliceWidth = royCanvas.width / royDataArray.length;
+                let x = 0;
+                
+                for (let i = 0; i < royDataArray.length; i++) {
+                  // Transform data for better visualization
+                  const normalized = (royDataArray[i] / 128.0) - 1;
+                  const y = normalized * (royCanvas.height / 3) + (royCanvas.height / 2);
+                  
+                  if (i === 0) {
+                    royCtx.moveTo(x, y);
+                  } else {
+                    royCtx.lineTo(x, y);
+                  }
+                  
+                  x += sliceWidth;
+                }
+                
+                royCtx.stroke();
               }
               
-              royCtx.stroke();
+              // Play audio and start visualization
+              audioEl.onplay = function() {
+                drawRoyWaveform();
+              };
+              
+              audioEl.onended = function() {
+                cancelAnimationFrame(drawRoyWaveform.id);
+                audioCtx.close().catch(err => console.error('Error closing Roy audio context:', err));
+                royCtx.clearRect(0, 0, royCanvas.width, royCanvas.height);
+                drawFlatLine(royCtx, royCanvas);
+              };
+              
+              // Play audio after a small delay to ensure setup is complete
+              setTimeout(() => {
+                audioEl.play().catch(err => {
+                  console.error('Audio playback error:', err);
+                  appendMessage('Roy', 'Voice output unavailable. Please check your audio settings.');
+                });
+              }, 200);
+            } catch (err) {
+              console.error('Error processing audio:', err);
+              appendMessage('Roy', 'Voice output failed. Please try again or use text mode.');
             }
-            
-            drawRoyWaveform();
-          };
-          
-          // Cleanup when audio ends
-          audioEl.onended = function() {
-            audioCtx.close();
-            royCtx.clearRect(0, 0, royCanvas.width, royCanvas.height);
-            drawFlatLine(royCtx, royCanvas);
-          };
-          
-          // Play audio with a small delay to ensure setup is complete
-          setTimeout(() => {
-            audioEl.play().catch(err => {
-              console.error('Audio playback error:', err);
-              appendMessage('Roy', 'Voice output unavailable. Please check your audio settings.');
-            });
-          }, 100);
+          }
         }
         
         return;
