@@ -132,7 +132,7 @@ window.addEventListener('DOMContentLoaded', () => {
 
       appendMessage('Roy', data.text, true);
 
-      if ((modeSelect.value === 'voice' || modeSelect.value === 'both') && data.audio) {
+    if ((modeSelect.value === 'voice' || modeSelect.value === 'both') && data.audio) {
         const audio = new Audio(`data:audio/mp3;base64,${data.audio}`);
         audio.play();
         drawWaveform(royCtx, royCanvas, audio, 'magenta');
