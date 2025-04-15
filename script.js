@@ -121,6 +121,15 @@ window.addEventListener('DOMContentLoaded', () => {
     isRecording = false;
   }
 
+  function appendMessage(sender, text) {
+    const p = document.createElement('p');
+    p.className = sender.toLowerCase();
+    const color = sender === 'Roy' ? 'yellow' : 'white';
+    p.innerHTML = `<strong style='color: ${color}'>${sender}:</strong> <span style='color: ${color}'>${text}</span>`;
+    messagesEl.appendChild(p);
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+  }
+
   async function typeRoyMessage(text) {
     return new Promise(resolve => {
       const line = document.createElement('p');
