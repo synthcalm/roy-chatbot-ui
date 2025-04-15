@@ -73,6 +73,7 @@ window.addEventListener('DOMContentLoaded', async () => {
       stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       console.log('Microphone access granted:', stream);
       console.log('Audio tracks:', stream.getAudioTracks());
+      console.log('Stream active:', stream.active);
 
       audioContext = new (window.AudioContext || window.webkitAudioContext)();
       console.log('AudioContext created:', audioContext);
@@ -94,7 +95,8 @@ window.addEventListener('DOMContentLoaded', async () => {
       micBtn.classList.add('recording');
       appendMessage('Roy', 'Recording started. Speak now, then press Stop to type or send your message.');
 
-      // Start the waveform drawing loop immediately
+      // Draw the waveform immediately, then start the loop
+      drawWaveformOnce('user');
       drawWaveform('user');
     } catch (err) {
       console.error('Recording error:', err);
@@ -110,10 +112,15 @@ window.addEventListener('DOMContentLoaded', async () => {
 
   function stopRecording() {
     if (stream) {
-      stream.getTracks().forEach(track => track.stop());
+      console.log('Stopping stream, current tracks:', stream.getAudioTracks());
+      stream.getTracks().forEach(track => {
+        track.stop();
+        console.log('Track stopped:', track);
+      });
       stream = null;
     }
     if (audioContext) {
+      console.log('Closing AudioContext, current state:', audioContext.state);
       audioContext.close();
       audioContext = null;
       analyser = null;
@@ -185,6 +192,34 @@ window.addEventListener('DOMContentLoaded', async () => {
     }
   }
 
+  function drawWaveformOnce(type) {
+    if ((type === 'user' && !isRecording) || !analyser) {
+      console.log('Immediate waveform drawing skipped: isRecording=', isRecording, 'analyser=', analyser);
+      return;
+    }
+
+    const canvas = type === 'user' ? userCanvas : royCanvas;
+    const ctx = type === 'user' ? userCtx : royCtx;
+
+    analyser.getByteTimeDomainData(dataArray);
+    console.log('Immediate audio data sample:', dataArray.slice(0, 5));
+
+    ctx.fillStyle = '#000';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.strokeStyle = type === 'user' ? 'yellow' : '#0ff';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    const sliceWidth = canvas.width / dataArray.length;
+    let x = 0;
+    for (let i = 0; i < dataArray.length; i++) {
+      const y = (dataArray[i] / 128.0) * canvas.height / 2;
+      i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+      x += sliceWidth;
+    }
+    ctx.lineTo(canvas.width, canvas.height / 2);
+    ctx.stroke();
+  }
+
   function drawWaveform(type) {
     if ((type === 'user' && !isRecording) || !analyser) {
       console.log('Waveform drawing skipped: isRecording=', isRecording, 'analyser=', analyser);
@@ -201,7 +236,7 @@ window.addEventListener('DOMContentLoaded', async () => {
     const ctx = type === 'user' ? userCtx : royCtx;
 
     analyser.getByteTimeDomainData(dataArray);
-    console.log('Audio data sample:', dataArray.slice(0, 5)); // Log first 5 values to check if data is non-zero
+    console.log('Audio data sample:', dataArray.slice(0, 5));
 
     ctx.fillStyle = '#000';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
