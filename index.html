@@ -3,9 +3,10 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="description" content="Roy, a CBT therapist chatbot." />
+  <meta name="description" content="Roy, the cognitive therapist, helping you reflect and process aloud." />
   <title>Roy // SynthCalm</title>
   <link rel="stylesheet" href="style.css" />
+  <link rel="icon" href="favicon.ico" type="image/x-icon" />
 </head>
 <body>
   <div class="container">
@@ -15,21 +16,19 @@
       <span id="countdown-timer">Session Ends In: 60:00</span>
     </div>
 
-    <canvas id="userWaveform" height="60"></canvas>
-    <div id="messages"></div>
-    <canvas id="royWaveform" height="60"></canvas>
+    <canvas id="userWaveform" height="60" aria-label="User waveform"></canvas>
+
+    <div id="messages" role="log" aria-live="polite"></div>
+
+    <canvas id="royWaveform" height="60" aria-label="Roy waveform"></canvas>
 
     <div class="input-area">
       <div class="input-group">
-        <textarea
-          id="user-input"
-          placeholder="Say or type something..."
-          rows="4"
-        ></textarea>
+        <textarea id="user-input" placeholder="Say or type something..." rows="3"></textarea>
         <button id="send-button" class="button">Send</button>
       </div>
 
-      <label for="responseMode">Roy Response Mode:</label>
+      <label for="responseMode">Roy's Response:</label>
       <select id="responseMode" class="button">
         <option value="both">Text + Voice</option>
         <option value="text">Text Only</option>
@@ -43,6 +42,7 @@
       </div>
     </div>
   </div>
+
   <script src="script.js"></script>
 </body>
 </html>
