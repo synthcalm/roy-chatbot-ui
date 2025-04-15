@@ -27,7 +27,9 @@ window.addEventListener('DOMContentLoaded', () => {
     "Oh, ok.", "I see.", "Understood.", "Right.", "Got it.", "Hmm, okay.",
     "Alright.", "Sure.", "Okay then.", "Ah, I get it.", "Noted.", "Thanks for that.",
     "Fair enough.", "Mhm.", "All clear.", "Yup.", "Acknowledged.", "Heard you.",
-    "Hmm, makes sense.", "Alright then.", "Following you."
+    "Hmm, makes sense.", "Alright then.", "Following you.", "Yep, that tracks.", "That's clear.",
+    "Right, makes sense.", "That adds up.", "Okay, I hear that.", "I'm with you.",
+    "Yeah, alright.", "Crystal clear.", "That’s fair.", "Alright, continue."
   ];
 
   const quotes = [
