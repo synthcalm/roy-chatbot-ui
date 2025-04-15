@@ -206,16 +206,21 @@ thinkingEl.remove();
 
       mediaRecorder.ondataavailable = e => recordedChunks.push(e.data);
       mediaRecorder.onstop = async () => {
-        const blob = new Blob(recordedChunks, { type: 'audio/webm' });
-        const formData = new FormData();
-        formData.append('audio', blob);
+        const thinkingEl = document.createElement('p');
+        thinkingEl.innerHTML = `<strong style='color: yellow;'>Roy is reflecting<span class="dot-dot-dot">.</span></strong>`;
+        let dots = 1;
+        const interval = setInterval(() => {
+          dots = (dots % 3) + 1;
+          thinkingEl.querySelector('.dot-dot-dot').textContent = '.'.repeat(dots);
+        }, 500);
+        thinkingEl.className = 'roy';
+        messagesEl.appendChild(thinkingEl);
+        messagesEl.scrollTop = messagesEl.scrollHeight;
 
-        const res = await fetch('https://roy-chatbo-backend.onrender.com/api/transcribe', {
-          method: 'POST',
-          body: formData
-        });
-
+$1
         const data = await res.json();
+        clearInterval(interval);
+        thinkingEl.remove();
         if (data.text) {
           appendMessage('You', data.text);
           fetchRoyResponse(data.text);
