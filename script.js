@@ -1,8 +1,8 @@
 // script.js – Updated Roy frontend with corrected syntax and functional voice
-// Version: 2.6 (Fixed token fetch handling and premature static message)
+// Version: 2.7 (Improved token fetch error handling for better user feedback)
 // Note: After updating this file, ensure you redeploy to GitHub Pages (synthcalm.github.io) to apply changes.
 
-console.log('SynthCalm App Version: 2.6');
+console.log('SynthCalm App Version: 2.7');
 
 window.addEventListener('DOMContentLoaded', async () => {
   const micBtn = document.getElementById('mic-toggle');
@@ -31,7 +31,7 @@ window.addEventListener('DOMContentLoaded', async () => {
   let token = null;
   let liveTranscript = '';
   let transcriptEl = null;
-  let transcriptionTimeout = null; // To ensure transcription has time to process
+  let transcriptionTimeout = null;
 
   // Initialize time display
   updateClock();
@@ -75,14 +75,15 @@ window.addEventListener('DOMContentLoaded', async () => {
     try {
       const res = await fetch('https://roy-chatbo-backend.onrender.com/api/assembly/token');
       if (!res.ok) {
-        throw new Error(`Server responded with status: ${res.status}`);
+        const errorData = await res.json();
+        throw new Error(errorData.details || `Server responded with status: ${res.status}`);
       }
       const data = await res.json();
       token = data.token;
       return token;
     } catch (err) {
-      console.error('Error getting token:', err);
-      appendMessage('Roy', 'Unable to connect to the speech service. Please try typing your message instead.');
+      console.error('Error getting token:', err.message);
+      appendMessage('Roy', 'Unable to connect to the speech service. The server might be down or misconfigured. Please try typing your message instead.');
       return null;
     }
   }
@@ -92,7 +93,7 @@ window.addEventListener('DOMContentLoaded', async () => {
       // Get token first to avoid setting up recording if it fails
       const tokenResult = await getToken();
       if (!tokenResult) {
-        return; // Stop if token fetch fails
+        return;
       }
 
       // Access microphone
@@ -183,7 +184,7 @@ window.addEventListener('DOMContentLoaded', async () => {
           appendMessage('Roy', "I didn't hear anything. Please speak louder or check your microphone.");
           stopRecording();
         }
-      }, 5000); // 5 seconds to detect speech
+      }, 5000);
     } catch (err) {
       console.error('Recording error:', err);
       let errorMessage = 'Could not access your microphone.';
@@ -234,7 +235,6 @@ window.addEventListener('DOMContentLoaded', async () => {
       appendMessage('You', liveTranscript);
       fetchRoyResponse(liveTranscript);
     } else if (!transcriptionTimeout) {
-      // Only show the "static" message if the timeout didn't already handle it
       appendMessage('Roy', "Your words didn't make it through the static. Try again or type your message.");
     }
     liveTranscript = '';
