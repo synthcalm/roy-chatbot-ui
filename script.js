@@ -176,36 +176,38 @@ window.addEventListener('DOMContentLoaded', async () => {
   }
 
   function drawWaveform(type) {
-    if ((type === 'user' && !isRecording) || !analyser) return;
-    const now = Date.now();
-    if (now - lastWaveformUpdate < WAVEFORM_UPDATE_INTERVAL) {
-      requestAnimationFrame(() => drawWaveform(type));
-      return;
-    }
-    lastWaveformUpdate = now;
-
-    const canvas = type === 'user' ? userCanvas : royCanvas;
-    const ctx = type === 'user' ? userCtx : royCtx;
-
-    analyser.getByteTimeDomainData(dataArray);
-    ctx.fillStyle = '#000';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    ctx.strokeStyle = type === 'user' ? 'yellow' : '#0ff';
-    ctx.lineWidth = 1.5;
-    ctx.beginPath();
-    const sliceWidth = canvas.width / dataArray.length;
-    let x = 0;
-    for (let i = 0; i < dataArray.length; i++) {
-      const y = (dataArray[i] / 128.0) * canvas.height / 2;
-      i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
-      x += sliceWidth;
-    }
-    ctx.lineTo(canvas.width, canvas.height / 2);
-    ctx.stroke();
-
-    requestAnimationFrame(() => drawWaveform(type));
+  if ((type === 'user' && !isRecording) || !analyser) {
+    console.log('Waveform drawing skipped: isRecording=', isRecording, 'analyser=', analyser);
+    return;
   }
+  const now = Date.now();
+  if (now - lastWaveformUpdate < WAVEFORM_UPDATE_INTERVAL) {
+    requestAnimationFrame(() => drawWaveform(type));
+    return;
+  }
+  lastWaveformUpdate = now;
 
+  const canvas = type === 'user' ? userCanvas : royCanvas;
+  const ctx = type === 'user' ? userCtx : royCtx;
+
+  analyser.getByteTimeDomainData(dataArray);
+  ctx.fillStyle = '#000';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.strokeStyle = type === 'user' ? 'yellow' : '#0ff';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  const sliceWidth = canvas.width / dataArray.length;
+  let x = 0;
+  for (let i = 0; i < dataArray.length; i++) {
+    const y = (dataArray[i] / 128.0) * canvas.height / 2;
+    i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    x += sliceWidth;
+  }
+  ctx.lineTo(canvas.width, canvas.height / 2);
+  ctx.stroke();
+
+  requestAnimationFrame(() => drawWaveform(type));
+}
   function saveConversationLog() {
     const messages = Array.from(messagesEl.getElementsByTagName('p')).map(p => p.textContent);
     const logText = messages.join('\n');
