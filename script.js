@@ -1,4 +1,4 @@
-// script.js – Roy frontend using Whisper transcription only
+// script.js – Roy frontend using Whisper transcription only with waveform + audio reply
 
 window.addEventListener('DOMContentLoaded', () => {
   const micBtn = document.getElementById('mic-toggle');
@@ -104,6 +104,14 @@ window.addEventListener('DOMContentLoaded', () => {
     isRecording = true;
     micBtn.textContent = 'Stop';
     micBtn.classList.add('recording');
+
+    // Visualize user voice
+    audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    const source = audioContext.createMediaStreamSource(stream);
+    analyser = audioContext.createAnalyser();
+    analyser.fftSize = 2048;
+    source.connect(analyser);
+    drawWaveform(userCtx, userCanvas, analyser, 'yellow');
   }
 
   function stopRecording() {
@@ -142,6 +150,12 @@ window.addEventListener('DOMContentLoaded', () => {
       const quote = getRandomThematicQuote();
       const prompt = Math.random() < 0.3 ? `\n\n${binaryPrompts[Math.floor(Math.random() * binaryPrompts.length)]}` : '';
       appendMessage('Roy', `${affirmation}\n\n${quote}\n\n${data.text}${prompt}`);
+
+      if ((modeSelect.value === 'voice' || modeSelect.value === 'both') && data.audio) {
+        const audio = new Audio(`data:audio/mp3;base64,${data.audio}`);
+        audio.play();
+        drawWaveform(royCtx, royCanvas, audio, 'magenta');
+      }
     } catch (err) {
       thinking.remove();
       appendMessage('Roy', 'Roy was silent. Try again.');
@@ -166,5 +180,36 @@ window.addEventListener('DOMContentLoaded', () => {
     const theme = categories[Math.floor(Math.random() * categories.length)];
     const quoteList = quoteThemes[theme];
     return quoteList[Math.floor(Math.random() * quoteList.length)];
+  }
+
+  function drawWaveform(ctx, canvas, source, color) {
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const analyser = audioCtx.createAnalyser();
+    const srcNode = audioCtx.createMediaElementSource(source);
+    srcNode.connect(analyser);
+    analyser.connect(audioCtx.destination);
+    analyser.fftSize = 2048;
+    const buffer = new Uint8Array(analyser.frequencyBinCount);
+
+    function draw() {
+      requestAnimationFrame(draw);
+      analyser.getByteTimeDomainData(buffer);
+      ctx.fillStyle = '#000';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.strokeStyle = color;
+      ctx.beginPath();
+      const slice = canvas.width / buffer.length;
+      let x = 0;
+      for (let i = 0; i < buffer.length; i++) {
+        const y = (buffer[i] / 128.0) * canvas.height / 2;
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+        x += slice;
+      }
+      ctx.lineTo(canvas.width, canvas.height / 2);
+      ctx.stroke();
+    }
+
+    draw();
   }
 });
