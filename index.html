@@ -1,38 +1,160 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="description" content="Roy, your CBT companion. Speak or type your truth." />
-  <title>Roy // SynthCalm</title>
-  <link rel="stylesheet" href="style.css" />
-</head>
-<body>
-  <div class="container">
-    <div class="title-bar">
-      <span id="current-date"></span>
-      <span id="current-time"></span>
-      <span id="countdown-timer">Session Ends In: 60:00</span>
-    </div>
-    <canvas id="userWaveform" height="60" aria-label="User audio waveform"></canvas>
-    <div id="messages"></div>
-    <canvas id="royWaveform" height="60" aria-label="Roy audio waveform"></canvas>
-    <div class="input-area">
-      <input type="text" id="user-input" placeholder="Say or type something..." />
-      <button id="send-button" class="button">Send</button>
-    </div>
-    <select id="responseMode" class="button">
-      <option value="both">Text + Voice</option>
-      <option value="text">Text Only</option>
-      <option value="voice">Voice Only</option>
-    </select>
-    <div class="button-group">
-      <button id="mic-toggle" class="button">Speak</button>
-      <button id="save-log" class="button">Save Log</button>
-      <button id="home-btn" class="button">SynthCalm Home</button>
-    </div>
-    <audio id="roy-audio" style="display:none;" controls></audio>
-  </div>
-  <script src="script.js" defer></script>
-</body>
-</html>
+/* Roy Chatbot UI - SynthCalm Style */
+
+body {
+  margin: 0;
+  font-family: 'Courier New', monospace;
+  background-color: black;
+  color: #0ff;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+}
+
+.container {
+  width: 90%;
+  max-width: 650px;
+  padding: 20px;
+  border: 2px solid #0ff;
+  border-radius: 16px;
+  display: flex;
+  flex-direction: column;
+  background-color: #111;
+  box-shadow: 0 0 20px rgba(0, 255, 255, 0.2);
+}
+
+.title-bar {
+  display: flex;
+  justify-content: space-between;
+  font-size: 14px;
+  margin-bottom: 10px;
+  color: #ff0;
+}
+
+#messages {
+  min-height: 200px;
+  max-height: 260px;
+  overflow-y: auto;
+  background-color: #000;
+  border: 1px solid #0ff;
+  padding: 10px;
+  margin: 10px 0;
+  font-size: 14px;
+  line-height: 1.4;
+  scroll-behavior: smooth;
+}
+
+#messages p {
+  margin: 0 0 8px 0;
+}
+
+#messages p.roy strong {
+  color: #0ff;
+}
+
+#messages p.you strong {
+  color: #ff0;
+}
+
+#messages p.live-transcript {
+  font-style: italic;
+  opacity: 0.7;
+}
+
+#messages p.live-transcript span {
+  color: #ffd700;
+}
+
+canvas {
+  background-color: #000;
+  background-image: linear-gradient(to right, rgba(255, 255, 0, 0.3) 1px, transparent 1px),
+                    linear-gradient(to bottom, rgba(255, 255, 0, 0.3) 1px, transparent 1px);
+  background-size: 20px 20px;
+  border: 1px solid #0ff;
+  border-radius: 8px;
+  margin-bottom: 10px;
+}
+
+.input-area {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+#user-input {
+  flex: 1;
+  padding: 10px;
+  background: #000;
+  border: 1px solid #0ff;
+  color: #0ff;
+  font-family: 'Courier New', monospace;
+  font-size: 14px;
+}
+
+.button {
+  background: #000;
+  border: 1px solid #0ff;
+  color: #0ff;
+  padding: 10px 16px;
+  font-family: 'Courier New', monospace;
+  font-size: 14px;
+  cursor: pointer;
+  border-radius: 8px;
+  transition: all 0.2s ease-in-out;
+}
+
+.button:hover {
+  background-color: #0ff;
+  color: #000;
+}
+
+#mic-toggle.recording {
+  border-color: red;
+  color: red;
+  animation: blink 1s infinite;
+}
+
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
+.button-group {
+  display: flex;
+  gap: 10px;
+  justify-content: space-between;
+  margin-top: 10px;
+}
+
+audio {
+  margin-top: 8px;
+  width: 100%;
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .container {
+    width: 95%;
+    padding: 16px;
+  }
+  #messages {
+    font-size: 13px;
+  }
+  .button {
+    font-size: 12px;
+    padding: 8px 12px;
+  }
+  #user-input {
+    font-size: 13px;
+  }
+}
+
+@media (max-width: 450px) {
+  #messages {
+    max-height: 200px;
+  }
+  .button-group {
+    flex-direction: column;
+  }
+}
