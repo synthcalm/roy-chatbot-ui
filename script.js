@@ -1,4 +1,4 @@
-// script.js – Roy frontend using Whisper fallback with AssemblyAI and Roy's persona
+// script.js – Roy frontend using Whisper transcription only
 
 window.addEventListener('DOMContentLoaded', () => {
   const micBtn = document.getElementById('mic-toggle');
@@ -70,68 +70,45 @@ window.addEventListener('DOMContentLoaded', () => {
   });
 
   async function startRecording() {
-    try {
-      stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      audioContext = new (window.AudioContext || window.webkitAudioContext)();
-      const source = audioContext.createMediaStreamSource(stream);
-      analyser = audioContext.createAnalyser();
-      analyser.fftSize = 2048;
-      source.connect(analyser);
-      drawWaveform(userCtx, userCanvas, analyser, 'yellow');
+    stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    recordedChunks = [];
+    mediaRecorder = new MediaRecorder(stream);
+    mediaRecorder.ondataavailable = e => recordedChunks.push(e.data);
+    mediaRecorder.onstop = async () => {
+      const thinkingEl = document.createElement('p');
+      thinkingEl.className = 'roy';
+      thinkingEl.innerHTML = '<em>Roy is reflecting...</em>';
+      messagesEl.appendChild(thinkingEl);
 
-      const res = await fetch('https://roy-chatbo-backend.onrender.com/api/assembly/token');
-      const { token } = await res.json();
+      const blob = new Blob(recordedChunks, { type: 'audio/webm' });
+      const formData = new FormData();
+      formData.append('audio', blob);
 
-      const socket = new WebSocket(`wss://api.assemblyai.com/v2/realtime/ws?sample_rate=16000`);
-      socket.onopen = () => socket.send(JSON.stringify({ token }));
+      const res = await fetch('https://roy-chatbo-backend.onrender.com/api/transcribe', {
+        method: 'POST',
+        body: formData
+      });
 
-      socket.onmessage = (msg) => {
-        const res = JSON.parse(msg.data);
-        if (res.text) {
-          appendMessage('You', res.text);
-          fetchRoyResponse(res.text);
-        }
-      };
+      const data = await res.json();
+      thinkingEl.remove();
 
-      const workletCode = `
-        class PCMWorklet extends AudioWorkletProcessor {
-          process(inputs) {
-            const input = inputs[0][0];
-            if (!input) return true;
-            const int16 = new Int16Array(input.length);
-            for (let i = 0; i < input.length; i++) {
-              int16[i] = Math.max(-1, Math.min(1, input[i])) * 32767;
-            }
-            this.port.postMessage(int16.buffer);
-            return true;
-          }
-        }
-        registerProcessor('pcm-worklet', PCMWorklet);
-      `;
-      const blob = new Blob([workletCode], { type: 'application/javascript' });
-      const url = URL.createObjectURL(blob);
-      await audioContext.audioWorklet.addModule(url);
-      const workletNode = new AudioWorkletNode(audioContext, 'pcm-worklet');
-      workletNode.port.onmessage = (e) => {
-        if (socket.readyState === WebSocket.OPEN) socket.send(e.data);
-      };
+      if (data.text) {
+        appendMessage('You', data.text);
+        fetchRoyResponse(data.text);
+      } else {
+        appendMessage('Roy', 'I didn’t catch that. Can you try again?');
+      }
+    };
 
-      source.connect(workletNode);
-      workletNode.connect(audioContext.destination);
-
-    } catch (err) {
-      appendMessage('Roy', 'AssemblyAI connection failed. Fallback in progress.');
-    }
-
+    mediaRecorder.start();
     isRecording = true;
     micBtn.textContent = 'Stop';
     micBtn.classList.add('recording');
   }
 
   function stopRecording() {
-    if (stream) {
-      stream.getTracks().forEach(track => track.stop());
-    }
+    if (mediaRecorder && mediaRecorder.state !== 'inactive') mediaRecorder.stop();
+    if (stream) stream.getTracks().forEach(track => track.stop());
     micBtn.textContent = 'Speak';
     micBtn.classList.remove('recording');
     isRecording = false;
