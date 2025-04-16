@@ -1,4 +1,3 @@
-
 window.addEventListener('DOMContentLoaded', () => {
   // Unlock AudioContext on iOS
   document.body.addEventListener('touchstart', () => {
@@ -18,7 +17,6 @@ window.addEventListener('DOMContentLoaded', () => {
   document.body.appendChild(royAudio);
 
   const micBtn = document.getElementById('mic-toggle');
-  const sendBtn = document.getElementById('send-button');
   const inputEl = document.getElementById('user-input');
   const messagesEl = document.getElementById('messages');
   const modeSelect = document.getElementById('responseMode');
@@ -151,24 +149,27 @@ window.addEventListener('DOMContentLoaded', () => {
         royAudio.currentTime = 0;
         royAudio.removeAttribute('src');
         royAudio.load();
-
         royAudio.src = `data:audio/mp3;base64,${data.audio}`;
         royAudio.volume = 1.0;
 
-        const playAudio = () => {
-          royAudio.play()
-            .then(() => {
-              drawWaveformRoy(royAudio);
-            })
-            .catch(err => {
-              console.warn('Audio blocked or delayed:', err);
-              document.body.addEventListener('touchend', () => {
-                royAudio.play().then(() => drawWaveformRoy(royAudio));
-              }, { once: true });
-            });
-        };
+        royAudio.play()
+          .then(() => drawWaveformRoy(royAudio))
+          .catch(() => {
+            const tapPrompt = document.createElement('p');
+            tapPrompt.className = 'roy';
+            tapPrompt.innerHTML = '<em>Tap anywhere to hear Roy speak.</em>';
+            messagesEl.appendChild(tapPrompt);
 
-        setTimeout(playAudio, 500);
+            const resume = () => {
+              royAudio.play().then(() => {
+                drawWaveformRoy(royAudio);
+                tapPrompt.remove();
+              });
+              document.removeEventListener('touchend', resume);
+            };
+
+            document.addEventListener('touchend', resume, { once: true });
+          });
       }
     } catch (err) {
       thinking.remove();
