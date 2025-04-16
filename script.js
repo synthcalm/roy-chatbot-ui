@@ -1,25 +1,15 @@
+
+// Roy voice response script that worked once, then failed after second play — reset version
 window.addEventListener('DOMContentLoaded', () => {
-  let audioContext = null;
-  function initializeAudioContext() {
+  document.body.addEventListener('touchstart', () => {
     if (!audioContext) {
       try {
         audioContext = new (window.AudioContext || window.webkitAudioContext)();
       } catch (e) {
         console.error('AudioContext error:', e);
-        appendMessage('Roy', 'Audio system failed.');
-        return false;
       }
     }
-    if (audioContext.state === 'suspended') {
-      audioContext.resume().catch(err => {
-        console.error('AudioContext resume error:', err);
-        appendMessage('Roy', 'Audio system blocked. Tap to enable.');
-      });
-    }
-    return true;
-  }
-
-  document.body.addEventListener('touchstart', initializeAudioContext, { once: true });
+  }, { once: true });
 
   const royAudio = new Audio();
   royAudio.id = 'roy-audio';
@@ -27,8 +17,6 @@ window.addEventListener('DOMContentLoaded', () => {
   document.body.appendChild(royAudio);
 
   const micBtn = document.getElementById('mic-toggle');
-  const sendBtn = document.getElementById('send-button');
-  const inputEl = document.getElementById('user-input');
   const messagesEl = document.getElementById('messages');
   const modeSelect = document.getElementById('responseMode');
   const userCanvas = document.getElementById('userWaveform');
@@ -39,88 +27,72 @@ window.addEventListener('DOMContentLoaded', () => {
   let stream = null;
   let mediaRecorder = null;
   let recordedChunks = [];
+  let audioContext = null;
   let analyser = null;
   let isRecording = false;
 
-  appendMessage('Roy', "Welcome. I'm Roy. Speak when ready.");
-  updateClock();
-  setInterval(updateClock, 1000);
-
-  function updateClock() {
-    const now = new Date();
-    const dateSpan = document.getElementById('current-date');
-    const timeSpan = document.getElementById('current-time');
-    if (!dateSpan || !timeSpan) return;
-    dateSpan.textContent = now.toISOString().split('T')[0];
-    timeSpan.textContent = now.toTimeString().split(' ')[0];
-  }
+  appendMessage('Roy', "Welcome. I'm Roy. Speak when ready — your thoughts hold weight.");
 
   micBtn.addEventListener('click', () => {
     isRecording ? stopRecording() : startRecording();
   });
 
   async function startRecording() {
-    try {
-      audioContext = initializeAudioContext();
-      stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      recordedChunks = [];
-      const mimeType = 'audio/webm;codecs=opus';
-      mediaRecorder = new MediaRecorder(stream, { mimeType: MediaRecorder.isTypeSupported(mimeType) ? mimeType : undefined });
+    stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    recordedChunks = [];
+    const mimeType = 'audio/webm;codecs=opus';
 
-      mediaRecorder.ondataavailable = e => recordedChunks.push(e.data);
-      mediaRecorder.onstop = async () => {
-        const thinkingEl = document.createElement('p');
-        thinkingEl.className = 'roy';
-        thinkingEl.innerHTML = '<em>Roy is reflecting...</em>';
-        messagesEl.appendChild(thinkingEl);
+    mediaRecorder = new MediaRecorder(stream, { mimeType });
+    mediaRecorder.ondataavailable = e => recordedChunks.push(e.data);
+    mediaRecorder.onstop = async () => {
+      const thinkingEl = document.createElement('p');
+      thinkingEl.className = 'roy';
+      thinkingEl.innerHTML = '<em>Roy is reflecting...</em>';
+      messagesEl.appendChild(thinkingEl);
 
-        const blob = new Blob(recordedChunks, { type: 'audio/webm' });
-        const formData = new FormData();
-        formData.append('audio', blob);
+      const blob = new Blob(recordedChunks, { type: 'audio/webm' });
+      const formData = new FormData();
+      formData.append('audio', blob);
 
-        try {
-          const res = await fetch('https://roy-chatbo-backend.onrender.com/api/transcribe', { method: 'POST', body: formData });
-          const data = await res.json();
-          thinkingEl.remove();
-          if (data.text) {
-            appendMessage('You', data.text);
-            fetchRoyResponse(data.text);
-          } else {
-            appendMessage('Roy', 'I didn’t catch that. Try again.');
-          }
-        } catch (err) {
-          thinkingEl.remove();
-          appendMessage('Roy', 'Error processing audio.');
-          console.error('Transcription error:', err);
-        }
-      };
+      const res = await fetch('https://roy-chatbo-backend.onrender.com/api/transcribe', {
+        method: 'POST',
+        body: formData
+      });
 
-      mediaRecorder.start();
-      isRecording = true;
-      micBtn.textContent = 'Stop';
-      micBtn.classList.add('recording');
+      const data = await res.json();
+      thinkingEl.remove();
 
-      const source = audioContext.createMediaStreamSource(stream);
-      analyser = audioContext.createAnalyser();
-      analyser.fftSize = 2048;
-      source.connect(analyser);
-      drawWaveform(userCtx, userCanvas, analyser, 'yellow');
-    } catch (err) {
-      appendMessage('Roy', 'Microphone access denied. Allow in Settings > Safari > Microphone.');
-      console.error('Recording error:', err);
-    }
+      if (data.text) {
+        appendMessage('You', data.text);
+        fetchRoyResponse(data.text);
+      } else {
+        appendMessage('Roy', 'I didn’t catch that. Try again?');
+      }
+    };
+
+    mediaRecorder.start();
+    isRecording = true;
+    micBtn.textContent = 'Stop';
+    micBtn.classList.add('recording');
+
+    audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    const source = audioContext.createMediaStreamSource(stream);
+    analyser = audioContext.createAnalyser();
+    analyser.fftSize = 2048;
+    source.connect(analyser);
+    drawWaveform(userCtx, userCanvas, analyser, 'yellow');
   }
 
   function stopRecording() {
     if (mediaRecorder && mediaRecorder.state !== 'inactive') mediaRecorder.stop();
-    if (stream) {
-      stream.getTracks().forEach(track => track.stop());
-      stream = null;
-    }
+    if (stream) stream.getTracks().forEach(track => track.stop());
     micBtn.textContent = 'Speak';
     micBtn.classList.remove('recording');
     isRecording = false;
-    initializeAudioContext();
+
+    if (audioContext && audioContext.state === 'suspended') {
+      audioContext.resume().then(() => console.log('AudioContext resumed'));
+    }
   }
 
   function appendMessage(sender, text) {
@@ -137,7 +109,6 @@ window.addEventListener('DOMContentLoaded', () => {
     thinking.className = 'roy';
     thinking.innerHTML = '<em>Roy is reflecting...</em>';
     messagesEl.appendChild(thinking);
-    messagesEl.scrollTop = messagesEl.scrollHeight;
 
     try {
       const res = await fetch('https://roy-chatbo-backend.onrender.com/api/chat', {
@@ -145,45 +116,77 @@ window.addEventListener('DOMContentLoaded', () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message, mode: modeSelect.value })
       });
+
       const data = await res.json();
       thinking.remove();
-      if (!data.text) {
-        throw new Error('No text response from backend');
-      }
       appendMessage('Roy', data.text);
 
       if ((modeSelect.value === 'voice' || modeSelect.value === 'both') && data.audio) {
-        if (!initializeAudioContext()) {
-          appendMessage('Roy', 'Audio system unavailable.');
-          return;
-        }
-        try {
-          royAudio.pause();
-          royAudio.currentTime = 0;
-          royAudio.src = `data:audio/mp3;base64,${data.audio}`;
-          royAudio.volume = 1.0;
-          console.log('Attempting to play Roy audio...');
-          await royAudio.play();
-          console.log('Roy audio playing successfully');
-          drawWaveformRoy(royAudio);
-        } catch (err) {
-          console.error('Audio playback error:', err);
-          appendMessage('Roy', 'Unable to play audio response.');
-        }
-      } else if (modeSelect.value === 'voice' || modeSelect.value === 'both') {
-        console.warn('No audio data received from backend');
-        appendMessage('Roy', 'Audio response missing.');
+        royAudio.pause();
+        royAudio.currentTime = 0;
+        royAudio.removeAttribute('src');
+        royAudio.load();
+        royAudio.src = `data:audio/mp3;base64,${data.audio}`;
+        royAudio.volume = 1.0;
+
+        setTimeout(() => {
+          royAudio.play().then(() => drawWaveformRoy(royAudio));
+        }, 500);
       }
     } catch (err) {
       thinking.remove();
       appendMessage('Roy', 'Roy was silent. Try again.');
-      console.error('Fetch error:', err);
     }
   }
 
-  function drawWaveform(ctx, canvas, analyser, color) {
+  function drawWaveform(ctx, canvas, source, color) {
     const buffer = new Uint8Array(analyser.frequencyBinCount);
     function draw() {
-      if (!isRecording) return;
       requestAnimationFrame(draw);
-      analyser.getByteTime
+      analyser.getByteTimeDomainData(buffer);
+      ctx.fillStyle = '#000';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.strokeStyle = color;
+      ctx.beginPath();
+      const slice = canvas.width / buffer.length;
+      let x = 0;
+      for (let i = 0; i < buffer.length; i++) {
+        const y = (buffer[i] / 128.0) * canvas.height / 2;
+        i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+        x += slice;
+      }
+      ctx.lineTo(canvas.width, canvas.height / 2);
+      ctx.stroke();
+    }
+    draw();
+  }
+
+  function drawWaveformRoy(audio) {
+    const ctx = royCanvas.getContext('2d');
+    const ac = new (window.AudioContext || window.webkitAudioContext)();
+    const analyser = ac.createAnalyser();
+    const source = ac.createMediaElementSource(audio);
+    source.connect(analyser);
+    analyser.connect(ac.destination);
+    analyser.fftSize = 2048;
+    const buffer = new Uint8Array(analyser.frequencyBinCount);
+    function draw() {
+      requestAnimationFrame(draw);
+      analyser.getByteTimeDomainData(buffer);
+      ctx.fillStyle = '#000';
+      ctx.fillRect(0, 0, royCanvas.width, royCanvas.height);
+      ctx.strokeStyle = 'magenta';
+      ctx.beginPath();
+      const slice = royCanvas.width / buffer.length;
+      let x = 0;
+      for (let i = 0; i < buffer.length; i++) {
+        const y = (buffer[i] / 128.0) * royCanvas.height / 2;
+        i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+        x += slice;
+      }
+      ctx.lineTo(royCanvas.width, royCanvas.height / 2);
+      ctx.stroke();
+    }
+    draw();
+  }
+});
