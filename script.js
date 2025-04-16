@@ -47,13 +47,9 @@ window.addEventListener('DOMContentLoaded', () => {
     const now = new Date();
     const dateSpan = document.getElementById('current-date');
     const timeSpan = document.getElementById('current-time');
-    const timerSpan = document.getElementById('countdown-timer');
-    if (!dateSpan || !timeSpan || !timerSpan) return;
+    if (!dateSpan || !timeSpan) return;
     dateSpan.textContent = now.toISOString().split('T')[0];
     timeSpan.textContent = now.toTimeString().split(' ')[0];
-    const elapsed = Math.floor((Date.now() - sessionStart) / 1000);
-    const remaining = Math.max(0, 3600 - elapsed);
-    timerSpan.textContent = `Session Ends In: ${String(Math.floor(remaining / 60)).padStart(2, '0')}:${String(remaining % 60).padStart(2, '0')}`;
   }
 
   micBtn.addEventListener('click', () => {
