@@ -1,6 +1,16 @@
 // script.js – Roy frontend using Whisper transcription only with iOS-compatible audio MIME type
 
 window.addEventListener('DOMContentLoaded', () => {
+  document.body.addEventListener('touchstart', () => {
+    if (!audioContext) {
+      try {
+        audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      } catch (e) {
+        console.error('AudioContext error:', e);
+      }
+    }
+  }, { once: true });
+
   const micBtn = document.getElementById('mic-toggle');
   const sendBtn = document.getElementById('send-button');
   const inputEl = document.getElementById('user-input');
