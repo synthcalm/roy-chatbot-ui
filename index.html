@@ -2,39 +2,21 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="description" content="Roy the CBT Therapist – Speak your truth." />
-  <title>Roy // SynthCalm</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>SynthCalm - Roy</title>
   <link rel="stylesheet" href="style.css" />
-  <link rel="icon" href="favicon.ico" type="image/x-icon" />
 </head>
 <body>
   <div class="container">
-    <div class="title-bar">
-      <span id="current-date"></span>
-      <span id="current-time"></span>
-      <span id="countdown-timer">Session Ends In: 60:00</span>
-    </div>
-    <canvas id="userWaveform" width="600" height="60"></canvas>
-    <div id="messages" role="log" aria-live="polite"></div>
-    <canvas id="royWaveform" width="600" height="60"></canvas>
-    <div class="input-area">
-      <div class="input-group">
-        <textarea id="user-input" placeholder="Say or type something..." rows="3"></textarea>
-        <button id="send-button" class="button">Send</button>
-      </div>
-      <label for="responseMode">Roy Response Mode:</label>
-      <select id="responseMode" class="button">
-        <option value="both">Text + Voice</option>
-        <option value="text">Text Only</option>
-        <option value="voice">Voice Only</option>
-      </select>
-      <div class="button-group">
-        <button id="mic-toggle" class="button">Speak</button>
-        <button id="save-log" class="button">Save Log</button>
-        <button id="home-btn" class="button">SynthCalm Home</button>
-      </div>
-    </div>
+    <canvas id="userWaveform" width="600" height="100"></canvas>
+    <canvas id="royWaveform" width="600" height="100"></canvas>
+    <button id="mic-toggle">Speak</button>
+    <select id="responseMode">
+      <option value="both">Text + Voice</option>
+      <option value="text">Text Only</option>
+      <option value="voice">Voice Only</option>
+    </select>
+    <div id="messages"></div>
   </div>
   <script src="script.js"></script>
 </body>
