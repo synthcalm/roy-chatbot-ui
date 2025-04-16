@@ -1,6 +1,7 @@
-// script.js – Roy frontend using Whisper transcription only with iOS-compatible audio MIME type
+// script.js – Roy frontend with reusable audio element and iOS-safe playback
 
 window.addEventListener('DOMContentLoaded', () => {
+  // Unlock AudioContext on iOS
   document.body.addEventListener('touchstart', () => {
     if (!audioContext) {
       try {
@@ -10,6 +11,12 @@ window.addEventListener('DOMContentLoaded', () => {
       }
     }
   }, { once: true });
+
+  // Create and append a reusable audio element for Roy
+  const royAudio = new Audio();
+  royAudio.id = 'roy-audio';
+  royAudio.setAttribute("playsinline", "true");
+  document.body.appendChild(royAudio);
 
   const micBtn = document.getElementById('mic-toggle');
   const sendBtn = document.getElementById('send-button');
@@ -56,7 +63,6 @@ window.addEventListener('DOMContentLoaded', () => {
     const mimeType = 'audio/webm;codecs=opus';
 
     if (!MediaRecorder.isTypeSupported(mimeType)) {
-      console.warn('Fallback: using default MediaRecorder settings');
       mediaRecorder = new MediaRecorder(stream);
     } else {
       mediaRecorder = new MediaRecorder(stream, { mimeType });
@@ -94,7 +100,6 @@ window.addEventListener('DOMContentLoaded', () => {
     micBtn.textContent = 'Stop';
     micBtn.classList.add('recording');
 
-    // Visualize user voice
     audioContext = new (window.AudioContext || window.webkitAudioContext)();
     const source = audioContext.createMediaStreamSource(stream);
     analyser = audioContext.createAnalyser();
@@ -138,9 +143,22 @@ window.addEventListener('DOMContentLoaded', () => {
       appendMessage('Roy', data.text);
 
       if ((modeSelect.value === 'voice' || modeSelect.value === 'both') && data.audio) {
-        const audio = new Audio(`data:audio/mp3;base64,${data.audio}`);
-        audio.play();
-        drawWaveformRoy(audio);
+        royAudio.src = `data:audio/mp3;base64,${data.audio}`;
+
+        const playAudio = () => {
+          royAudio.play()
+            .then(() => {
+              drawWaveformRoy(royAudio);
+            })
+            .catch(err => {
+              console.warn('Audio blocked or delayed:', err);
+              document.body.addEventListener('touchend', () => {
+                royAudio.play().then(() => drawWaveformRoy(royAudio));
+              }, { once: true });
+            });
+        };
+
+        setTimeout(playAudio, 500);
       }
     } catch (err) {
       thinking.remove();
