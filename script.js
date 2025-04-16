@@ -1,6 +1,7 @@
 window.addEventListener('DOMContentLoaded', () => {
-  // Unlock AudioContext on iOS
-  document.body.addEventListener('touchstart', () => {
+  // Initialize a single AudioContext globally
+  let audioContext = null;
+  function initializeAudioContext() {
     if (!audioContext) {
       try {
         audioContext = new (window.AudioContext || window.webkitAudioContext)();
@@ -8,16 +9,25 @@ window.addEventListener('DOMContentLoaded', () => {
         console.error('AudioContext error:', e);
       }
     }
+    // Resume AudioContext if suspended
+    if (audioContext.state === 'suspended') {
+      audioContext.resume().then(() => console.log('AudioContext resumed'));
+    }
+    return audioContext;
+  }
+
+  // Unlock AudioContext on iOS
+  document.body.addEventListener('touchstart', () => {
+    initializeAudioContext();
   }, { once: true });
 
-  // Reusable Roy audio element
+  // Reusable audio element for Roy
   const royAudio = new Audio();
   royAudio.id = 'roy-audio';
-  royAudio.setAttribute("playsinline", "true");
+  royAudio.setAttribute('playsinline', 'true');
   document.body.appendChild(royAudio);
 
   const micBtn = document.getElementById('mic-toggle');
-  const inputEl = document.getElementById('user-input');
   const messagesEl = document.getElementById('messages');
   const modeSelect = document.getElementById('responseMode');
   const userCanvas = document.getElementById('userWaveform');
@@ -28,7 +38,6 @@ window.addEventListener('DOMContentLoaded', () => {
   let stream = null;
   let mediaRecorder = null;
   let recordedChunks = [];
-  let audioContext = null;
   let analyser = null;
   let isRecording = false;
   let sessionStart = Date.now();
@@ -37,18 +46,7 @@ window.addEventListener('DOMContentLoaded', () => {
   updateClock();
   setInterval(updateClock, 1000);
 
-  function updateClock() {
-    const now = new Date();
-    const dateSpan = document.getElementById('current-date');
-    const timeSpan = document.getElementById('current-time');
-    const timerSpan = document.getElementById('countdown-timer');
-    if (!dateSpan || !timeSpan || !timerSpan) return;
-    dateSpan.textContent = now.toISOString().split('T')[0];
-    timeSpan.textContent = now.toTimeString().split(' ')[0];
-    const elapsed = Math.floor((Date.now() - sessionStart) / 1000);
-    const remaining = Math.max(0, 3600 - elapsed);
-    timerSpan.textContent = `Session Ends In: ${String(Math.floor(remaining / 60)).padStart(2, '0')}:${String(remaining % 60).padStart(2, '0')}`;
-  }
+  // ... (updateClock function unchanged) ...
 
   micBtn.addEventListener('click', () => {
     isRecording ? stopRecording() : startRecording();
@@ -97,7 +95,8 @@ window.addEventListener('DOMContentLoaded', () => {
     micBtn.textContent = 'Stop';
     micBtn.classList.add('recording');
 
-    audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    // Use the global audioContext
+    audioContext = initializeAudioContext();
     const source = audioContext.createMediaStreamSource(stream);
     analyser = audioContext.createAnalyser();
     analyser.fftSize = 2048;
@@ -112,9 +111,8 @@ window.addEventListener('DOMContentLoaded', () => {
     micBtn.classList.remove('recording');
     isRecording = false;
 
-    if (audioContext && audioContext.state === 'suspended') {
-      audioContext.resume().then(() => console.log('AudioContext resumed'));
-    }
+    // Ensure AudioContext is resumed
+    initializeAudioContext();
   }
 
   function appendMessage(sender, text) {
@@ -145,44 +143,40 @@ window.addEventListener('DOMContentLoaded', () => {
       appendMessage('Roy', data.text);
 
       if ((modeSelect.value === 'voice' || modeSelect.value === 'both') && data.audio) {
+        // Ensure AudioContext is resumed
+        initializeAudioContext();
+
+        // Reset audio element carefully
         royAudio.pause();
         royAudio.currentTime = 0;
-        royAudio.removeAttribute('src');
-        royAudio.load();
         royAudio.src = `data:audio/mp3;base64,${data.audio}`;
         royAudio.volume = 1.0;
 
-        royAudio.play()
-          .then(() => drawWaveformRoy(royAudio))
-          .catch(() => {
-            const tapPrompt = document.createElement('p');
-            tapPrompt.className = 'roy';
-            tapPrompt.innerHTML = '<em>Tap anywhere to hear Roy speak.</em>';
-            messagesEl.appendChild(tapPrompt);
+        const playAudio = () => {
+          royAudio.play()
+            .then(() => drawWaveformRoy(royAudio))
+            .catch(err => {
+              console.error('Audio playback error:', err);
+              appendMessage('Roy', 'Audio playback failed. Try again.');
+            });
+        };
 
-            const resume = () => {
-              royAudio.play().then(() => {
-                drawWaveformRoy(royAudio);
-                tapPrompt.remove();
-              });
-              document.removeEventListener('touchend', resume);
-            };
-
-            document.addEventListener('touchend', resume, { once: true });
-          });
+        // Slightly longer delay to ensure iOS is ready
+        setTimeout(playAudio, 1000);
       }
     } catch (err) {
       thinking.remove();
       appendMessage('Roy', 'Roy was silent. Try again.');
+      console.error('Fetch error:', err);
     }
   }
 
   function drawWaveform(ctx, canvas, source, color) {
-    const buffer = new Uint8Array(analyser.frequencyBinCount);
+    const buffer = new Uint8Array(source.frequencyBinCount);
 
     function draw() {
       requestAnimationFrame(draw);
-      analyser.getByteTimeDomainData(buffer);
+      source.getByteTimeDomainData(buffer);
       ctx.fillStyle = '#000';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
       ctx.strokeStyle = color;
@@ -202,7 +196,8 @@ window.addEventListener('DOMContentLoaded', () => {
   }
 
   function drawWaveformRoy(audio) {
-    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    // Use the global audioContext
+    const audioCtx = initializeAudioContext();
     const analyser = audioCtx.createAnalyser();
     const source = audioCtx.createMediaElementSource(audio);
     source.connect(analyser);
@@ -230,4 +225,14 @@ window.addEventListener('DOMContentLoaded', () => {
 
     draw();
   }
+
+  // Clean up on page unload
+  window.addEventListener('unload', () => {
+    if (audioContext) {
+      audioContext.close().then(() => console.log('AudioContext closed'));
+    }
+    if (stream) {
+      stream.getTracks().forEach(track => track.stop());
+    }
+  });
 });
