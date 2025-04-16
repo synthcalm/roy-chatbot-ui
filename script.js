@@ -1,4 +1,4 @@
-// script.js – Roy frontend with reusable audio element and iOS-safe playback
+// script.js – Roy frontend using Whisper transcription only with iOS-compatible audio MIME type
 
 window.addEventListener('DOMContentLoaded', () => {
   // Unlock AudioContext on iOS
@@ -12,7 +12,7 @@ window.addEventListener('DOMContentLoaded', () => {
     }
   }, { once: true });
 
-  // Create and append a reusable audio element for Roy
+  // Reusable Roy audio element
   const royAudio = new Audio();
   royAudio.id = 'roy-audio';
   royAudio.setAttribute("playsinline", "true");
@@ -63,6 +63,7 @@ window.addEventListener('DOMContentLoaded', () => {
     const mimeType = 'audio/webm;codecs=opus';
 
     if (!MediaRecorder.isTypeSupported(mimeType)) {
+      console.warn('Fallback: using default MediaRecorder settings');
       mediaRecorder = new MediaRecorder(stream);
     } else {
       mediaRecorder = new MediaRecorder(stream, { mimeType });
@@ -100,6 +101,7 @@ window.addEventListener('DOMContentLoaded', () => {
     micBtn.textContent = 'Stop';
     micBtn.classList.add('recording');
 
+    // Visualize user voice
     audioContext = new (window.AudioContext || window.webkitAudioContext)();
     const source = audioContext.createMediaStreamSource(stream);
     analyser = audioContext.createAnalyser();
@@ -138,12 +140,19 @@ window.addEventListener('DOMContentLoaded', () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message, mode: modeSelect.value })
       });
+
       const data = await res.json();
       thinking.remove();
       appendMessage('Roy', data.text);
 
       if ((modeSelect.value === 'voice' || modeSelect.value === 'both') && data.audio) {
+        royAudio.pause();
+        royAudio.currentTime = 0;
+        royAudio.removeAttribute('src');
+        royAudio.load();
+
         royAudio.src = `data:audio/mp3;base64,${data.audio}`;
+        royAudio.volume = 1.0;
 
         const playAudio = () => {
           royAudio.play()
