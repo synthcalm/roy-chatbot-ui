@@ -1,6 +1,6 @@
+// script.js – Roy frontend using Whisper transcription only with iOS-compatible audio MIME type
 
 window.addEventListener('DOMContentLoaded', () => {
-  // Unlock AudioContext on iOS
   document.body.addEventListener('touchstart', () => {
     if (!audioContext) {
       try {
@@ -11,13 +11,9 @@ window.addEventListener('DOMContentLoaded', () => {
     }
   }, { once: true });
 
-  // Reusable audio element for Roy
-  const royAudio = new Audio();
-  royAudio.id = 'roy-audio';
-  royAudio.setAttribute('playsinline', 'true');
-  document.body.appendChild(royAudio);
-
   const micBtn = document.getElementById('mic-toggle');
+  const sendBtn = document.getElementById('send-button');
+  const inputEl = document.getElementById('user-input');
   const messagesEl = document.getElementById('messages');
   const modeSelect = document.getElementById('responseMode');
   const userCanvas = document.getElementById('userWaveform');
@@ -60,6 +56,7 @@ window.addEventListener('DOMContentLoaded', () => {
     const mimeType = 'audio/webm;codecs=opus';
 
     if (!MediaRecorder.isTypeSupported(mimeType)) {
+      console.warn('Fallback: using default MediaRecorder settings');
       mediaRecorder = new MediaRecorder(stream);
     } else {
       mediaRecorder = new MediaRecorder(stream, { mimeType });
@@ -97,6 +94,7 @@ window.addEventListener('DOMContentLoaded', () => {
     micBtn.textContent = 'Stop';
     micBtn.classList.add('recording');
 
+    // Visualize user voice
     audioContext = new (window.AudioContext || window.webkitAudioContext)();
     const source = audioContext.createMediaStreamSource(stream);
     analyser = audioContext.createAnalyser();
@@ -111,10 +109,6 @@ window.addEventListener('DOMContentLoaded', () => {
     micBtn.textContent = 'Speak';
     micBtn.classList.remove('recording');
     isRecording = false;
-
-    if (audioContext && audioContext.state === 'suspended') {
-      audioContext.resume().then(() => console.log('AudioContext resumed'));
-    }
   }
 
   function appendMessage(sender, text) {
@@ -139,26 +133,14 @@ window.addEventListener('DOMContentLoaded', () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message, mode: modeSelect.value })
       });
-
       const data = await res.json();
       thinking.remove();
       appendMessage('Roy', data.text);
 
       if ((modeSelect.value === 'voice' || modeSelect.value === 'both') && data.audio) {
-        royAudio.pause();
-        royAudio.currentTime = 0;
-        royAudio.removeAttribute('src');
-        royAudio.load();
-        royAudio.src = `data:audio/mp3;base64,${data.audio}`;
-        royAudio.volume = 1.0;
-
-        const playAudio = () => {
-          royAudio.play()
-            .then(() => drawWaveformRoy(royAudio))
-            .catch(err => console.warn('Audio playback error:', err));
-        };
-
-        setTimeout(playAudio, 500);
+        const audio = new Audio(`data:audio/mp3;base64,${data.audio}`);
+        audio.play();
+        drawWaveformRoy(audio);
       }
     } catch (err) {
       thinking.remove();
