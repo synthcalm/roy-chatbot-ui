@@ -1,4 +1,3 @@
-// script.js – Roy frontend using Whisper transcription only with iOS-compatible audio MIME type
 
 window.addEventListener('DOMContentLoaded', () => {
   // Unlock AudioContext on iOS
@@ -63,7 +62,6 @@ window.addEventListener('DOMContentLoaded', () => {
     const mimeType = 'audio/webm;codecs=opus';
 
     if (!MediaRecorder.isTypeSupported(mimeType)) {
-      console.warn('Fallback: using default MediaRecorder settings');
       mediaRecorder = new MediaRecorder(stream);
     } else {
       mediaRecorder = new MediaRecorder(stream, { mimeType });
@@ -101,7 +99,6 @@ window.addEventListener('DOMContentLoaded', () => {
     micBtn.textContent = 'Stop';
     micBtn.classList.add('recording');
 
-    // Visualize user voice
     audioContext = new (window.AudioContext || window.webkitAudioContext)();
     const source = audioContext.createMediaStreamSource(stream);
     analyser = audioContext.createAnalyser();
@@ -116,6 +113,10 @@ window.addEventListener('DOMContentLoaded', () => {
     micBtn.textContent = 'Speak';
     micBtn.classList.remove('recording');
     isRecording = false;
+
+    if (audioContext && audioContext.state === 'suspended') {
+      audioContext.resume().then(() => console.log('AudioContext resumed'));
+    }
   }
 
   function appendMessage(sender, text) {
