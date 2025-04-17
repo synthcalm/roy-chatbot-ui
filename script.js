@@ -84,10 +84,7 @@ window.addEventListener('DOMContentLoaded', () => {
         }
       };
 
-      ws.onclose = () => {
-        console.log("WebSocket closed");
-      };
-
+      ws.onclose = () => console.log("WebSocket closed");
       ws.onerror = err => {
         console.error("WebSocket error", err);
         stopRecording();
@@ -119,9 +116,7 @@ window.addEventListener('DOMContentLoaded', () => {
         body: JSON.stringify({ message: text, mode: "both" })
       });
       const data = await res.json();
-      if (data.text) {
-        appendMessage('Roy', data.text);
-      }
+      if (data.text) appendMessage('Roy', data.text);
       if (data.audio) {
         royAudio.src = `data:audio/mp3;base64,${data.audio}`;
         royAudio.play().catch(err => console.warn('Autoplay blocked:', err));
