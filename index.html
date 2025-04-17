@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -8,15 +9,18 @@
 </head>
 <body>
   <div class="container">
+    <div class="header">
+      <div><strong id="current-date"></strong></div>
+      <div><strong id="current-time"></strong></div>
+      <div><strong id="countdown-timer"></strong></div>
+    </div>
     <canvas id="userWaveform" width="600" height="100"></canvas>
     <canvas id="royWaveform" width="600" height="100"></canvas>
     <button id="mic-toggle">Speak</button>
-    <select id="responseMode">
-      <option value="both">Text + Voice</option>
-      <option value="text">Text Only</option>
-      <option value="voice">Voice Only</option>
-    </select>
     <div id="messages"></div>
+    <div style="margin-top:20px;">
+      <button onclick="window.location.href='https://synthcalm.com';">SynthCalm Home</button>
+    </div>
   </div>
   <script src="script.js"></script>
 </body>
