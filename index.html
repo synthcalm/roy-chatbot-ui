@@ -4,16 +4,16 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>SynthCalm - Roy</title>
+  <title>SynthCalm Roy</title>
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
+  <div class="header">
+    <div><strong id="current-date"></strong></div>
+    <div><strong id="current-time"></strong></div>
+    <div><strong id="countdown-timer"></strong></div>
+  </div>
   <div class="container">
-    <div class="header">
-      <div><strong id="current-date"></strong></div>
-      <div><strong id="current-time"></strong></div>
-      <div><strong id="countdown-timer"></strong></div>
-    </div>
     <canvas id="userWaveform" width="600" height="100"></canvas>
     <canvas id="royWaveform" width="600" height="100"></canvas>
     <button id="mic-toggle">Speak</button>
