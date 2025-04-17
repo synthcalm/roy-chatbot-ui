@@ -48,7 +48,7 @@ window.addEventListener('DOMContentLoaded', () => {
   async function startRecording() {
     try {
       if (!audioContext) {
-        audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        audioContext = new (window.AudioContext || window.webkitAudioContext)(); console.log('AudioContext initialized');
       }
       stream = await navigator.mediaDevices.getUserMedia({ audio: true });
 
@@ -56,17 +56,17 @@ window.addEventListener('DOMContentLoaded', () => {
       analyser = audioContext.createAnalyser();
       analyser.fftSize = 2048;
       source.connect(analyser);
-      drawWaveform(userCtx, userCanvas, analyser, 'yellow');
+      console.log('Starting waveform draw'); drawWaveform(userCtx, userCanvas, analyser, 'yellow');
 
       ws = new WebSocket("wss://api.assemblyai.com/v2/realtime/ws?sample_rate=16000", ['assemblyai-realtime']);
       ws.onopen = () => {
-        ws.send(JSON.stringify({ auth_token: "c204c69052074ce98287a515e68da0c4" }));
+        console.log("WebSocket open - sending auth"); ws.send(JSON.stringify({ auth_token: "c204c69052074ce98287a515e68da0c4" }));
         mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm;codecs=opus' });
 
         mediaRecorder.ondataavailable = e => {
-          if (e.data.size > 0 && ws.readyState === WebSocket.OPEN) ws.send(e.data);
+          if (e.data.size > 0 && ws.readyState === WebSocket.OPEN) { console.log('Sending audio chunk'); ws.send(e.data); }
         };
-        mediaRecorder.start(500);
+        console.log('MediaRecorder started'); mediaRecorder.start(500);
         isRecording = true;
         micBtn.textContent = 'Stop';
         micBtn.classList.add('recording');
@@ -178,7 +178,7 @@ window.addEventListener('DOMContentLoaded', () => {
 
   // Ensure iOS can trigger audio/mic
   document.body.addEventListener('touchstart', () => {
-    if (!audioContext) audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    if (!audioContext) audioContext = new (window.AudioContext || window.webkitAudioContext)(); console.log('AudioContext initialized');
     if (audioContext.state === 'suspended') audioContext.resume();
   }, { once: true });
 
