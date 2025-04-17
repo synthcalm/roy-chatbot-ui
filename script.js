@@ -133,6 +133,21 @@ window.addEventListener('DOMContentLoaded', () => {
       analyser.getByteTimeDomainData(buffer);
       ctx.fillStyle = '#000';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
+      // Grid
+      ctx.strokeStyle = '#333';
+      ctx.lineWidth = 0.5;
+      for (let i = 0; i <= canvas.width; i += 20) {
+        ctx.beginPath();
+        ctx.moveTo(i, 0);
+        ctx.lineTo(i, canvas.height);
+        ctx.stroke();
+      }
+      for (let j = 0; j <= canvas.height; j += 20) {
+        ctx.beginPath();
+        ctx.moveTo(0, j);
+        ctx.lineTo(canvas.width, j);
+        ctx.stroke();
+      }
       ctx.strokeStyle = color;
       ctx.beginPath();
       const slice = canvas.width / buffer.length;
@@ -161,6 +176,21 @@ window.addEventListener('DOMContentLoaded', () => {
       analyser.getByteTimeDomainData(buffer);
       royCtx.fillStyle = '#000';
       royCtx.fillRect(0, 0, royCanvas.width, royCanvas.height);
+      // Grid
+      royCtx.strokeStyle = '#333';
+      royCtx.lineWidth = 0.5;
+      for (let i = 0; i <= royCanvas.width; i += 20) {
+        royCtx.beginPath();
+        royCtx.moveTo(i, 0);
+        royCtx.lineTo(i, royCanvas.height);
+        royCtx.stroke();
+      }
+      for (let j = 0; j <= royCanvas.height; j += 20) {
+        royCtx.beginPath();
+        royCtx.moveTo(0, j);
+        royCtx.lineTo(royCanvas.width, j);
+        royCtx.stroke();
+      }
       royCtx.strokeStyle = 'magenta';
       royCtx.beginPath();
       const slice = royCanvas.width / buffer.length;
