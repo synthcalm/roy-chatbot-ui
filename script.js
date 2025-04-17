@@ -1,4 +1,3 @@
-
 window.addEventListener('DOMContentLoaded', () => {
   try {
     console.log('Whisper mode initialized');
@@ -16,6 +15,11 @@ window.addEventListener('DOMContentLoaded', () => {
     const dateSpan = document.getElementById('current-date');
     const timeSpan = document.getElementById('current-time');
     const timerSpan = document.getElementById('countdown-timer');
+
+    userCanvas.width = userCanvas.offsetWidth;
+    userCanvas.height = 160;
+    royCanvas.width = royCanvas.offsetWidth;
+    royCanvas.height = 160;
 
     let audioContext = null;
     let analyser = null;
@@ -135,11 +139,12 @@ window.addEventListener('DOMContentLoaded', () => {
     function drawWaveform(ctx, canvas, analyser, color) {
       const buffer = new Uint8Array(analyser.frequencyBinCount);
       function draw() {
-        if (!isRecording) return;
         requestAnimationFrame(draw);
         analyser.getByteTimeDomainData(buffer);
         ctx.fillStyle = '#000';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        // Draw grid
         ctx.strokeStyle = '#333';
         ctx.lineWidth = 0.5;
         for (let i = 0; i <= canvas.width; i += 20) {
@@ -148,6 +153,8 @@ window.addEventListener('DOMContentLoaded', () => {
         for (let j = 0; j <= canvas.height; j += 20) {
           ctx.beginPath(); ctx.moveTo(0, j); ctx.lineTo(canvas.width, j); ctx.stroke();
         }
+
+        // Draw waveform
         ctx.strokeStyle = color;
         ctx.beginPath();
         const slice = canvas.width / buffer.length;
@@ -157,7 +164,6 @@ window.addEventListener('DOMContentLoaded', () => {
           i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
           x += slice;
         }
-        ctx.lineTo(canvas.width, canvas.height / 2);
         ctx.stroke();
       }
       draw();
@@ -176,6 +182,8 @@ window.addEventListener('DOMContentLoaded', () => {
         analyser.getByteTimeDomainData(buffer);
         royCtx.fillStyle = '#000';
         royCtx.fillRect(0, 0, royCanvas.width, royCanvas.height);
+
+        // Grid
         royCtx.strokeStyle = '#333';
         royCtx.lineWidth = 0.5;
         for (let i = 0; i <= royCanvas.width; i += 20) {
@@ -184,6 +192,8 @@ window.addEventListener('DOMContentLoaded', () => {
         for (let j = 0; j <= royCanvas.height; j += 20) {
           royCtx.beginPath(); royCtx.moveTo(0, j); royCtx.lineTo(royCanvas.width, j); royCtx.stroke();
         }
+
+        // Waveform
         royCtx.strokeStyle = 'magenta';
         royCtx.beginPath();
         const slice = royCanvas.width / buffer.length;
@@ -193,7 +203,6 @@ window.addEventListener('DOMContentLoaded', () => {
           i === 0 ? royCtx.moveTo(x, y) : royCtx.lineTo(x, y);
           x += slice;
         }
-        royCtx.lineTo(royCanvas.width, royCanvas.height / 2);
         royCtx.stroke();
       }
       draw();
