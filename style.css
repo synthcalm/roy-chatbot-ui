@@ -8,6 +8,7 @@ body {
   justify-content: center;
   align-items: center;
   min-height: 100vh;
+  flex-direction: column;
 }
 .container {
   width: 90%;
@@ -20,7 +21,7 @@ canvas {
   background: #111;
   border: 1px solid #0ff;
 }
-button, select {
+button {
   margin: 10px 0;
   padding: 10px;
   font-size: 1rem;
@@ -28,6 +29,12 @@ button, select {
   color: #0ff;
   border: 1px solid #0ff;
   border-radius: 6px;
+}
+button:active,
+button.recording {
+  background-color: #0ff;
+  color: #000;
+  border-color: #0ff;
 }
 #messages {
   margin-top: 20px;
@@ -39,13 +46,7 @@ p.you { color: white; }
 .header {
   display: flex;
   justify-content: space-between;
+  width: 100%;
+  padding: 0 20px;
   margin-bottom: 10px;
-}
-
-
-button:active,
-button.recording {
-  background-color: #0ff;
-  color: #000;
-  border-color: #0ff;
 }
