@@ -1,56 +1,55 @@
 
 window.addEventListener('DOMContentLoaded', () => {
+  let audioContext = null;
+  let analyser = null;
+  let stream = null;
+  let mediaRecorder = null;
+  let ws = null;
+  let isRecording = false;
+  const sessionStart = Date.now();
+
   const royAudio = new Audio();
-  royAudio.id = 'roy-audio';
   royAudio.setAttribute('playsinline', 'true');
   document.body.appendChild(royAudio);
 
   const micBtn = document.getElementById('mic-toggle');
   const messagesEl = document.getElementById('messages');
-  const dateSpan = document.getElementById('current-date');
-  const timeSpan = document.getElementById('current-time');
-  const timerSpan = document.getElementById('countdown-timer');
   const userCanvas = document.getElementById('userWaveform');
   const royCanvas = document.getElementById('royWaveform');
   const userCtx = userCanvas.getContext('2d');
   const royCtx = royCanvas.getContext('2d');
-
-  let audioContext = null;
-  let analyser = null;
-  let stream = null;
-  let mediaRecorder = null;
-  let sessionStart = Date.now();
-  let ws = null;
-  let isRecording = false;
-
-  function updateClock() {
-    const now = new Date();
-    dateSpan.textContent = now.toISOString().split('T')[0];
-    timeSpan.textContent = now.toTimeString().split(' ')[0];
-    const elapsed = Math.floor((Date.now() - sessionStart) / 1000);
-    const remaining = Math.max(0, 3600 - elapsed);
-    timerSpan.textContent = `${String(Math.floor(remaining / 60)).padStart(2, '0')}:${String(remaining % 60).padStart(2, '0')}`;
-  }
+  const dateSpan = document.getElementById('current-date');
+  const timeSpan = document.getElementById('current-time');
+  const timerSpan = document.getElementById('countdown-timer');
 
   updateClock();
   setInterval(updateClock, 1000);
+
+  function updateClock() {
+    const now = new Date();
+    if (dateSpan) dateSpan.textContent = now.toISOString().split('T')[0];
+    if (timeSpan) timeSpan.textContent = now.toTimeString().split(' ')[0];
+    if (timerSpan) {
+      const elapsed = Math.floor((Date.now() - sessionStart) / 1000);
+      const remaining = Math.max(0, 3600 - elapsed);
+      timerSpan.textContent = \`\${String(Math.floor(remaining / 60)).padStart(2, '0')}:\${String(remaining % 60).padStart(2, '0')}\`;
+    }
+  }
 
   function appendMessage(sender, text) {
     const p = document.createElement('p');
     p.className = sender.toLowerCase();
     const color = sender === 'Roy' ? 'yellow' : 'white';
-    p.innerHTML = `<strong style='color: ${color}'>${sender}:</strong> <span style='color: ${color}'>${text}</span>`;
+    p.innerHTML = `<strong style='color: \${color}'>\${sender}:</strong> <span style='color: \${color}'>\${text}</span>`;
     messagesEl.appendChild(p);
     messagesEl.scrollTop = messagesEl.scrollHeight;
   }
 
-  micBtn.addEventListener('click', () => {
-    isRecording ? stopRecording() : startRecording();
-  });
-
   async function startRecording() {
     try {
-      audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      if (!audioContext) {
+        audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      }
       stream = await navigator.mediaDevices.getUserMedia({ audio: true });
 
       const source = audioContext.createMediaStreamSource(stream);
@@ -60,15 +59,12 @@ window.addEventListener('DOMContentLoaded', () => {
       drawWaveform(userCtx, userCanvas, analyser, 'yellow');
 
       ws = new WebSocket("wss://api.assemblyai.com/v2/realtime/ws?sample_rate=16000", ['assemblyai-realtime']);
-
       ws.onopen = () => {
         ws.send(JSON.stringify({ auth_token: "c204c69052074ce98287a515e68da0c4" }));
         mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm;codecs=opus' });
 
-        mediaRecorder.ondataavailable = event => {
-          if (event.data.size > 0 && ws.readyState === WebSocket.OPEN) {
-            ws.send(event.data);
-          }
+        mediaRecorder.ondataavailable = e => {
+          if (e.data.size > 0 && ws.readyState === WebSocket.OPEN) ws.send(e.data);
         };
         mediaRecorder.start(500);
         isRecording = true;
@@ -76,22 +72,23 @@ window.addEventListener('DOMContentLoaded', () => {
         micBtn.classList.add('recording');
       };
 
-      ws.onmessage = async event => {
-        const msg = JSON.parse(event.data);
+      ws.onmessage = async e => {
+        const msg = JSON.parse(e.data);
         if (msg.text && msg.message_type === 'FinalTranscript') {
           appendMessage('You', msg.text);
           await fetchRoyResponse(msg.text);
         }
       };
 
-      ws.onclose = () => console.log("WebSocket closed");
       ws.onerror = err => {
-        console.error("WebSocket error", err);
+        console.error('WebSocket error', err);
         stopRecording();
       };
+
+      ws.onclose = () => stopRecording();
     } catch (err) {
-      console.error("Start error", err);
-      stopRecording();
+      appendMessage('Roy', 'Mic access denied. Check Safari settings.');
+      console.error('Mic error:', err);
     }
   }
 
@@ -118,7 +115,7 @@ window.addEventListener('DOMContentLoaded', () => {
       const data = await res.json();
       if (data.text) appendMessage('Roy', data.text);
       if (data.audio) {
-        royAudio.src = `data:audio/mp3;base64,${data.audio}`;
+        royAudio.src = \`data:audio/mp3;base64,\${data.audio}\`;
         royAudio.play().catch(err => console.warn('Autoplay blocked:', err));
         drawWaveformRoy(royAudio);
       }
@@ -177,5 +174,17 @@ window.addEventListener('DOMContentLoaded', () => {
       royCtx.stroke();
     }
     draw();
+  }
+
+  // Ensure iOS can trigger audio/mic
+  document.body.addEventListener('touchstart', () => {
+    if (!audioContext) audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    if (audioContext.state === 'suspended') audioContext.resume();
+  }, { once: true });
+
+  if (micBtn) {
+    micBtn.addEventListener('click', () => {
+      isRecording ? stopRecording() : startRecording();
+    });
   }
 });
