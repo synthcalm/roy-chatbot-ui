@@ -137,10 +137,14 @@ async function getRoyResponse(userText) {
 }
 
 function speakRoy(text) {
-  const utterance = new SpeechSynthesisUtterance(text);
-  utterance.pitch = 0.8;
+  const utterance = new SpeechSynthesisUtterance();
+  utterance.text = text;
+  utterance.pitch = 0.6;
   utterance.rate = 0.85;
   utterance.volume = 1;
   utterance.lang = 'en-US';
+  utterance.onstart = () => console.log("Roy is speaking...");
+  utterance.onend = () => console.log("Roy finished.");
+  speechSynthesis.cancel();
   speechSynthesis.speak(utterance);
 }
