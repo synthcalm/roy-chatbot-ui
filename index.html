@@ -2,24 +2,28 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <meta name="apple-mobile-web-app-capable" content="yes" />
-  <title>SynthCalm Roy</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SynthCalm - Roy</title>
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <div class="timestamp" id="current-time">2025-04-18 21:53:47</div>
+  <div class="header-bar">
+    <span id="current-date"></span>
+    <span id="current-time"></span>
+    <span id="countdown-timer"></span>
+  </div>
 
-  <canvas id="userWaveform" width="600" height="100"></canvas>
-  <canvas id="royWaveform" width="600" height="100"></canvas>
+  <canvas id="userWaveform"></canvas>
+  <canvas id="royWaveform"></canvas>
 
   <div class="button-row">
     <button id="mic-toggle">Speak</button>
-    <button id="home-button">SynthCalm Home</button>
+    <button id="save-log">SAVE LOG</button>
+    <button onclick="window.location.href='https://synthcalm.com'">SynthCalm Home</button>
   </div>
 
+  <div id="thinking-dots" data-hide="true"></div>
   <div id="chat"></div>
-  <div id="thinking-dots" style="display: none;">...</div>
 
   <script src="script.js"></script>
 </body>
