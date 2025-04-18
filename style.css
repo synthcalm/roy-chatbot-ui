@@ -1,84 +1,88 @@
 body {
   font-family: 'Courier New', monospace;
+  margin: 0;
   background: #000;
   color: #0ff;
-  margin: 0;
-  padding: 0;
-  overflow-x: hidden;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  padding: 20px;
+  min-height: 100vh;
 }
 
 header {
   display: flex;
   justify-content: space-between;
-  align-items: center;
-  padding: 6px 16px;
-  font-size: 14px;
-  color: #0ff;
+  width: 100%;
+  max-width: 640px;
+  font-size: 0.9rem;
+  margin-bottom: 10px;
 }
 
 #scope-container {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  margin-top: 10px;
   gap: 8px;
+  width: 100%;
+  max-width: 640px;
 }
 
 canvas {
-  width: 90vw;
-  max-width: 960px;
-  height: 120px;
-  border: 1px solid cyan;
-  background-color: black;
-  background-image:
-    linear-gradient(to right, rgba(255, 255, 0, 0.3) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(255, 255, 0, 0.3) 1px, transparent 1px);
-  background-size: 20px 20px;
+  background-color: #000;
+  border: 1px solid #0ff;
+  height: 100px;
 }
 
 #controls {
+  margin-top: 16px;
   display: flex;
   justify-content: center;
-  gap: 16px;
-  margin: 24px 0;
+  gap: 10px;
+  flex-wrap: wrap;
 }
 
 button {
+  background: #000;
+  color: #0ff;
+  border: 1px solid #0ff;
+  padding: 8px 14px;
   font-family: 'Courier New', monospace;
-  font-size: 14px;
-  color: cyan;
-  background: transparent;
-  border: 1px solid cyan;
-  padding: 8px 16px;
+  font-size: 0.9rem;
   cursor: pointer;
+  transition: border-color 0.2s ease;
 }
 
-button.recording {
-  border-color: magenta;
-  color: magenta;
+button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 #chat {
-  max-width: 960px;
-  margin: 0 auto 40px;
-  padding: 20px;
-  color: yellow;
-  background: black;
-  font-size: 14px;
-  line-height: 1.6;
-  border: none;
+  width: 100%;
+  max-width: 640px;
+  margin-top: 20px;
+  overflow-y: auto;
+  font-size: 0.95rem;
+  line-height: 1.4;
+  word-wrap: break-word;
 }
 
-#chat p {
-  margin: 0 0 10px;
+strong {
+  font-weight: bold;
 }
 
-@media (max-width: 600px) {
-  canvas {
-    height: 100px;
+@media screen and (max-width: 680px) {
+  header, #chat, #scope-container, #controls {
+    max-width: 100%;
   }
-  #controls {
-    flex-direction: column;
-    gap: 12px;
+
+  canvas {
+    height: 80px;
+  }
+
+  button {
+    font-size: 0.85rem;
+    padding: 6px 12px;
   }
 }
