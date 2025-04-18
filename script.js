@@ -146,16 +146,78 @@ async function getRoyResponse(userText) {
 
 function speakRoy(text) {
   const utterance = new SpeechSynthesisUtterance(text);
-  utterance.pitch = 0.7;
-  utterance.rate = 0.88;
-  utterance.volume = 1;
-  utterance.lang = 'en-US';
-
-  // Optional: Insert strategic pauses
-  utterance.text = text.replace(/([.,!?])/g, '$1...');
-
+  
+  // Get available voices and select a more natural-sounding one
+  const voices = window.speechSynthesis.getVoices();
+  
+  // Try to find a good voice - look for specific human-like voices
+  // Different systems have different voices available
+  let selectedVoice = null;
+  
+  // First try to find preferred voices by name
+  const preferredVoiceNames = [
+    'Google UK English Male', 'Microsoft David', 'Alex', 'Daniel',
+    'Google US English', 'Samantha', 'Microsoft Mark'
+  ];
+  
+  for (const name of preferredVoiceNames) {
+    const voice = voices.find(v => v.name.includes(name));
+    if (voice) {
+      selectedVoice = voice;
+      break;
+    }
+  }
+  
+  // If no preferred voice found, try to find any non-robot English voice
+  if (!selectedVoice) {
+    selectedVoice = voices.find(v => 
+      v.lang.startsWith('en') && 
+      !v.name.toLowerCase().includes('robot') &&
+      !v.name.toLowerCase().includes('zira')
+    );
+  }
+  
+  // If still no voice, just use the first English voice
+  if (!selectedVoice) {
+    selectedVoice = voices.find(v => v.lang.startsWith('en'));
+  }
+  
+  // Apply the selected voice
+  if (selectedVoice) {
+    utterance.voice = selectedVoice;
+  }
+  
+  // Fine-tune speech parameters for more natural speech
+  utterance.pitch = 1.0;     // Normal pitch (1.0 is default)
+  utterance.rate = 0.95;     // Slightly slower than default for clearer speech
+  utterance.volume = 1.0;    // Full volume
+  
+  // Add natural pauses at punctuation for more human-like cadence
+  // Replace periods and commas with slight pauses using SSML-like formatting
+  const processedText = text
+    .replace(/\. /g, '. <break time="500ms"/> ')
+    .replace(/\, /g, ', <break time="200ms"/> ')
+    .replace(/\? /g, '? <break time="500ms"/> ')
+    .replace(/\! /g, '! <break time="500ms"/> ');
+  
+  utterance.text = processedText;
+  
+  // Event handlers
   utterance.onstart = () => console.log("Roy is speaking...");
-  utterance.onend = () => console.log("Roy finished.");
+  utterance.onend = () => console.log("Roy finished speaking");
+  
+  // Cancel any existing speech and start the new one
   speechSynthesis.cancel();
-  speechSynthesis.speak(utterance);
+  
+  // Some browsers need a small delay after cancel
+  setTimeout(() => {
+    speechSynthesis.speak(utterance);
+  }, 50);
 }
+
+// Force voice list loading - needed in some browsers
+window.speechSynthesis.onvoiceschanged = () => {
+  window.speechSynthesis.getVoices();
+};
+// Call getVoices once to initialize
+window.speechSynthesis.getVoices();
