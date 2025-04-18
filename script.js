@@ -1,4 +1,4 @@
-window.addEventListener('DOMContentLoaded', () => {
+""window.addEventListener('DOMContentLoaded', () => {
   console.log('Whisper mode initialized');
 
   const royAudio = new Audio();
@@ -25,6 +25,7 @@ window.addEventListener('DOMContentLoaded', () => {
   let isRecording = false;
   let recordedChunks = [];
   let sessionStart = Date.now();
+  let thinkingDotsEl = null;
 
   function updateClock() {
     const now = new Date();
@@ -37,13 +38,28 @@ window.addEventListener('DOMContentLoaded', () => {
   updateClock();
   setInterval(updateClock, 1000);
 
-  function appendMessage(sender, text) {
+  function appendMessage(sender, text = '', animate = false) {
     const p = document.createElement('p');
     p.className = sender.toLowerCase();
     const color = sender === 'Roy' ? 'yellow' : 'white';
-    p.innerHTML = `<strong style='color: ${color}'>${sender}:</strong> <span style='color: ${color}'>${text}</span>`;
+    p.innerHTML = `<strong style='color: ${color}'>${sender}:</strong> <span style='color: ${color}'></span>`;
     chatBox.appendChild(p);
     chatBox.scrollTop = chatBox.scrollHeight;
+
+    const span = p.querySelector('span');
+    if (animate && text) {
+      let index = 0;
+      const interval = setInterval(() => {
+        if (index < text.length) {
+          span.textContent += text.charAt(index++);
+        } else {
+          clearInterval(interval);
+        }
+      }, 25);
+    } else {
+      span.textContent = text;
+    }
+    return p;
   }
 
   async function startRecording() {
@@ -72,7 +88,8 @@ window.addEventListener('DOMContentLoaded', () => {
         const formData = new FormData();
         formData.append('audio', blob);
 
-        appendMessage('Roy', '<em>Transcribing...</em>');
+        thinkingDotsEl = appendMessage('Roy', '<span id="thinking-dots">...</span>');
+        animateDots();
 
         try {
           const res = await fetch('https://roy-chatbo-backend.onrender.com/api/transcribe', {
@@ -116,7 +133,8 @@ window.addEventListener('DOMContentLoaded', () => {
         body: JSON.stringify({ message: text, mode: 'both' })
       });
       const data = await res.json();
-      if (data.text) appendMessage('Roy', data.text);
+      if (thinkingDotsEl) thinkingDotsEl.remove();
+      if (data.text) appendMessage('Roy', data.text, true);
       if (data.audio) {
         royAudio.src = `data:audio/mp3;base64,${data.audio}`;
         royAudio.play().catch(e => console.warn('Autoplay error', e));
@@ -126,6 +144,17 @@ window.addEventListener('DOMContentLoaded', () => {
       console.error('Roy response failed:', err);
       appendMessage('Roy', 'Error generating response.');
     }
+  }
+
+  function animateDots() {
+    let dots = 1;
+    const interval = setInterval(() => {
+      if (!thinkingDotsEl || !thinkingDotsEl.parentNode) {
+        clearInterval(interval);
+        return;
+      }
+      thinkingDotsEl.innerHTML = '.'.repeat((dots++ % 3) + 1);
+    }, 500);
   }
 
   function drawWaveform(ctx, canvas, analyser, color) {
