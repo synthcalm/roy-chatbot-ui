@@ -147,7 +147,7 @@ window.addEventListener('DOMContentLoaded', () => {
           const data = await res.json();
           if (data.text) {
             appendMessage('You', data.text);
-            await fetchRoyResponse(data.text, analyzeEmotion(analyser));
+            await fetchRoyResponse(data.text);
           } else {
             appendMessage('Roy', 'Sorry, I didn’t catch that.');
           }
@@ -356,5 +356,5 @@ window.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  typeRoyMessage("Welcome. I'm Roy. Speak when ready.");
+  appendMessage('Roy', "Welcome. I'm Roy. Speak when ready.");
 });
