@@ -1,84 +1,69 @@
 body {
   margin: 0;
-  padding: 0;
-  background: #000;
-  color: #0ff;
-  font-family: 'Courier New', monospace;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  width: 100%;
+  padding: 20px;
+  background: #111;
+  color: #EEE;
+  font-family: 'Helvetica Neue', -apple-system, Arial, sans-serif;
   overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
 }
 
-.header-bar {
-  width: 90%;
-  max-width: 900px;
-  display: flex;
-  justify-content: space-between;
-  margin-top: 10px;
-  font-size: 14px;
+.timestamp {
+  position: absolute;
+  top: 10px;
+  right: 20px;
+  font-size: 12px;
+  color: #888;
 }
 
 canvas {
-  border: 1px solid #0ff;
-  background-color: #000;
-  background-image:
-    linear-gradient(to right, rgba(255, 255, 0, 0.2) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(255, 255, 0, 0.2) 1px, transparent 1px);
+  display: block;
+  margin: 20px auto;
+  max-width: 100%;
+  background: #111;
+  border: 1px solid #0FF;
+  background-image: linear-gradient(to right, rgba(255,255,255,0.1) 1px, transparent 1px),
+                    linear-gradient(to bottom, rgba(255,255,255,0.1) 1px, transparent 1px);
   background-size: 20px 20px;
-  width: 90%;
-  max-width: 900px;
-  height: 160px;
-  margin: 6px 0;
-  box-sizing: border-box;
 }
 
 .button-row {
   display: flex;
   justify-content: center;
-  gap: 12px;
-  margin-top: 12px;
-  width: 90%;
-  max-width: 900px;
+  gap: 15px;
+  margin: 20px 0;
 }
 
 button {
-  background: black;
-  border: 1px solid #0ff;
-  color: #0ff;
-  padding: 5px 14px;
-  font-family: 'Courier New', monospace;
-  font-size: 13px;
+  background: #222;
+  border: 1px solid #0FF;
+  color: #0FF;
+  font-size: 16px;
+  font-weight: 500;
+  padding: 12px 20px;
+  border-radius: 8px;
   cursor: pointer;
-  border-radius: 0;
+  transition: all 0.3s ease;
+  touch-action: manipulation;
 }
 
-button.recording {
-  color: yellow;
-  border-color: yellow;
+button:hover, button.active {
+  background: #0FF;
+  color: #111;
 }
 
 #chat {
-  width: 90%;
-  max-width: 900px;
-  color: yellow;
-  font-size: 14px;
-  line-height: 1.5em;
-  margin: 20px 0 10px 0;
+  max-width: 600px;
+  margin: 20px auto;
+  color: #EEE;
+  font-size: 16px;
+  line-height: 1.5;
+  white-space: pre-wrap;
   text-align: left;
 }
 
 #thinking-dots {
-  color: yellow;
-  font-size: 24px;
-  margin: 4px;
-  height: 24px;
-  text-align: left;
-  width: 90%;
-  max-width: 900px;
-}
-
-#save-log {
-  border: 1px solid #0ff;
+  text-align: center;
+  color: #0FF;
+  font-size: 18px;
 }
