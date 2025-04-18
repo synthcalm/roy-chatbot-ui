@@ -2,28 +2,28 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>SynthCalm - Roy</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>SynthCalm Roy</title>
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <div class="header-bar">
-    <span id="current-date"></span>
-    <span id="current-time"></span>
-    <span id="countdown-timer"></span>
+  <div class="header">
+    <div id="current-date"></div>
+    <div id="current-time"></div>
+    <div id="countdown-timer"></div>
   </div>
 
-  <canvas id="userWaveform"></canvas>
-  <canvas id="royWaveform"></canvas>
+  <canvas id="userWaveform" width="600" height="160"></canvas>
+  <canvas id="royWaveform" width="600" height="160"></canvas>
 
-  <div class="button-row">
+  <div class="controls">
     <button id="mic-toggle">Speak</button>
     <button id="save-log">SAVE LOG</button>
-    <button onclick="window.location.href='https://synthcalm.com'">SynthCalm Home</button>
+    <button onclick="window.location.href='https://synthcalm.com';">SynthCalm Home</button>
   </div>
 
-  <div id="thinking-dots" data-hide="true"></div>
   <div id="chat"></div>
+  <div id="thinking-dots" data-hide="false"></div>
 
   <script src="script.js"></script>
 </body>
