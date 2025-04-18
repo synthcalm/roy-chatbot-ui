@@ -185,18 +185,29 @@ async function getRoyResponse(userText) {
 
 async function speakRoy(text) {
   return new Promise((resolve, reject) => {
-    const voices = speechSynthesis.getVoices();
-    const royVoice = voices.find(v => v.name.startsWith("O") && v.lang === 'en-US') || voices.find(v => v.lang === 'en-US');
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.voice = royVoice;
-    utterance.pitch = 0.7;
-    utterance.rate = 0.92;
-    utterance.volume = 1;
-    utterance.lang = 'en-US';
-    speechSynthesis.cancel();
-    speechSynthesis.speak(utterance);
-    utterance.onend = resolve;
-    utterance.onerror = e => reject(new Error(e.message));
+    function speakNow() {
+      const voices = speechSynthesis.getVoices();
+      const royVoice = voices.find(v => v.name.toLowerCase().includes("onyx")) ||
+                       voices.find(v => v.name.startsWith("O")) ||
+                       voices.find(v => v.lang === 'en-US');
+
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.voice = royVoice;
+      utterance.pitch = 0.7;
+      utterance.rate = 0.92;
+      utterance.volume = 1;
+      utterance.lang = 'en-US';
+      speechSynthesis.cancel();
+      speechSynthesis.speak(utterance);
+      utterance.onend = resolve;
+      utterance.onerror = e => reject(new Error(e.message));
+    }
+
+    if (speechSynthesis.getVoices().length === 0) {
+      speechSynthesis.addEventListener('voiceschanged', speakNow, { once: true });
+    } else {
+      speakNow();
+    }
   });
 }
 
