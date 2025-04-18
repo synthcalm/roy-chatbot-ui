@@ -233,8 +233,7 @@ window.addEventListener('DOMContentLoaded', () => {
         clearInterval(interval);
       }
     }, delay);
-  } <span style='color: ${color}'>${text}</span>`;
-    chatBox.appendChild(p);
+  } chatBox.appendChild(p);
     chatBox.scrollTop = chatBox.scrollHeight;
   }
 
