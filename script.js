@@ -90,7 +90,7 @@ window.addEventListener('DOMContentLoaded', () => {
           const data = await res.json();
           if (data.text) {
             appendMessage('You', data.text);
-            await fetchRoyResponse(data.text);
+            await fetchRoyResponse(data.text, analyzeEmotion(analyser));
           } else {
             appendMessage('Roy', 'Sorry, I didn’t catch that.');
           }
@@ -130,7 +130,33 @@ window.addEventListener('DOMContentLoaded', () => {
     chatBox.scrollTop = chatBox.scrollHeight;
   }
 
-  function typeRoyMessage(text) {
+  function typeRoyMessage(text, tone = 'neutral') {
+    const prefaces = {
+      sad: [
+        "There’s something delicate in the air…",
+        "This feels like a moment worth sitting with…",
+        "Let’s tread gently here."
+      ],
+      tense: [
+        "Energy like yours often hides something deeper…",
+        "You’re carrying a lot. Let’s place it down together.",
+        "Take a breath — let’s navigate this steadily."
+      ],
+      angry: [
+        "Even fire can illuminate. Let’s look closer.",
+        "Anger can speak in riddles. Let’s translate together.",
+        "Sharp emotions often protect soft truths."
+      ],
+      neutral: [
+        "Let’s reflect on that together.",
+        "Here’s a thought worth exploring…",
+        "Let’s unravel that gently."
+      ]
+    };
+    const prefixPool = prefaces[tone] || prefaces.neutral;
+    const intro = prefixPool[Math.floor(Math.random() * prefixPool.length)];
+    text = intro + ' ' + text;
+    text = prefaces[tone] + text;
     const p = document.createElement('p');
     p.className = 'roy';
     const label = document.createElement('strong');
@@ -144,6 +170,7 @@ window.addEventListener('DOMContentLoaded', () => {
     p.appendChild(span);
     chatBox.appendChild(p);
     let index = 0;
+    const delay = tone === 'sad' ? 80 : tone === 'tense' ? 40 : tone === 'angry' ? 30 : 50;
     const interval = setInterval(() => {
       if (index < text.length) {
         span.textContent += text.charAt(index);
@@ -172,7 +199,7 @@ window.addEventListener('DOMContentLoaded', () => {
     }, 500);
   }
 
-  async function fetchRoyResponse(text) {
+  async function fetchRoyResponse(text, tone = 'neutral') {
     try {
       const res = await fetch('https://roy-chatbo-backend.onrender.com/api/chat', {
         method: 'POST',
@@ -182,7 +209,7 @@ window.addEventListener('DOMContentLoaded', () => {
       const data = await res.json();
       if (thinkingDotsEl) thinkingDotsEl.remove();
       thinkingDotsEl = null;
-      if (data.text) typeRoyMessage(data.text);
+      if (data.text) typeRoyMessage(data.text, tone);
       if (data.audio) {
         royAudio.src = `data:audio/mp3;base64,${data.audio}`;
         royAudio.play().catch(e => console.warn('Autoplay error', e));
