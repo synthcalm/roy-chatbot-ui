@@ -1,87 +1,70 @@
 body {
+  background: #000;
   font-family: 'Courier New', monospace;
-  background-color: black;
-  color: cyan;
+  color: #0ff;
   margin: 0;
-  padding: 20px;
+  padding: 10px;
 }
 
-#current-date,
-#current-time,
-#countdown-timer {
+#current-date, #current-time, #countdown-timer {
   display: inline-block;
   font-size: 16px;
-  padding: 0 10px;
-  margin-bottom: 10px;
-}
-
-#current-date {
-  float: left;
-}
-
-#countdown-timer {
-  float: right;
-}
-
-#current-time {
-  text-align: center;
-  display: block;
-  margin: 0 auto;
+  padding: 0 20px;
+  vertical-align: top;
 }
 
 canvas {
   display: block;
   margin: 20px auto;
-  background-color: black;
-  border: 2px solid cyan;
-  background-image: 
-    linear-gradient(to right, rgba(255, 255, 0, 0.2) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(255, 255, 0, 0.2) 1px, transparent 1px);
+  border: 0.5px solid #0ff; /* Even thinner border */
+  background-color: #000;
+  background-image:
+    linear-gradient(to right, rgba(255, 255, 0, 0.3) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 0, 0.3) 1px, transparent 1px);
   background-size: 20px 20px;
 }
 
 #controls {
-  display: flex;
-  justify-content: center;
-  gap: 20px;
-  margin: 20px 0;
+  text-align: center;
+  margin: 20px auto;
 }
 
 button {
-  background-color: transparent;
-  border: 1px solid cyan;
-  color: cyan;
-  padding: 8px 16px;
+  background: transparent;
+  border: 0.5px solid #0ff; /* Even thinner border */
+  color: #0ff;
   font-family: 'Courier New', monospace;
-  font-size: 16px;
+  font-size: 14px;
+  padding: 8px 16px;
+  margin: 0 5px;
   cursor: pointer;
-  transition: background-color 0.3s, color 0.3s;
+  transition: all 0.3s ease-in-out;
 }
 
 button:hover {
-  background-color: cyan;
-  color: black;
+  background-color: #0ff;
+  color: #000;
 }
 
 #chat {
-  max-width: 800px;
-  margin: 20px auto;
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 20px;
+  color: yellow;
+  font-size: 14px;
+  line-height: 1.6;
   white-space: pre-wrap;
-  color: yellow;
-  font-size: 16px;
 }
 
-#chat .you {
+#chat p {
+  margin-bottom: 10px;
+  text-align: left;
+}
+
+#chat .roy strong {
+  color: yellow;
+}
+
+#chat .you strong {
   color: white;
-}
-
-#chat .roy {
-  color: yellow;
-}
-
-#thinking-dots {
-  text-align: center;
-  font-size: 24px;
-  color: yellow;
-  height: 30px;
 }
