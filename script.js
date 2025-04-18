@@ -156,7 +156,6 @@ window.addEventListener('DOMContentLoaded', () => {
     const prefixPool = prefaces[tone] || prefaces.neutral;
     const intro = prefixPool[Math.floor(Math.random() * prefixPool.length)];
     text = intro + ' ' + text;
-    text = prefaces[tone] + text;
     const p = document.createElement('p');
     p.className = 'roy';
     const label = document.createElement('strong');
