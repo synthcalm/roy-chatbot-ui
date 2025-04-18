@@ -1,4 +1,4 @@
-// Fully functioning script.js for SynthCalm Roy with dual waveform and Roy audio playback
+// Fully functioning script.js for SynthCalm Roy with dual waveform and Roy audio playback — using hardcoded AssemblyAI token
 
 const dateEl = document.getElementById('current-date');
 const timeEl = document.getElementById('current-time');
@@ -119,9 +119,7 @@ async function startRecording() {
 
     source.connect(workletNode).connect(audioContext.destination);
 
-    const tokenRes = await fetch('https://roy-chatbo-backend.onrender.com/api/assembly/token');
-    const { token } = await tokenRes.json();
-
+    const token = 'YOUR_ASSEMBLYAI_REALTIME_API_TOKEN';
     const socket = new WebSocket(`wss://api.assemblyai.com/v2/realtime/ws?sample_rate=16000`);
     socket.binaryType = 'arraybuffer';
 
