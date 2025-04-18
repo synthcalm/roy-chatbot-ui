@@ -1,98 +1,9 @@
-window.addEventListener('DOMContentLoaded', () => {
-  console.log('Whisper mode initialized');
+// script.js
 
+window.addEventListener('DOMContentLoaded', () => {
   const royAudio = new Audio();
   royAudio.setAttribute('playsinline', 'true');
-  const container = document.createElement('div');
-  container.id = 'synth-wrapper';
-  container.style.display = 'flex';
-  container.style.flexDirection = 'column';
-  container.style.alignItems = 'center';
-  container.style.justifyContent = 'center';
-  container.style.padding = '1rem';
-  container.style.maxWidth = '100%';
-  container.style.boxSizing = 'border-box';
-  document.body.appendChild(container);
 
-  // Inject missing DOM elements
-  container.innerHTML += `
-    <div style="display:flex; justify-content:space-between; width:100%; font-size:0.9rem;">
-      <div id="current-date"></div>
-      <div id="current-time"></div>
-      <div id="countdown-timer"></div>
-    </div>
-    <canvas id="userWaveform"></canvas>
-    <canvas id="royWaveform"></canvas>
-    <button id="mic-toggle">Speak</button>
-    <div id="chat"></div>
-  `;
-
-  // Mobile-first layout style
-  const style = document.createElement('style');
-  style.textContent = `
-    html, body {
-      margin: 0;
-      padding: 0;
-      background: #000;
-      color: #0ff;
-      font-family: 'Courier New', monospace;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      flex-direction: column;
-      min-height: 100vh;
-      overflow-x: hidden;
-    }
-    #synth-wrapper {
-      width: 100vw;
-      max-width: 480px;
-      padding: 1rem;
-      box-sizing: border-box;
-    }
-    canvas {
-      width: 100%;
-      height: auto;
-    }
-    #mic-toggle {
-      width: 100%;
-      max-width: 300px;
-      border: 2px solid cyan;
-      color: cyan;
-      background: black;
-      font-family: inherit;
-      font-size: 1.2rem;
-      padding: 10px;
-      margin: 1rem auto;
-      display: block;
-    }
-    #chat {
-      width: 100%;
-      max-height: 40vh;
-      overflow-y: auto;
-      font-size: 1rem;
-      padding: 1rem 0;
-    }
-    @media (max-width: 480px) {
-      #mic-toggle {
-        font-size: 1rem;
-        padding: 12px;
-      }
-      #chat {
-        font-size: 0.9rem;
-      }
-    }
-  `;
-  document.head.appendChild(style);
-  container.appendChild(royAudio);
-
-  const micBtn = document.getElementById('mic-toggle');
-  micBtn.style.minWidth = '60px';
-  micBtn.style.minHeight = '60px';
-  micBtn.style.fontSize = '1rem';
-  micBtn.style.borderRadius = '6px';
-  micBtn.style.padding = '10px';
-  micBtn.style.marginTop = '10px';
-  const chatBox = document.getElementById('chat');
   const userCanvas = document.getElementById('userWaveform');
   const royCanvas = document.getElementById('royWaveform');
   const userCtx = userCanvas.getContext('2d');
@@ -100,9 +11,8 @@ window.addEventListener('DOMContentLoaded', () => {
   const dateEl = document.getElementById('current-date');
   const timeEl = document.getElementById('current-time');
   const countdownEl = document.getElementById('countdown-timer');
-
-  userCanvas.height = Math.floor(window.innerHeight * 0.15);
-  royCanvas.height = Math.floor(window.innerHeight * 0.15);
+  const micBtn = document.getElementById('mic-toggle');
+  const chatBox = document.getElementById('chat');
 
   let audioContext = null;
   let analyser = null;
@@ -173,7 +83,6 @@ window.addEventListener('DOMContentLoaded', () => {
       mediaRecorder.start();
       isRecording = true;
       micBtn.textContent = 'Stop';
-      micBtn.classList.add('recording');
       micBtn.style.borderColor = 'magenta';
     } catch (err) {
       console.error('Mic error:', err);
@@ -185,87 +94,35 @@ window.addEventListener('DOMContentLoaded', () => {
     if (mediaRecorder && mediaRecorder.state !== 'inactive') mediaRecorder.stop();
     if (stream) stream.getTracks().forEach(t => t.stop());
     micBtn.textContent = 'Speak';
-    micBtn.classList.remove('recording');
     micBtn.style.borderColor = 'cyan';
     isRecording = false;
   }
 
-  function appendMessage(sender, text) {
-    if (!chatBox) return;
-    const p = document.createElement('p');
-    p.className = sender.toLowerCase();
-    const color = sender === 'Roy' ? 'yellow' : 'white';
-    p.innerHTML = `<strong style='color: ${color}'>${sender}:</strong> <span style='color: ${color}'>${text}</span>`; 
-  }
+  micBtn.addEventListener('click', () => {
+    isRecording ? stopRecording() : startRecording();
+  });
 
-  function typeRoyMessage(text, tone = 'neutral') {
-    const prefaces = {
-      sad: [
-        "There’s something delicate in the air…",
-        "This feels like a moment worth sitting with…",
-        "Let’s tread gently here."
-      ],
-      tense: [
-        "Energy like yours often hides something deeper…",
-        "You’re carrying a lot. Let’s place it down together.",
-        "Take a breath — let’s navigate this steadily."
-      ],
-      angry: [
-        "Even fire can illuminate. Let’s look closer.",
-        "Anger can speak in riddles. Let’s translate together.",
-        "Sharp emotions often protect soft truths."
-      ],
-      neutral: [
-        "Let’s reflect on that together.",
-        "Here’s a thought worth exploring…",
-        "Let’s unravel that gently."
-      ]
-    };
-    const prefixPool = prefaces[tone] || prefaces.neutral;
-    const intro = prefixPool[Math.floor(Math.random() * prefixPool.length)];
-    text = intro + ' ' + text;
+  function appendMessage(sender, text) {
     const p = document.createElement('p');
-    p.className = 'roy';
-    const label = document.createElement('strong');
-    label.style.color = 'yellow';
-    label.textContent = 'Roy:';
-    const span = document.createElement('span');
-    span.style.color = 'yellow';
-    span.textContent = '';
-    p.appendChild(label);
-    p.appendChild(document.createTextNode(' '));
-    p.appendChild(span);
+    const color = sender === 'Roy' ? 'yellow' : 'white';
+    p.innerHTML = `<strong style='color: ${color}'>${sender}:</strong> <span style='color: ${color}'>${text}</span>`;
     chatBox.appendChild(p);
-    let index = 0;
-    const delay = tone === 'sad' ? 80 : tone === 'tense' ? 40 : tone === 'angry' ? 30 : 50;
-    const interval = setInterval(() => {
-      if (index < text.length) {
-        span.textContent += text.charAt(index);
-        index++;
-      } else {
-        clearInterval(interval);
-      }
-    }, delay);
-    chatBox.appendChild(p);
-  chatBox.scrollTop = chatBox.scrollHeight;
+    chatBox.scrollTop = chatBox.scrollHeight;
   }
 
   function showThinkingDots() {
-    if (!chatBox) return;
     thinkingDotsEl = document.createElement('p');
-    thinkingDotsEl.className = 'roy';
     thinkingDotsEl.innerHTML = "<strong style='color: yellow'>Roy:</strong> <span id='dots' style='color: yellow'>.</span>";
     chatBox.appendChild(thinkingDotsEl);
     let dots = 1;
     const interval = setInterval(() => {
       if (!thinkingDotsEl) return clearInterval(interval);
-      const dotStr = '.'.repeat((dots % 3) + 1);
-      document.getElementById('dots').textContent = dotStr;
+      document.getElementById('dots').textContent = '.'.repeat((dots % 3) + 1);
       dots++;
     }, 500);
   }
 
-  async function fetchRoyResponse(text, tone = 'neutral') {
+  async function fetchRoyResponse(text) {
     try {
       const res = await fetch('https://roy-chatbo-backend.onrender.com/api/chat', {
         method: 'POST',
@@ -275,7 +132,7 @@ window.addEventListener('DOMContentLoaded', () => {
       const data = await res.json();
       if (thinkingDotsEl) thinkingDotsEl.remove();
       thinkingDotsEl = null;
-      if (data.text) typeRoyMessage(data.text, tone);
+      if (data.text) appendMessage('Roy', data.text);
       if (data.audio) {
         royAudio.src = `data:audio/mp3;base64,${data.audio}`;
         royAudio.play().catch(e => console.warn('Autoplay error', e));
@@ -355,17 +212,6 @@ window.addEventListener('DOMContentLoaded', () => {
       royCtx.stroke();
     }
     draw();
-  }
-
-  document.body.addEventListener('touchstart', () => {
-    if (!audioContext) audioContext = new (window.AudioContext || window.webkitAudioContext)();
-    if (audioContext.state === 'suspended') audioContext.resume();
-  }, { once: true });
-
-  if (micBtn) {
-    micBtn.addEventListener('click', () => {
-      isRecording ? stopRecording() : startRecording();
-    });
   }
 
   appendMessage('Roy', "Welcome. I'm Roy. Speak when ready.");
