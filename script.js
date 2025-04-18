@@ -14,6 +14,19 @@ window.addEventListener('DOMContentLoaded', () => {
   container.style.boxSizing = 'border-box';
   document.body.appendChild(container);
 
+  // Inject missing DOM elements
+  container.innerHTML += `
+    <div style="display:flex; justify-content:space-between; width:100%; font-size:0.9rem;">
+      <div id="current-date"></div>
+      <div id="current-time"></div>
+      <div id="countdown-timer"></div>
+    </div>
+    <canvas id="userWaveform"></canvas>
+    <canvas id="royWaveform"></canvas>
+    <button id="mic-toggle">Speak</button>
+    <div id="chat"></div>
+  `;
+
   // Mobile-first layout style
   const style = document.createElement('style');
   style.textContent = `
@@ -233,8 +246,8 @@ window.addEventListener('DOMContentLoaded', () => {
         clearInterval(interval);
       }
     }, delay);
-  } chatBox.appendChild(p);
-    chatBox.scrollTop = chatBox.scrollHeight;
+    chatBox.appendChild(p);
+  chatBox.scrollTop = chatBox.scrollHeight;
   }
 
   function showThinkingDots() {
