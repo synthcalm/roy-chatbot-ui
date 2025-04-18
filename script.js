@@ -1,4 +1,4 @@
-// Full SynthCalm Roy script with CBT persona, emotion detection, waveform, typing, and voice
+// Full SynthCalm Roy script — Emotion-aware CBT Chatbot with Roy Batty tone
 window.addEventListener('DOMContentLoaded', () => {
   const micBtn = document.getElementById('mic-toggle');
   const chatBox = document.getElementById('chat');
@@ -40,25 +40,26 @@ window.addEventListener('DOMContentLoaded', () => {
   function typeRoyMessage(el, text, i = 0) {
     if (i < text.length) {
       el.textContent += text.charAt(i);
-      setTimeout(() => typeRoyMessage(el, text, i + 1), 35);
+      setTimeout(() => typeRoyMessage(el, text, i + 1), 33);
     }
   }
 
   function speakWithRoyPersona(text) {
-  const utterance = new SpeechSynthesisUtterance(text);
-  utterance.voice = speechSynthesis.getVoices().find(v => v.name.includes("Daniel") || v.lang === "en-US");
-  utterance.pitch = 0.7;
-  utterance.rate = 0.85;
-  utterance.volume = 1;
-  speechSynthesis.speak(utterance);
-}
-}
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.voice = speechSynthesis.getVoices().find(v => v.name.includes("Daniel") || v.lang === "en-US");
+    utterance.pitch = 0.7;
+    utterance.rate = 0.88;
+    utterance.volume = 1;
+    utterance.onend = () => {};
+    speechSynthesis.cancel();
+    speechSynthesis.speak(utterance);
+  }
 
   function analyzeEmotion(text) {
     const t = text.toLowerCase();
-    if (/hate|angry|stupid/.test(t)) return "anger";
-    if (/sad|upset|depressed/.test(t)) return "sadness";
-    if (/happy|grateful|thank/.test(t)) return "joy";
+    if (/\b(hate|angry|stupid|dumb|fuck)\b/.test(t)) return "anger";
+    if (/\b(sad|tired|lost|alone|depressed)\b/.test(t)) return "sadness";
+    if (/\b(grateful|hope|happy|joy|thank)\b/.test(t)) return "joy";
     return "neutral";
   }
 
@@ -92,7 +93,7 @@ window.addEventListener('DOMContentLoaded', () => {
       p.remove();
       appendMessage('Roy', reply, true);
       speakWithRoyPersona(reply);
-    }, 1400);
+    }, 1600);
   }
 
   async function startRecording() {
