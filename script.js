@@ -84,9 +84,11 @@ window.addEventListener('DOMContentLoaded', () => {
       };
 
       mediaRecorder.onstop = async () => {
+        const emotionalTone = analyzeEmotion(analyser);
         const blob = new Blob(recordedChunks, { type: 'audio/webm' });
         const formData = new FormData();
         formData.append('audio', blob);
+        formData.append('tone', emotionalTone);
 
         thinkingDotsEl = appendMessage('Roy', '<span id="thinking-dots">...</span>');
         animateDots();
@@ -97,44 +99,11 @@ window.addEventListener('DOMContentLoaded', () => {
             body: formData
           });
           const data = await res.json();
-          if (data.text) {
-            appendMessage('You', data.text);
-            await fetchRoyResponse(data.text);
-          } else {
-            appendMessage('Roy', 'Sorry, I didn’t catch that.');
-          }
-        } catch (err) {
-          console.error('Whisper transcription error:', err);
-          appendMessage('Roy', 'Transcription failed.');
-        }
-      };
-
-      mediaRecorder.start();
-      isRecording = true;
-      micBtn.textContent = 'Stop';
-    } catch (err) {
-      console.error('Mic error:', err);
-      appendMessage('Roy', 'Mic or connection error.');
-    }
-  }
-
-  function stopRecording() {
-    if (mediaRecorder && mediaRecorder.state !== 'inactive') mediaRecorder.stop();
-    if (stream) stream.getTracks().forEach(t => t.stop());
-    micBtn.textContent = 'Speak';
-    isRecording = false;
-  }
-
-  async function fetchRoyResponse(text) {
-    try {
-      const res = await fetch('https://roy-chatbo-backend.onrender.com/api/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: text, mode: 'both' })
-      });
-      const data = await res.json();
       if (thinkingDotsEl) thinkingDotsEl.remove();
-      if (data.text) appendMessage('Roy', data.text, true);
+      if (data.text) {
+        const modifiedText = transformRoyPersona(data.text, emotionalTone);
+        appendMessage('Roy', modifiedText, true);
+      }
       if (data.audio) {
         royAudio.src = `data:audio/mp3;base64,${data.audio}`;
         setTimeout(() => {
@@ -240,4 +209,52 @@ window.addEventListener('DOMContentLoaded', () => {
   }
 
   appendMessage('Roy', "Welcome. I'm Roy. Speak when ready.");
+
+  function analyzeEmotion(analyser) {
+    const buffer = new Uint8Array(analyser.frequencyBinCount);
+    analyser.getByteFrequencyData(buffer);
+    const avg = buffer.reduce((a, b) => a + b, 0) / buffer.length;
+
+    if (avg > 140) return 'angry';
+    if (avg > 100) return 'tense';
+    if (avg > 60) return 'neutral';
+    return 'sad';
+  }
+
+  function transformRoyPersona(text, tone = 'neutral') {
+    const cbtPatterns = [
+      { pattern: /i(?:'|’)m a failure/gi, replace: "That sounds like a heavy conclusion. Is it truly accurate?" },
+      { pattern: /nobody cares/gi, replace: "Are you sure that's not a distortion? Let's examine the evidence." },
+      { pattern: /i always (fail|get it wrong)/gi, replace: "'Always' is a strong word. Could we explore that more rationally?" },
+    ];
+
+    let output = text;
+    for (const { pattern, replace } of cbtPatterns) {
+      if (pattern.test(output)) {
+        output += ' ' + replace;
+      }
+    }
+
+    // 60% Roy Batty styling
+    const poeticLayer = [
+  "Let’s take this thought apart together.",
+  "A mind in motion is not a mind broken.",
+  "Where there is confusion, there’s usually a question worth asking.",
+  "Even shadows come from light. Let’s look closer."
+];
+
+    if (Math.random() < 0.6) {
+      output = poeticLayer[Math.floor(Math.random() * poeticLayer.length)] + ' ' + output;
+    }
+
+    if (tone === 'sad') {
+      output += ' It sounds like you’re carrying something heavy. Let’s slow down and look at it together.';
+    } else if (tone === 'tense') {
+      output += ' I hear a lot of energy in your voice. Let’s find the thought beneath that intensity.';
+    } else if (tone === 'angry') {
+      output += ' Strong feelings can hide softer truths. I’m here to explore them with you.';
+    }
+
+    return output;
+  }
 });
