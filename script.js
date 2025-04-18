@@ -1,4 +1,4 @@
-window.addEventListener('DOMContentLoaded', () => {
+""window.addEventListener('DOMContentLoaded', () => {
   console.log('Whisper mode initialized');
 
   const royAudio = new Audio();
@@ -88,7 +88,7 @@ window.addEventListener('DOMContentLoaded', () => {
       isRecording = true;
       micBtn.textContent = 'Stop';
       micBtn.classList.add('recording');
-
+      micBtn.style.borderColor = 'magenta';
     } catch (err) {
       console.error('Mic error:', err);
       appendMessage('Roy', 'Mic permission error.');
@@ -100,6 +100,7 @@ window.addEventListener('DOMContentLoaded', () => {
     if (stream) stream.getTracks().forEach(t => t.stop());
     micBtn.textContent = 'Speak';
     micBtn.classList.remove('recording');
+    micBtn.style.borderColor = 'cyan';
     isRecording = false;
   }
 
