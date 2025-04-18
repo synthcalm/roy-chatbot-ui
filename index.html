@@ -3,89 +3,31 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Roy Interface</title>
-  <style>
-    * {
-      box-sizing: border-box;
-    }
-    html, body {
-      margin: 0;
-      padding: 0;
-      background: #000;
-      color: #0ff;
-      font-family: 'Courier New', monospace;
-      height: 100vh;
-      overflow: hidden;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-    }
-    #container {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      width: 100vw;
-      max-width: 800px;
-      padding: 10px;
-    }
-    .header {
-      display: flex;
-      justify-content: space-between;
-      width: 100%;
-      padding: 0 10px;
-      font-size: 0.9rem;
-    }
-    canvas {
-      width: 100%;
-      height: 160px;
-      border: 1px solid cyan;
-      background-color: #000;
-      background-image: linear-gradient(to right, rgba(255, 255, 0, 0.3) 1px, transparent 1px),
-                        linear-gradient(to bottom, rgba(255, 255, 0, 0.3) 1px, transparent 1px);
-      background-size: 20px 20px;
-      margin: 10px 0;
-    }
-    .buttons {
-      display: flex;
-      justify-content: center;
-      gap: 10px;
-      margin-top: 10px;
-    }
-    button {
-      padding: 10px 20px;
-      border: 1px solid cyan;
-      background: black;
-      color: cyan;
-      font-family: 'Courier New', monospace;
-      font-size: 1rem;
-      cursor: pointer;
-    }
-    #chat {
-      width: 100%;
-      max-height: 30vh;
-      overflow-y: auto;
-      padding: 10px;
-      color: yellow;
-      font-size: 0.95rem;
-    }
-  </style>
+  <title>SynthCalm Roy</title>
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <div id="container">
-    <div class="header">
-      <div id="current-date">2025-04-18</div>
-      <div id="current-time">00:00:00</div>
-      <div id="countdown-timer">59:59</div>
-    </div>
+  <div class="top-bar">
+    <span id="current-date"></span>
+    <span id="current-time"></span>
+    <span id="countdown-timer"></span>
+  </div>
+
+  <div class="scope-container">
     <canvas id="userWaveform"></canvas>
     <canvas id="royWaveform"></canvas>
-    <div class="buttons">
-      <button id="mic-toggle">Speak</button>
-      <button id="save-log">SAVE LOG</button>
-      <button onclick="location.href='https://synthcalm.com/'">SynthCalm Home</button>
-    </div>
-    <div id="chat"></div>
   </div>
+
+  <div class="button-row">
+    <button id="mic-toggle">Speak</button>
+    <button id="save-log">SAVE LOG</button>
+    <a href="https://synthcalm.com" target="_blank">
+      <button>SynthCalm Home</button>
+    </a>
+  </div>
+
+  <div id="chat" class="chat-box"></div>
+
   <script src="script.js"></script>
 </body>
 </html>
