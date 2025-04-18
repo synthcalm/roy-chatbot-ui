@@ -1,59 +1,73 @@
 body {
   margin: 0;
+  padding: 0;
   background: #000;
   color: #0ff;
   font-family: 'Courier New', monospace;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 
-.header {
+.header-bar {
+  width: 100%;
+  max-width: 900px;
   display: flex;
   justify-content: space-between;
-  width: 600px;
-  margin: 10px auto;
+  padding: 8px 16px;
   font-size: 14px;
+  box-sizing: border-box;
 }
 
 canvas {
-  display: block;
-  margin: 10px auto;
-  background-color: #000;
   border: 2px solid #0ff;
-  background-image: linear-gradient(to right, rgba(255,255,0,0.2) 1px, transparent 1px),
-                    linear-gradient(to bottom, rgba(255,255,0,0.2) 1px, transparent 1px);
+  background-color: #000;
+  background-image:
+    linear-gradient(to right, rgba(255, 255, 0, 0.2) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 0, 0.2) 1px, transparent 1px);
   background-size: 20px 20px;
+  width: 90%;
+  max-width: 900px;
+  height: 160px;
+  margin: 8px 0;
+  box-sizing: border-box;
 }
 
 .button-row {
   display: flex;
-  justify-content: center;
-  gap: 10px;
-  margin-top: 12px;
-  margin-bottom: 20px;
+  gap: 12px;
+  margin: 12px 0;
 }
 
 button {
   background: black;
-  border: 2px solid #0ff;
+  border: 1px solid #0ff;
   color: #0ff;
+  padding: 6px 14px;
   font-family: 'Courier New', monospace;
-  font-size: 16px;
-  padding: 10px 14px;
+  font-size: 14px;
   cursor: pointer;
-  outline: none;
 }
 
-button:hover {
-  background: #0ff;
-  color: #000;
+button.recording {
+  color: yellow;
+  border-color: yellow;
 }
 
 #chat {
-  max-width: 600px;
-  margin: 0 auto;
-  padding: 0 20px 40px;
+  width: 90%;
+  max-width: 900px;
   color: yellow;
-  font-size: 16px;
-  line-height: 1.6;
-  white-space: pre-wrap;
+  font-size: 14px;
+  line-height: 1.5em;
+  margin-top: 12px;
   text-align: left;
+}
+
+#thinking-dots {
+  color: yellow;
+  font-size: 24px;
+  margin: 4px;
+  height: 24px;
+  text-align: center;
 }
