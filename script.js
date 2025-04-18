@@ -15,8 +15,8 @@ window.addEventListener('DOMContentLoaded', () => {
   const timeEl = document.getElementById('current-time');
   const countdownEl = document.getElementById('countdown-timer');
 
-  userCanvas.height = 60;
-  royCanvas.height = 60;
+  userCanvas.height = 30;
+  royCanvas.height = 30;
 
   let audioContext = null;
   let analyser = null;
@@ -55,7 +55,7 @@ window.addEventListener('DOMContentLoaded', () => {
         } else {
           clearInterval(interval);
         }
-      }, 30);
+      }, 50); // Emulates spoken pacing
     } else {
       span.textContent = text;
     }
@@ -140,7 +140,7 @@ window.addEventListener('DOMContentLoaded', () => {
         setTimeout(() => {
           royAudio.play().catch(e => console.warn('Autoplay error', e));
           drawWaveformRoy(royAudio);
-        }, 500);
+        }, 200);
       }
     } catch (err) {
       console.error('Roy response failed:', err);
