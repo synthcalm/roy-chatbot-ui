@@ -1,68 +1,30 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Roy - SynthCalm</title>
-  <link rel="icon" href="/favicon.ico">
-  <style>
-    html, body {
-      margin: 0;
-      padding: 0;
-      background: #000;
-      color: #0ff;
-      font-family: 'Courier New', monospace;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      flex-direction: column;
-      min-height: 100vh;
-      overflow-x: hidden;
-    }
-    #synth-wrapper {
-      width: 100vw;
-      max-width: 480px;
-      padding: 1rem;
-      box-sizing: border-box;
-    }
-    canvas {
-      width: 100%;
-      height: auto;
-    }
-    #mic-toggle {
-      width: 100%;
-      max-width: 300px;
-      border: 2px solid cyan;
-      color: cyan;
-      background: black;
-      font-family: inherit;
-      font-size: 1.2rem;
-      padding: 10px;
-      margin: 1rem auto;
-      display: block;
-      min-width: 60px;
-      min-height: 60px;
-      border-radius: 6px;
-    }
-    #chat {
-      width: 100%;
-      max-height: 40vh;
-      overflow-y: auto;
-      font-size: 1rem;
-      padding: 1rem 0;
-    }
-    @media (max-width: 480px) {
-      #mic-toggle {
-        font-size: 1rem;
-        padding: 12px;
-      }
-      #chat {
-        font-size: 0.9rem;
-      }
-    }
-  </style>
+  <link rel="stylesheet" href="style.css" />
 </head>
 <body>
+  <div id="synth-wrapper">
+    <div class="header-bar">
+      <div id="current-date">0000-00-00</div>
+      <div id="current-time">00:00:00</div>
+      <div id="countdown-timer">59:59</div>
+    </div>
+    <canvas id="userWaveform"></canvas>
+    <canvas id="royWaveform"></canvas>
+
+    <div class="button-bar">
+      <button id="mic-toggle">Speak</button>
+      <button id="save-log">SAVE LOG</button>
+      <button id="home-btn" onclick="window.location.href='https://synthcalm.com/'">SynthCalm Home</button>
+    </div>
+
+    <div id="chat"></div>
+  </div>
+
   <script src="script.js"></script>
 </body>
 </html>
