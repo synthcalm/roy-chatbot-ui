@@ -7,15 +7,19 @@ window.addEventListener('DOMContentLoaded', () => {
     document.body.appendChild(royAudio);
 
     const micBtn = document.getElementById('mic-toggle');
-    const chatBox = document.getElementById('chat');
-    const thinkingDots = document.getElementById('thinking-dots');
+    const messagesEl = document.getElementById('chat');
     const userCanvas = document.getElementById('userWaveform');
     const royCanvas = document.getElementById('royWaveform');
     const userCtx = userCanvas.getContext('2d');
     const royCtx = royCanvas.getContext('2d');
-    const dateEl = document.getElementById('current-date');
-    const timeEl = document.getElementById('current-time');
-    const countdownEl = document.getElementById('countdown-timer');
+    const dateSpan = document.getElementById('current-date');
+    const timeSpan = document.getElementById('current-time');
+    const timerSpan = document.getElementById('countdown-timer');
+
+    userCanvas.width = userCanvas.offsetWidth;
+    userCanvas.height = 160;
+    royCanvas.width = royCanvas.offsetWidth;
+    royCanvas.height = 160;
 
     let audioContext = null;
     let analyser = null;
@@ -24,14 +28,17 @@ window.addEventListener('DOMContentLoaded', () => {
     let isRecording = false;
     let recordedChunks = [];
     let sessionStart = Date.now();
+    let roySource = null;
 
     function updateClock() {
       const now = new Date();
-      dateEl.textContent = now.toISOString().split('T')[0];
-      timeEl.textContent = now.toTimeString().split(' ')[0];
-      const elapsed = Math.floor((Date.now() - sessionStart) / 1000);
-      const remaining = Math.max(0, 3600 - elapsed);
-      countdownEl.textContent = `${String(Math.floor(remaining / 60)).padStart(2, '0')}:${String(remaining % 60).padStart(2, '0')}`;
+      if (dateSpan) dateSpan.textContent = now.toISOString().split('T')[0];
+      if (timeSpan) timeSpan.textContent = now.toTimeString().split(' ')[0];
+      if (timerSpan) {
+        const elapsed = Math.floor((Date.now() - sessionStart) / 1000);
+        const remaining = Math.max(0, 3600 - elapsed);
+        timerSpan.textContent = `${String(Math.floor(remaining / 60)).padStart(2, '0')}:${String(remaining % 60).padStart(2, '0')}`;
+      }
     }
     updateClock();
     setInterval(updateClock, 1000);
@@ -41,8 +48,8 @@ window.addEventListener('DOMContentLoaded', () => {
       p.className = sender.toLowerCase();
       const color = sender === 'Roy' ? 'yellow' : 'white';
       p.innerHTML = `<strong style='color: ${color}'>${sender}:</strong> <span style='color: ${color}'>${text}</span>`;
-      chatBox.appendChild(p);
-      chatBox.scrollTop = chatBox.scrollHeight;
+      messagesEl.appendChild(p);
+      messagesEl.scrollTop = messagesEl.scrollHeight;
     }
 
     async function startRecording() {
@@ -71,7 +78,7 @@ window.addEventListener('DOMContentLoaded', () => {
           const formData = new FormData();
           formData.append('audio', blob);
 
-          showThinkingDots();
+          appendMessage('Roy', '<em>Transcribing...</em>');
 
           try {
             const res = await fetch('https://roy-chatbo-backend.onrender.com/api/transcribe', {
@@ -79,7 +86,6 @@ window.addEventListener('DOMContentLoaded', () => {
               body: formData
             });
             const data = await res.json();
-            hideThinkingDots();
             if (data.text) {
               appendMessage('You', data.text);
               await fetchRoyResponse(data.text);
@@ -87,20 +93,19 @@ window.addEventListener('DOMContentLoaded', () => {
               appendMessage('Roy', 'Sorry, I didn’t catch that.');
             }
           } catch (err) {
-            console.error('Transcription error:', err);
+            console.error('Whisper transcription error:', err);
             appendMessage('Roy', 'Transcription failed.');
-            hideThinkingDots();
           }
         };
 
         mediaRecorder.start();
         isRecording = true;
         micBtn.textContent = 'Stop';
+        micBtn.classList.add('recording');
 
       } catch (err) {
         console.error('Mic error:', err);
         appendMessage('Roy', 'Mic permission error.');
-        hideThinkingDots();
       }
     }
 
@@ -108,6 +113,7 @@ window.addEventListener('DOMContentLoaded', () => {
       if (mediaRecorder && mediaRecorder.state !== 'inactive') mediaRecorder.stop();
       if (stream) stream.getTracks().forEach(t => t.stop());
       micBtn.textContent = 'Speak';
+      micBtn.classList.remove('recording');
       isRecording = false;
     }
 
@@ -121,9 +127,11 @@ window.addEventListener('DOMContentLoaded', () => {
         const data = await res.json();
         if (data.text) appendMessage('Roy', data.text);
         if (data.audio) {
-          royAudio.src = `data:audio/mp3;base64,${data.audio}`;
-          royAudio.play().catch(e => console.warn('Autoplay error', e));
-          drawWaveformRoy(royAudio);
+          const newAudio = new Audio();
+          newAudio.setAttribute('playsinline', 'true');
+          newAudio.src = `data:audio/mp3;base64,${data.audio}`;
+          newAudio.play().catch(e => console.warn('Autoplay error', e));
+          drawWaveformRoy(newAudio);
         }
       } catch (err) {
         console.error('Roy response failed:', err);
@@ -138,6 +146,7 @@ window.addEventListener('DOMContentLoaded', () => {
         analyser.getByteTimeDomainData(buffer);
         ctx.fillStyle = '#000';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
+
         ctx.strokeStyle = '#333';
         ctx.lineWidth = 0.5;
         for (let i = 0; i <= canvas.width; i += 20) {
@@ -146,6 +155,7 @@ window.addEventListener('DOMContentLoaded', () => {
         for (let j = 0; j <= canvas.height; j += 20) {
           ctx.beginPath(); ctx.moveTo(0, j); ctx.lineTo(canvas.width, j); ctx.stroke();
         }
+
         ctx.strokeStyle = color;
         ctx.beginPath();
         const slice = canvas.width / buffer.length;
@@ -173,6 +183,7 @@ window.addEventListener('DOMContentLoaded', () => {
         analyser.getByteTimeDomainData(buffer);
         royCtx.fillStyle = '#000';
         royCtx.fillRect(0, 0, royCanvas.width, royCanvas.height);
+
         royCtx.strokeStyle = '#333';
         royCtx.lineWidth = 0.5;
         for (let i = 0; i <= royCanvas.width; i += 20) {
@@ -181,6 +192,7 @@ window.addEventListener('DOMContentLoaded', () => {
         for (let j = 0; j <= royCanvas.height; j += 20) {
           royCtx.beginPath(); royCtx.moveTo(0, j); royCtx.lineTo(royCanvas.width, j); royCtx.stroke();
         }
+
         royCtx.strokeStyle = 'magenta';
         royCtx.beginPath();
         const slice = royCanvas.width / buffer.length;
@@ -195,26 +207,19 @@ window.addEventListener('DOMContentLoaded', () => {
       draw();
     }
 
-    function showThinkingDots() {
-      thinkingDots.textContent = '.';
-      let dotCount = 1;
-      const interval = setInterval(() => {
-        dotCount = (dotCount + 1) % 4;
-        thinkingDots.textContent = '.'.repeat(dotCount);
-      }, 500);
-      thinkingDots.dataset.interval = interval;
-    }
+    document.body.addEventListener('touchstart', () => {
+      if (!audioContext) audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      if (audioContext.state === 'suspended') audioContext.resume();
+    }, { once: true });
 
-    function hideThinkingDots() {
-      clearInterval(thinkingDots.dataset.interval);
-      thinkingDots.textContent = '';
+    if (micBtn) {
+      micBtn.addEventListener('click', () => {
+        isRecording ? stopRecording() : startRecording();
+      });
     }
-
-    micBtn.addEventListener('click', () => {
-      isRecording ? stopRecording() : startRecording();
-    });
 
     appendMessage('Roy', "Welcome. I'm Roy. Speak when ready.");
+
   } catch (err) {
     console.error('Fatal init error:', err);
     const fallback = document.createElement('p');
