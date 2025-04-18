@@ -1,25 +1,27 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Roy | SynthCalm</title>
-  <link rel="stylesheet" href="style.css" />
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Roy Chatbot</title>
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <div class="header-bar">
-    <div id="current-date">Loading...</div>
-    <div id="current-time">--:--:--</div>
-    <div id="countdown-timer">60:00</div>
+    <div id="current-date">2025-04-18</div>
+    <div id="current-time">00:00:00</div>
+    <div id="countdown-timer">59:59</div>
   </div>
 
-  <canvas id="userWaveform" width="800" height="160"></canvas>
-  <canvas id="royWaveform" width="800" height="160"></canvas>
+  <div style="max-width: 800px; margin: 0 auto;">
+    <canvas id="userWaveform" width="800" height="160"></canvas>
+    <canvas id="royWaveform" width="800" height="160"></canvas>
+  </div>
 
   <div id="controls">
     <button id="mic-toggle">Speak</button>
     <button id="save-log">SAVE LOG</button>
-    <button onclick="location.href='https://synthcalm.com'">SynthCalm Home</button>
+    <button onclick="window.location.href='https://synthcalm.com/'">SynthCalm Home</button>
   </div>
 
   <div id="chat"></div>
