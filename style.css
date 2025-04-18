@@ -7,20 +7,21 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
+  width: 100%;
+  overflow-x: hidden;
 }
 
 .header-bar {
-  width: 100%;
+  width: 90%;
   max-width: 900px;
   display: flex;
   justify-content: space-between;
-  padding: 8px 16px;
+  margin-top: 10px;
   font-size: 14px;
-  box-sizing: border-box;
 }
 
 canvas {
-  border: 2px solid #0ff;
+  border: 1px solid #0ff;
   background-color: #000;
   background-image:
     linear-gradient(to right, rgba(255, 255, 0, 0.2) 1px, transparent 1px),
@@ -29,24 +30,28 @@ canvas {
   width: 90%;
   max-width: 900px;
   height: 160px;
-  margin: 8px 0;
+  margin: 6px 0;
   box-sizing: border-box;
 }
 
 .button-row {
   display: flex;
+  justify-content: center;
   gap: 12px;
-  margin: 12px 0;
+  margin-top: 12px;
+  width: 90%;
+  max-width: 900px;
 }
 
 button {
   background: black;
   border: 1px solid #0ff;
   color: #0ff;
-  padding: 6px 14px;
+  padding: 5px 14px;
   font-family: 'Courier New', monospace;
-  font-size: 14px;
+  font-size: 13px;
   cursor: pointer;
+  border-radius: 0;
 }
 
 button.recording {
@@ -60,7 +65,7 @@ button.recording {
   color: yellow;
   font-size: 14px;
   line-height: 1.5em;
-  margin-top: 12px;
+  margin: 20px 0 10px 0;
   text-align: left;
 }
 
@@ -69,5 +74,11 @@ button.recording {
   font-size: 24px;
   margin: 4px;
   height: 24px;
-  text-align: center;
+  text-align: left;
+  width: 90%;
+  max-width: 900px;
+}
+
+#save-log {
+  border: 1px solid #0ff;
 }
