@@ -1,16 +1,16 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>SynthCalm Roy</title>
-  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <div class="header">
-    <strong id="current-date">2025-04-18</strong>
-    <strong id="current-time">21:53:47</strong>
-    <strong id="countdown-timer">56:41</strong>
+    <strong id="current-date"></strong>
+    <strong id="current-time"></strong>
+    <strong id="countdown-timer"></strong>
   </div>
 
   <canvas id="userWaveform" width="600" height="100"></canvas>
@@ -20,10 +20,10 @@
     <button id="mic-toggle">Speak</button>
   </div>
 
+  <div id="thinking-dots" style="display:none;text-align:center;margin:10px auto;color:#0ff;font-size:24px">...</div>
   <div id="chat"></div>
-  <div id="thinking-dots" style="display: none;">...</div>
 
-  <div style="margin-top: 30px; text-align: center;">
+  <div class="home-button">
     <button onclick="window.location.href='https://synthcalm.com';">SynthCalm Home</button>
   </div>
 
