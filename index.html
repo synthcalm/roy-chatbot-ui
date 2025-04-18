@@ -1,88 +1,30 @@
-<!DOCTYPE html>
-<html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>ROY | SynthCalm</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <style>
-    body {
-      margin: 0;
-      background: black;
-      font-family: 'Courier New', monospace;
-      color: #0ff;
-    }
-    .top-bar {
-      display: flex;
-      justify-content: space-between;
-      padding: 5px 15px;
-      font-size: 16px;
-    }
-    canvas {
-      width: 95%;
-      height: 100px;
-      border: 2px solid #0ff;
-      margin: 10px auto;
-      display: block;
-      background-color: black;
-      background-image: linear-gradient(to right, rgba(255,255,0,0.2) 1px, transparent 1px),
-                        linear-gradient(to bottom, rgba(255,255,0,0.2) 1px, transparent 1px);
-      background-size: 20px 20px;
-    }
-    #chat {
-      color: yellow;
-      padding: 10px 20px;
-      max-width: 800px;
-      margin: auto;
-      font-size: 15px;
-      white-space: pre-wrap;
-    }
-    button {
-      background: black;
-      color: #0ff;
-      border: 2px solid #0ff;
-      font-family: 'Courier New', monospace;
-      font-size: 16px;
-      padding: 8px 16px;
-      cursor: pointer;
-      margin: 10px auto;
-      display: block;
-    }
-    button:hover {
-      background: #0ff;
-      color: #000;
-    }
-    .home {
-      text-align: center;
-      margin-top: 20px;
-    }
-  </style>
-</head>
-<body>
-  <div class="top-bar">
-    <span id="date">2025-04-18</span>
-    <span id="time">21:53:47</span>
-    <span id="countdown">56:47</span>
-  </div>
-
-  <canvas id="waveformUser"></canvas>
-  <canvas id="waveformRoy"></canvas>
-
-  <button id="startVoice">Speak</button>
-
-  <div id="chat">
-Roy: It's important to take the time to explore and understand your emotions. Feel free to share anything you're comfortable with, and remember that you are not alone in feeling this way. Let's work together to find ways to support and help you through this challenging time.
-
-Roy: <i>Transcribing...</i>
-
-You: Well, what do you suggest?
-
-Roy: It's great that you're looking for suggestions. Have you thought about different possible options and their potential outcomes? Let's explore them together.
-
-Roy: Error generating response.
-  </div>
-
-  <div class="home">
-    <button>SynthCalm Home</button>
-  </div>
-</body>
-</html>
+   <meta charset="UTF-8" />
+   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+   <title>SynthCalm - Roy</title>
+   <title>SynthCalm Roy</title>
+   <link rel="stylesheet" href="style.css" />
+ </head>
+ <body>
+   <div class="header">
+     <div><strong id="current-date"></strong></div>
+     <div><strong id="current-time"></strong></div>
+     <div><strong id="countdown-timer"></strong></div>
+   </div>
+   <div class="container">
+     <div class="header">
+       <div><strong id="current-date"></strong></div>
+       <div><strong id="current-time"></strong></div>
+       <div><strong id="countdown-timer"></strong></div>
+     </div>
+     <canvas id="userWaveform" width="600" height="100"></canvas>
+     <canvas id="royWaveform" width="600" height="100"></canvas>
+     <button id="mic-toggle">Speak</button>
+     <div id="messages"></div>
+     <div style="margin-top:20px;">
+       <button onclick="window.location.href='https://synthcalm.com';">SynthCalm Home</button>
+     </div>
+   </div>
+   <script src="script.js"></script>
+ </body>
+ </html>
