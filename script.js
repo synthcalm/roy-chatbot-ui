@@ -45,13 +45,18 @@ window.addEventListener('DOMContentLoaded', () => {
   }
 
   function speakWithRoyPersona(text) {
-    const u = new SpeechSynthesisUtterance(text);
-    u.voice = speechSynthesis.getVoices().find(v => v.name.includes("Daniel") || v.lang === "en-US");
-    u.pitch = 0.7;
-    u.rate = 0.85;
-    u.volume = 1;
-    speechSynthesis.speak(u);
+  const parts = text.split(/(?<=[.!?])/g); // Split on sentence endings
+  let delay = 0;
+  for (const part of parts) {
+    const utterance = new SpeechSynthesisUtterance(part.trim());
+    utterance.voice = speechSynthesis.getVoices().find(v => v.name.includes("Daniel") || v.lang === "en-US");
+    utterance.pitch = 0.7;
+    utterance.rate = 0.85;
+    utterance.volume = 1;
+    setTimeout(() => speechSynthesis.speak(utterance), delay);
+    delay += part.trim().length * 70;
   }
+}
 
   function analyzeEmotion(text) {
     const t = text.toLowerCase();
