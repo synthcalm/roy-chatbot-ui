@@ -1,3 +1,4 @@
+// SynthCalm Roy - Updated script.js with synced waveform, typing, and voice
 let mediaRecorder, audioChunks = [], audioContext, sourceNode;
 let state = 'idle';
 let stream;
@@ -47,6 +48,8 @@ setInterval(updateDateTime, 1000);
 updateDateTime();
 startCountdown();
 
+displayMessage("Roy", "Welcome. I'm Roy. Speak when ready.");
+
 function displayMessage(role, text) {
   const message = document.createElement('div');
   message.innerHTML = `<strong>${role}:</strong> ${text}`;
@@ -55,8 +58,6 @@ function displayMessage(role, text) {
   elements.chat.scrollTop = elements.chat.scrollHeight;
   logHistory.push({ role, text });
 }
-
-displayMessage("Roy", "Welcome. I'm Roy. Speak when ready.");
 
 async function startRecording() {
   if (state !== 'idle') return;
@@ -70,7 +71,6 @@ async function startRecording() {
     sourceNode = audioContext.createMediaStreamSource(stream);
     const analyser = audioContext.createAnalyser();
     sourceNode.connect(analyser);
-
     drawWaveform(elements.userScope, analyser);
 
     mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
@@ -82,8 +82,10 @@ async function startRecording() {
         const userText = await transcribeAudio(audioBlob);
         displayMessage('You', userText);
         const royText = await getRoyResponse(userText);
-        await typeRoyMessage(royText);
-        await speakRoy(royText);
+        await Promise.all([
+          typeRoyMessage(royText),
+          speakRoy(royText)
+        ]);
       } catch (error) {
         displayMessage('System', `Error: ${error.message}`);
       } finally {
@@ -157,7 +159,7 @@ function drawWaveform(canvas, analyser) {
 
 async function transcribeAudio(blob) {
   return new Promise(resolve => {
-    setTimeout(() => resolve("I feel weird today."), 500); // Simulated transcription
+    setTimeout(() => resolve("I feel weird today."), 500);
   });
 }
 
