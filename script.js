@@ -13,6 +13,63 @@ window.addEventListener('DOMContentLoaded', () => {
   container.style.maxWidth = '100%';
   container.style.boxSizing = 'border-box';
   document.body.appendChild(container);
+
+  // Mobile-first layout style
+  const style = document.createElement('style');
+  style.textContent = `
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: #000;
+      color: #0ff;
+      font-family: 'Courier New', monospace;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      flex-direction: column;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+    #synth-wrapper {
+      width: 100vw;
+      max-width: 480px;
+      padding: 1rem;
+      box-sizing: border-box;
+    }
+    canvas {
+      width: 100%;
+      height: auto;
+    }
+    #mic-toggle {
+      width: 100%;
+      max-width: 300px;
+      border: 2px solid cyan;
+      color: cyan;
+      background: black;
+      font-family: inherit;
+      font-size: 1.2rem;
+      padding: 10px;
+      margin: 1rem auto;
+      display: block;
+    }
+    #chat {
+      width: 100%;
+      max-height: 40vh;
+      overflow-y: auto;
+      font-size: 1rem;
+      padding: 1rem 0;
+    }
+    @media (max-width: 480px) {
+      #mic-toggle {
+        font-size: 1rem;
+        padding: 12px;
+      }
+      #chat {
+        font-size: 0.9rem;
+      }
+    }
+  `;
+  document.head.appendChild(style);
   container.appendChild(royAudio);
 
   const micBtn = document.getElementById('mic-toggle');
@@ -125,7 +182,7 @@ window.addEventListener('DOMContentLoaded', () => {
     const p = document.createElement('p');
     p.className = sender.toLowerCase();
     const color = sender === 'Roy' ? 'yellow' : 'white';
-    p.innerHTML = `<strong style='color: ${color}'>${sender}:</strong> 
+    p.innerHTML = `<strong style='color: ${color}'>${sender}:</strong> <span style='color: ${color}'>${text}</span>`; 
   }
 
   function typeRoyMessage(text, tone = 'neutral') {
