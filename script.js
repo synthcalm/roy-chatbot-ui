@@ -1,4 +1,4 @@
-// Fully functioning script.js for SynthCalm Roy with dual waveform and Roy audio playback — using hardcoded AssemblyAI token
+// Fully functioning script.js for SynthCalm Roy with debug logging for fetchRoyResponse
 
 const dateEl = document.getElementById('current-date');
 const timeEl = document.getElementById('current-time');
@@ -130,6 +130,7 @@ async function startRecording() {
         addMessage('You', text);
         showThinkingDots();
         const royRes = await fetchRoyResponse(text);
+        console.log('Roy API response:', royRes);
         hideThinkingDots();
         addMessage('Roy', royRes.text);
         if (royRes.audio) {
@@ -169,8 +170,10 @@ async function fetchRoyResponse(text) {
       body: JSON.stringify({ message: text, mode: 'both' })
     });
     const data = await res.json();
+    console.log('Roy backend returned:', data);
     return data;
   } catch (e) {
+    console.error('fetchRoyResponse error:', e);
     return { text: 'Roy failed to load.', audio: null };
   }
 }
