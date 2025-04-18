@@ -1,20 +1,43 @@
 body {
   font-family: 'Courier New', monospace;
-  background: black;
-  color: yellow;
+  background-color: black;
+  color: cyan;
   margin: 0;
-  padding: 0;
-  overflow-x: hidden;
+  padding: 20px;
+}
+
+#current-date,
+#current-time,
+#countdown-timer {
+  display: inline-block;
+  font-size: 16px;
+  padding: 0 10px;
+  margin-bottom: 10px;
+}
+
+#current-date {
+  float: left;
+}
+
+#countdown-timer {
+  float: right;
+}
+
+#current-time {
+  text-align: center;
+  display: block;
+  margin: 0 auto;
 }
 
 canvas {
   display: block;
-  background-color: #000;
-  border: 2px solid cyan;
-  background-image: linear-gradient(to right, rgba(255, 255, 0, 0.3) 1px, transparent 1px),
-                    linear-gradient(to bottom, rgba(255, 255, 0, 0.3) 1px, transparent 1px);
-  background-size: 20px 20px;
   margin: 20px auto;
+  background-color: black;
+  border: 2px solid cyan;
+  background-image: 
+    linear-gradient(to right, rgba(255, 255, 0, 0.2) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 0, 0.2) 1px, transparent 1px);
+  background-size: 20px 20px;
 }
 
 #controls {
@@ -25,58 +48,40 @@ canvas {
 }
 
 button {
+  background-color: transparent;
+  border: 1px solid cyan;
+  color: cyan;
+  padding: 8px 16px;
   font-family: 'Courier New', monospace;
   font-size: 16px;
-  color: cyan;
-  background: black;
-  border: 1px solid cyan;
-  padding: 10px 18px;
   cursor: pointer;
+  transition: background-color 0.3s, color 0.3s;
 }
 
-button.recording {
+button:hover {
+  background-color: cyan;
   color: black;
-  background: yellow;
-  border: 1px solid yellow;
 }
 
 #chat {
-  max-width: 80%;
-  margin: 0 auto;
-  padding: 10px;
+  max-width: 800px;
+  margin: 20px auto;
+  white-space: pre-wrap;
+  color: yellow;
   font-size: 16px;
+}
+
+#chat .you {
+  color: white;
+}
+
+#chat .roy {
   color: yellow;
 }
 
-#chat p {
-  margin: 5px 0;
-  white-space: pre-wrap;
-}
-
-#current-date, #current-time, #countdown-timer {
-  position: absolute;
-  font-size: 16px;
-  font-weight: bold;
-  color: cyan;
-}
-
-#current-date {
-  top: 10px;
-  left: 10px;
-}
-
-#current-time {
-  top: 10px;
-  left: 50%;
-  transform: translateX(-50%);
-}
-
-#countdown-timer {
-  top: 10px;
-  right: 10px;
-}
-
 #thinking-dots {
-  display: inline;
-  margin-left: 10px;
+  text-align: center;
+  font-size: 24px;
+  color: yellow;
+  height: 30px;
 }
