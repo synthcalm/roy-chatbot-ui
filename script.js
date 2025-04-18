@@ -3,9 +3,25 @@ window.addEventListener('DOMContentLoaded', () => {
 
   const royAudio = new Audio();
   royAudio.setAttribute('playsinline', 'true');
-  document.body.appendChild(royAudio);
+  const container = document.createElement('div');
+  container.id = 'synth-wrapper';
+  container.style.display = 'flex';
+  container.style.flexDirection = 'column';
+  container.style.alignItems = 'center';
+  container.style.justifyContent = 'center';
+  container.style.padding = '1rem';
+  container.style.maxWidth = '100%';
+  container.style.boxSizing = 'border-box';
+  document.body.appendChild(container);
+  container.appendChild(royAudio);
 
   const micBtn = document.getElementById('mic-toggle');
+  micBtn.style.minWidth = '60px';
+  micBtn.style.minHeight = '60px';
+  micBtn.style.fontSize = '1rem';
+  micBtn.style.borderRadius = '6px';
+  micBtn.style.padding = '10px';
+  micBtn.style.marginTop = '10px';
   const chatBox = document.getElementById('chat');
   const userCanvas = document.getElementById('userWaveform');
   const royCanvas = document.getElementById('royWaveform');
@@ -15,8 +31,8 @@ window.addEventListener('DOMContentLoaded', () => {
   const timeEl = document.getElementById('current-time');
   const countdownEl = document.getElementById('countdown-timer');
 
-  userCanvas.height = 88;
-  royCanvas.height = 88;
+  userCanvas.height = Math.floor(window.innerHeight * 0.15);
+  royCanvas.height = Math.floor(window.innerHeight * 0.15);
 
   let audioContext = null;
   let analyser = null;
