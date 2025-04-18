@@ -7,26 +7,21 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <div class="top-bar">
-    <div id="current-date"></div>
-    <div id="current-time"></div>
-    <div id="countdown-timer"></div>
-  </div>
+  <div id="current-date"></div>
+  <div id="current-time"></div>
+  <div id="countdown-timer"></div>
 
-  <div class="scope-container">
-    <canvas id="userWaveform" width="600" height="160"></canvas>
-    <canvas id="royWaveform" width="600" height="160"></canvas>
-  </div>
+  <canvas id="userWaveform" width="800" height="160"></canvas>
+  <canvas id="royWaveform" width="800" height="160"></canvas>
 
-  <div class="controls">
+  <div id="controls">
     <button id="mic-toggle">Speak</button>
     <button id="save-log">SAVE LOG</button>
-    <button onclick="window.location.href='https://synthcalm.com'">SynthCalm Home</button>
+    <button onclick="window.location.href='https://synthcalm.com';">SynthCalm Home</button>
   </div>
 
-  <div id="thinking-dots" data-hide="false"></div>
-
   <div id="chat"></div>
+  <div id="thinking-dots"></div>
 
   <script src="script.js"></script>
 </body>
