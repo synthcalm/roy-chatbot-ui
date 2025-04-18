@@ -15,8 +15,8 @@ window.addEventListener('DOMContentLoaded', () => {
   const timeEl = document.getElementById('current-time');
   const countdownEl = document.getElementById('countdown-timer');
 
-  userCanvas.height = 30;
-  royCanvas.height = 30;
+  userCanvas.height = 52;
+  royCanvas.height = 52;
 
   let audioContext = null;
   let analyser = null;
@@ -55,7 +55,7 @@ window.addEventListener('DOMContentLoaded', () => {
         } else {
           clearInterval(interval);
         }
-      }, 50); // Emulates spoken pacing
+      }, 50);
     } else {
       span.textContent = text;
     }
@@ -99,21 +99,28 @@ window.addEventListener('DOMContentLoaded', () => {
             body: formData
           });
           const data = await res.json();
-      if (thinkingDotsEl) thinkingDotsEl.remove();
-      if (data.text) {
-        const modifiedText = transformRoyPersona(data.text, emotionalTone);
-        appendMessage('Roy', modifiedText, true);
-      }
-      if (data.audio) {
-        royAudio.src = `data:audio/mp3;base64,${data.audio}`;
-        setTimeout(() => {
-          royAudio.play().catch(e => console.warn('Autoplay error', e));
-          drawWaveformRoy(royAudio);
-        }, 200);
-      }
+          if (thinkingDotsEl) thinkingDotsEl.remove();
+          if (data.text) {
+            const modifiedText = transformRoyPersona(data.text, emotionalTone);
+            appendMessage('Roy', modifiedText, true);
+          }
+          if (data.audio) {
+            royAudio.src = `data:audio/mp3;base64,${data.audio}`;
+            setTimeout(() => {
+              royAudio.play().catch(e => console.warn('Autoplay error', e));
+              drawWaveformRoy(royAudio);
+            }, 200);
+          }
+        } catch (err) {
+          console.error('Roy response failed:', err);
+          appendMessage('Roy', 'Error generating response.');
+        }
+      };
+
+      mediaRecorder.start();
+      isRecording = true;
     } catch (err) {
-      console.error('Roy response failed:', err);
-      appendMessage('Roy', 'Error generating response.');
+      console.error('Mic error:', err);
     }
   }
 
@@ -235,13 +242,12 @@ window.addEventListener('DOMContentLoaded', () => {
       }
     }
 
-    // 60% Roy Batty styling
     const poeticLayer = [
-  "Let’s take this thought apart together.",
-  "A mind in motion is not a mind broken.",
-  "Where there is confusion, there’s usually a question worth asking.",
-  "Even shadows come from light. Let’s look closer."
-];
+      "Let’s take this thought apart together.",
+      "A mind in motion is not a mind broken.",
+      "Where there is confusion, there’s usually a question worth asking.",
+      "Even shadows come from light. Let’s look closer."
+    ];
 
     if (Math.random() < 0.6) {
       output = poeticLayer[Math.floor(Math.random() * poeticLayer.length)] + ' ' + output;
