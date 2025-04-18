@@ -125,9 +125,7 @@ window.addEventListener('DOMContentLoaded', () => {
     const p = document.createElement('p');
     p.className = sender.toLowerCase();
     const color = sender === 'Roy' ? 'yellow' : 'white';
-    p.innerHTML = `<strong style='color: ${color}'>${sender}:</strong> <span style='color: ${color}'>${text}</span>`;
-    chatBox.appendChild(p);
-    chatBox.scrollTop = chatBox.scrollHeight;
+    p.innerHTML = `<strong style='color: ${color}'>${sender}:</strong> 
   }
 
   function typeRoyMessage(text, tone = 'neutral') {
