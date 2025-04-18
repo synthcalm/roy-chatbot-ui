@@ -1,188 +1,183 @@
+// Fully functioning script.js for SynthCalm Roy with debug logging for fetchRoyResponse
+
+const dateEl = document.getElementById('current-date');
 const timeEl = document.getElementById('current-time');
+const countdownEl = document.getElementById('countdown-timer');
 const chatBox = document.getElementById('chat');
 const thinkingDots = document.getElementById('thinking-dots');
 const micBtn = document.getElementById('mic-toggle');
-const homeBtn = document.getElementById('home-button');
-const userCanvas = document.getElementById('userWaveform');
 const royCanvas = document.getElementById('royWaveform');
-const userCtx = userCanvas.getContext('2d');
 const royCtx = royCanvas.getContext('2d');
 const royAudio = new Audio();
 royAudio.setAttribute('playsinline', 'true');
 document.body.appendChild(royAudio);
 
+let stream, audioContext, workletNode, source;
+let startTime = Date.now();
 let isRecording = false;
-let recognition = null;
-let audioContext = null;
-let analyser = null;
-let microphone = null;
 
-// Update timestamp
-function updateTime() {
+function updateClock() {
   const now = new Date();
-  timeEl.textContent = now.toISOString().replace('T', ' ').slice(0, 19);
+  dateEl.textContent = now.toISOString().split('T')[0];
+  timeEl.textContent = now.toTimeString().split(' ')[0];
+  const remaining = Math.max(0, 3600 - Math.floor((Date.now() - startTime) / 1000));
+  countdownEl.textContent = `${Math.floor(remaining / 60)}:${String(remaining % 60).padStart(2, '0')}`;
 }
-setInterval(updateTime, 1000);
+setInterval(updateClock, 1000);
+updateClock();
 
-// Initialize speech recognition
-if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
-  recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
-  recognition.continuous = false;
-  recognition.interimResults = false;
-  recognition.lang = 'en-US';
-
-  recognition.onresult = (event) => {
-    const transcript = event.results[0][0].transcript;
-    appendMessage('You', transcript);
-    fetchRoyResponse(transcript);
-  };
-
-  recognition.onerror = (event) => {
-    appendMessage('Roy', 'Error processing speech: ' + event.error);
-    stopRecording();
-  };
+function showThinkingDots() {
+  thinkingDots.style.display = 'block';
 }
-
-// Waveform visualization
-function startWaveform() {
-  audioContext = new (window.AudioContext || window.webkitAudioContext)();
-  analyser = audioContext.createAnalyser();
-  analyser.fftSize = 2048;
-
-  navigator.mediaDevices.getUserMedia({ audio: true }).then((stream) => {
-    microphone = audioContext.createMediaStreamSource(stream);
-    microphone.connect(analyser);
-    drawWaveform();
-  }).catch((err) => {
-    appendMessage('Roy', 'Microphone access denied: ' + err);
-  });
+function hideThinkingDots() {
+  thinkingDots.style.display = 'none';
 }
-
-function drawWaveform() {
-  const bufferLength = analyser.frequencyBinCount;
-  const dataArray = new Uint8Array(bufferLength);
-  const canvasWidth = userCanvas.width;
-  const canvasHeight = userCanvas.height;
-
-  function draw() {
-    requestAnimationFrame(draw);
-    analyser.getByteTimeDomainData(dataArray);
-
-    userCtx.clearRect(0, 0, canvasWidth, canvasHeight);
-    userCtx.beginPath();
-    userCtx.strokeStyle = '#0FF';
-    userCtx.lineWidth = 2;
-
-    const sliceWidth = canvasWidth / bufferLength;
-    let x = 0;
-
-    for (let i = 0; i < bufferLength; i++) {
-      const v = dataArray[i] / 128.0;
-      const y = (v * canvasHeight) / 2;
-
-      if (i === 0) userCtx.moveTo(x, y);
-      else userCtx.lineTo(x, y);
-
-      x += sliceWidth;
-    }
-
-    userCtx.stroke();
-  }
-  draw();
-}
-
-function stopWaveform() {
-  if (microphone) microphone.disconnect();
-  if (audioContext) audioContext.close();
-  userCtx.clearRect(0, 0, userCanvas.width, userCanvas.height);
-}
-
-// Simulate Roy's waveform
-function simulateRoyWaveform() {
-  const canvasWidth = royCanvas.width;
-  const canvasHeight = royCanvas.height;
-  let phase = 0;
-
-  function draw() {
-    royCtx.clearRect(0, 0, canvasWidth, canvasHeight);
-    royCtx.beginPath();
-    royCtx.strokeStyle = '#0FF';
-    royCtx.lineWidth = 2;
-
-    for (let x = 0; x < canvasWidth; x++) {
-      const y = canvasHeight / 2 + Math.sin(x * 0.05 + phase) * (canvasHeight / 4);
-      if (x === 0) royCtx.moveTo(x, y);
-      else royCtx.lineTo(x, y);
-    }
-
-    royCtx.stroke();
-    phase += 0.1;
-    if (thinkingDots.style.display !== 'none') requestAnimationFrame(draw);
-  }
-  draw();
-}
-
-// Chat handling
-function appendMessage(speaker, message) {
+function addMessage(sender, text) {
   const msg = document.createElement('div');
-  msg.textContent = `${speaker}: ${message}`;
+  msg.innerHTML = `<span class="${sender === 'You' ? 'you' : ''}">${sender}:</span> ${text}`;
   chatBox.appendChild(msg);
   chatBox.scrollTop = chatBox.scrollHeight;
 }
 
-async function fetchRoyResponse(transcript) {
-  thinkingDots.style.display = 'block';
-  simulateRoyWaveform();
-  console.log('Fetching Roy response for:', transcript);
-
-  try {
-    // Placeholder for actual API call
-    await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate delay
-    const response = `It's great that you're looking for suggestions. Let's explore some options together.`;
-    console.log('Roy response received:', response);
-    appendMessage('Roy', response);
-  } catch (error) {
-    console.error('Error fetching Roy response:', error);
-    appendMessage('Roy', 'Error generating response.');
-  } finally {
-    thinkingDots.style.display = 'none';
+function drawWaveform(analyser, dataArray, canvas) {
+  const ctx = canvas.getContext('2d');
+  requestAnimationFrame(() => drawWaveform(analyser, dataArray, canvas));
+  analyser.getByteTimeDomainData(dataArray);
+  ctx.fillStyle = '#000';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.strokeStyle = canvas.id === 'userWaveform' ? 'yellow' : 'magenta';
+  ctx.lineWidth = 1.2;
+  ctx.beginPath();
+  const sliceWidth = canvas.width / dataArray.length;
+  let x = 0;
+  for (let i = 0; i < dataArray.length; i++) {
+    const y = (dataArray[i] / 128.0) * canvas.height / 2;
+    i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    x += sliceWidth;
   }
+  ctx.lineTo(canvas.width, canvas.height / 2);
+  ctx.stroke();
 }
 
-// Button controls
-function startRecording() {
-  isRecording = true;
-  micBtn.textContent = 'Stop';
-  micBtn.classList.add('active');
-  recognition.start();
-  startWaveform();
+function drawRoyWaveform(audio) {
+  const ac = new AudioContext();
+  const analyser = ac.createAnalyser();
+  const source = ac.createMediaElementSource(audio);
+  source.connect(analyser);
+  analyser.connect(ac.destination);
+  analyser.fftSize = 2048;
+  const buffer = new Uint8Array(analyser.frequencyBinCount);
+  function draw() {
+    requestAnimationFrame(draw);
+    analyser.getByteTimeDomainData(buffer);
+    royCtx.fillStyle = '#000';
+    royCtx.fillRect(0, 0, royCanvas.width, royCanvas.height);
+    royCtx.strokeStyle = 'magenta';
+    royCtx.lineWidth = 1.2;
+    royCtx.beginPath();
+    const slice = royCanvas.width / buffer.length;
+    let x = 0;
+    for (let i = 0; i < buffer.length; i++) {
+      const y = (buffer[i] / 128.0) * royCanvas.height / 2;
+      i === 0 ? royCtx.moveTo(x, y) : royCtx.lineTo(x, y);
+      x += slice;
+    }
+    royCtx.stroke();
+  }
+  draw();
+}
+
+async function startRecording() {
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    audioContext = new AudioContext({ sampleRate: 16000 });
+
+    await audioContext.audioWorklet.addModule('data:application/javascript;base64,' + btoa(`
+      class PCMProcessor extends AudioWorkletProcessor {
+        process(inputs) {
+          const input = inputs[0][0];
+          if (!input) return true;
+          const int16 = new Int16Array(input.length);
+          for (let i = 0; i < input.length; i++) {
+            int16[i] = Math.max(-1, Math.min(1, input[i])) * 0x7fff;
+          }
+          this.port.postMessage(int16.buffer);
+          return true;
+        }
+      }
+      registerProcessor('pcm-processor', PCMProcessor);
+    `));
+
+    source = audioContext.createMediaStreamSource(stream);
+    workletNode = new AudioWorkletNode(audioContext, 'pcm-processor');
+
+    const analyser = audioContext.createAnalyser();
+    analyser.fftSize = 2048;
+    const dataArray = new Uint8Array(analyser.frequencyBinCount);
+    source.connect(analyser);
+    drawWaveform(analyser, dataArray, document.getElementById('userWaveform'));
+
+    source.connect(workletNode).connect(audioContext.destination);
+
+    const token = 'YOUR_ASSEMBLYAI_REALTIME_API_TOKEN';
+    const socket = new WebSocket(`wss://api.assemblyai.com/v2/realtime/ws?sample_rate=16000`);
+    socket.binaryType = 'arraybuffer';
+
+    socket.onopen = () => socket.send(JSON.stringify({ token }));
+    socket.onmessage = async (msg) => {
+      const { text } = JSON.parse(msg.data);
+      if (text) {
+        addMessage('You', text);
+        showThinkingDots();
+        const royRes = await fetchRoyResponse(text);
+        console.log('Roy API response:', royRes);
+        hideThinkingDots();
+        addMessage('Roy', royRes.text);
+        if (royRes.audio) {
+          royAudio.src = `data:audio/mp3;base64,${royRes.audio}`;
+          royAudio.play().catch(e => console.warn('Autoplay error', e));
+          drawRoyWaveform(royAudio);
+        }
+      }
+    };
+
+    workletNode.port.onmessage = (e) => {
+      if (socket.readyState === WebSocket.OPEN) socket.send(e.data);
+    };
+
+    micBtn.textContent = 'Stop';
+    micBtn.classList.add('recording');
+    isRecording = true;
+  } catch (err) {
+    console.error('Mic error:', err);
+    addMessage('Roy', '⚠️ Mic or connection error.');
+  }
 }
 
 function stopRecording() {
-  isRecording = false;
+  if (stream) stream.getTracks().forEach(t => t.stop());
+  if (audioContext) audioContext.close();
   micBtn.textContent = 'Speak';
-  micBtn.classList.remove('active');
-  recognition.stop();
-  stopWaveform();
+  micBtn.classList.remove('recording');
+  isRecording = false;
+}
+
+async function fetchRoyResponse(text) {
+  try {
+    const res = await fetch('https://synthcalm-a2n7.onrender.com/api/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message: text, mode: 'both' })
+    });
+    const data = await res.json();
+    console.log('Roy backend returned:', data);
+    return data;
+  } catch (e) {
+    console.error('fetchRoyResponse error:', e);
+    return { text: 'Roy failed to load.', audio: null };
+  }
 }
 
 micBtn.addEventListener('click', () => {
-  if (!recognition) {
-    appendMessage('Roy', 'Speech recognition not supported.');
-    return;
-  }
   isRecording ? stopRecording() : startRecording();
-});
-micBtn.addEventListener('touchstart', (e) => {
-  e.preventDefault();
-  if (!recognition) return;
-  isRecording ? stopRecording() : startRecording();
-});
-
-homeBtn.addEventListener('click', () => {
-  window.location.href = 'https://synthcalm.com';
-});
-homeBtn.addEventListener('touchstart', (e) => {
-  e.preventDefault();
-  window.location.href = 'https://synthcalm.com';
 });
