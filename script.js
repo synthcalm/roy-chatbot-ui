@@ -1,43 +1,35 @@
 let mediaRecorder, audioChunks = [], audioContext, sourceNode;
-let state = 'idle'; // idle, recording, processing
+let isRecording = false;
 let stream;
 
-const elements = {
-  recordButton: document.getElementById('recordButton'),
-  saveButton: document.getElementById('saveButton'),
-  chat: document.getElementById('chat'),
-  userScope: document.getElementById('userScope'),
-  royScope: document.getElementById('royScope'),
-  clock: document.getElementById('clock'),
-  date: document.getElementById('date'),
-  countdown: document.getElementById('countdown')
-};
+const recordButton = document.getElementById('recordButton');
+const saveButton = document.getElementById('saveButton');
+const chat = document.getElementById('chat');
+const userScope = document.getElementById('userScope');
+const royScope = document.getElementById('royScope');
+const clock = document.getElementById('clock');
+const date = document.getElementById('date');
+const countdown = document.getElementById('countdown');
 
-const config = {
-  duration: 60,
-  maxRecordingTime: 60000 // 60 seconds max
-};
-
+const duration = 60;
 let countdownInterval;
 
 function updateDateTime() {
   const now = new Date();
-  elements.clock.textContent = now.toTimeString().split(' ')[0];
-  elements.date.textContent = now.toISOString().split('T')[0];
+  clock.textContent = now.toTimeString().split(' ')[0];
+  date.textContent = now.toISOString().split('T')[0];
 }
-
 function startCountdown() {
-  let remaining = config.duration;
-  elements.countdown.textContent = `59:59`;
+  let remaining = duration;
+  countdown.textContent = `59:59`;
   clearInterval(countdownInterval);
   countdownInterval = setInterval(() => {
     if (remaining <= 0) {
       clearInterval(countdownInterval);
-      if (state === 'recording') stopRecording();
     } else {
       const minutes = String(Math.floor(remaining / 60)).padStart(2, '0');
       const seconds = String(remaining % 60).padStart(2, '0');
-      elements.countdown.textContent = `${minutes}:${seconds}`;
+      countdown.textContent = `${minutes}:${seconds}`;
       remaining--;
     }
   }, 1000);
@@ -50,88 +42,60 @@ startCountdown();
 function displayMessage(role, text) {
   const message = document.createElement('div');
   message.innerHTML = `<strong>${role}:</strong> ${text}`;
-  elements.chat.appendChild(message);
-  elements.chat.scrollTop = elements.chat.scrollHeight;
+  chat.appendChild(message);
+  chat.scrollTop = chat.scrollHeight;
 }
 
 displayMessage("Roy", "Welcome. I'm Roy. Speak when ready.");
 
 async function startRecording() {
-  if (state !== 'idle') return;
-  state = 'recording';
-  try {
-    stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    mediaRecorder = new MediaRecorder(stream);
-    audioChunks = [];
+  stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  mediaRecorder = new MediaRecorder(stream);
+  audioChunks = [];
 
-    audioContext = new (window.AudioContext || window.webkitAudioContext)();
-    sourceNode = audioContext.createMediaStreamSource(stream);
-    const analyser = audioContext.createAnalyser();
-    sourceNode.connect(analyser);
+  audioContext = new (window.AudioContext || window.webkitAudioContext)();
+  const source = audioContext.createMediaStreamSource(stream);
+  const analyser = audioContext.createAnalyser();
+  source.connect(analyser);
+  sourceNode = source;
 
-    drawWaveform(elements.userScope, analyser);
+  drawWaveform(userScope, analyser);
 
-    mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
-    mediaRecorder.onstop = async () => {
-      state = 'processing';
-      cleanupStream();
-      try {
-        const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
-        const userText = await transcribeAudio(audioBlob);
-        displayMessage('You', userText);
-        const royText = await getRoyResponse(userText);
-        displayMessage('Roy', royText);
-        await speakRoy(royText);
-      } catch (error) {
-        displayMessage('System', `Error processing audio: ${error.message}`);
-      } finally {
-        state = 'idle';
-        updateRecordButton();
-      }
-    };
+  mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
+  mediaRecorder.onstop = async () => {
+    stopStream();
+    const audioBlob = new Blob(audioChunks);
+    const userText = await transcribeAudio(audioBlob);
+    displayMessage('You', userText);
+    const royText = await getRoyResponse(userText);
+    displayMessage('Roy', royText);
+    speakRoy(royText);
+  };
 
-    mediaRecorder.start();
-    updateRecordButton();
-    setTimeout(() => {
-      if (state === 'recording') stopRecording();
-    }, config.maxRecordingTime);
-  } catch (error) {
-    displayMessage('System', `Failed to start recording: ${error.message}`);
-    state = 'idle';
-    updateRecordButton();
-  }
+  mediaRecorder.start();
+  isRecording = true;
+  recordButton.textContent = 'Stop';
+  recordButton.style.borderColor = 'magenta';
 }
 
 function stopRecording() {
-  if (state !== 'recording' || !mediaRecorder || mediaRecorder.state === 'inactive') return;
-  mediaRecorder.stop();
-}
-
-function cleanupStream() {
-  if (stream) {
-    stream.getTracks().forEach(track => track.stop());
-    stream = null;
-  }
-  if (sourceNode) {
-    sourceNode.disconnect();
-    sourceNode = null;
-  }
-  if (audioContext) {
-    audioContext.close();
-    audioContext = null;
+  if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+    mediaRecorder.stop();
+    isRecording = false;
+    recordButton.textContent = 'Speak';
+    recordButton.style.borderColor = '#0ff';
   }
 }
 
-function updateRecordButton() {
-  elements.recordButton.textContent = state === 'recording' ? 'Stop' : 'Speak';
-  elements.recordButton.style.borderColor = state === 'recording' ? 'magenta' : '#0ff';
-  elements.recordButton.disabled = state === 'processing';
+function stopStream() {
+  if (stream) stream.getTracks().forEach(track => track.stop());
+  if (sourceNode) sourceNode.disconnect();
 }
 
-elements.recordButton.addEventListener('click', () => {
-  if (state === 'idle') {
+recordButton.addEventListener('click', () => {
+  if (!isRecording) {
     startRecording();
-  } else if (state === 'recording') {
+  } else {
     stopRecording();
   }
 });
@@ -145,7 +109,6 @@ function drawWaveform(canvas, analyser) {
   const dataArray = new Uint8Array(bufferLength);
 
   function draw() {
-    if (state !== 'recording') return;
     requestAnimationFrame(draw);
     analyser.getByteTimeDomainData(dataArray);
     ctx.fillStyle = '#000';
@@ -153,7 +116,7 @@ function drawWaveform(canvas, analyser) {
     ctx.lineWidth = 1;
     ctx.strokeStyle = 'yellow';
     ctx.beginPath();
-    const sliceWidth = canvas.width / bufferLength;
+    const sliceWidth = canvas.width * 1.0 / bufferLength;
     let x = 0;
     for (let i = 0; i < bufferLength; i++) {
       const v = dataArray[i] / 128.0;
@@ -168,35 +131,31 @@ function drawWaveform(canvas, analyser) {
 }
 
 async function transcribeAudio(blob) {
-  return new Promise((resolve, reject) => {
+  return new Promise(resolve => {
     setTimeout(() => resolve("I feel weird today."), 1000);
   });
 }
 
 async function getRoyResponse(userText) {
-  return new Promise((resolve, reject) => {
-    setTimeout(() => resolve("It's okay to feel weird sometimes. Let's talk about it."), 1500);
+  return new Promise(resolve => {
+    setTimeout(() => {
+      resolve("It's okay to feel weird sometimes. Let's talk about it.");
+    }, 1500);
   });
 }
 
-async function speakRoy(text) {
-  return new Promise((resolve, reject) => {
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.pitch = 0.7;
-    utterance.rate = 0.88;
-    utterance.volume = 1;
-    utterance.lang = 'en-US';
-    utterance.text = text.replace(/([.,!?])/g, '$1...');
-    utterance.onstart = () => console.log("Roy is speaking...");
-    utterance.onend = () => {
-      console.log("Roy finished.");
-      resolve();
-    };
-    utterance.onerror = (e) => reject(new Error(`Speech synthesis error: ${e.error}`));
-    speechSynthesis.cancel();
-    speechSynthesis.speak(utterance);
-  });
-}
+function speakRoy(text) {
+  const utterance = new SpeechSynthesisUtterance(text);
+  utterance.pitch = 0.7;
+  utterance.rate = 0.88;
+  utterance.volume = 1;
+  utterance.lang = 'en-US';
 
-// Cleanup on page unload
-window.addEventListener('unload', cleanupStream);
+  // Optional: Insert strategic pauses
+  utterance.text = text.replace(/([.,!?])/g, '$1...');
+
+  utterance.onstart = () => console.log("Roy is speaking...");
+  utterance.onend = () => console.log("Roy finished.");
+  speechSynthesis.cancel();
+  speechSynthesis.speak(utterance);
+}
