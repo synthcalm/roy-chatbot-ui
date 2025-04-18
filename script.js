@@ -201,7 +201,9 @@ window.addEventListener('DOMContentLoaded', () => {
   function drawWaveformRoy(audio) {
     const ac = new (window.AudioContext || window.webkitAudioContext)();
     const analyser = ac.createAnalyser();
+    if (drawWaveformRoy.source) drawWaveformRoy.source.disconnect();
     const source = ac.createMediaElementSource(audio);
+    drawWaveformRoy.source = source;
     source.connect(analyser);
     analyser.connect(ac.destination);
     analyser.fftSize = 2048;
