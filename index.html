@@ -1,28 +1,30 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>SynthCalm Roy</title>
-  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <div class="top-bar">
-    <span id="current-date"></span>
-    <span id="current-time"></span>
-    <span id="countdown-timer"></span>
+  <header>
+    <div id="date"></div>
+    <div id="clock"></div>
+    <div id="countdown"></div>
+  </header>
+
+  <div id="scope-container">
+    <canvas id="userScope"></canvas>
+    <canvas id="royScope"></canvas>
   </div>
 
-  <canvas id="userWaveform" width="800" height="120"></canvas>
-  <canvas id="royWaveform" width="800" height="120"></canvas>
-
-  <div class="button-bar">
-    <button id="mic-toggle">Speak</button>
-    <button id="save-log">SAVE LOG</button>
-    <a href="https://synthcalm.com"><button>SynthCalm Home</button></a>
+  <div id="controls">
+    <button id="recordButton">Speak</button>
+    <button id="saveButton">SAVE LOG</button>
+    <button onclick="location.href='https://synthcalm.github.io/'">SynthCalm Home</button>
   </div>
 
-  <div id="chat" class="chat-log"></div>
+  <div id="chat"></div>
 
   <script src="script.js"></script>
 </body>
