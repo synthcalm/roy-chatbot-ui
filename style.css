@@ -14,8 +14,9 @@ body {
 .top-bar {
   display: flex;
   justify-content: space-between;
-  width: 100%;
-  padding: 10px 20px;
+  width: 90%;
+  max-width: 800px;
+  padding: 10px 0;
   font-size: 14px;
   box-sizing: border-box;
 }
