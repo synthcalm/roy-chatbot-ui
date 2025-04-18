@@ -130,6 +130,33 @@ window.addEventListener('DOMContentLoaded', () => {
     chatBox.scrollTop = chatBox.scrollHeight;
   }
 
+  function typeRoyMessage(text) {
+    const p = document.createElement('p');
+    p.className = 'roy';
+    const label = document.createElement('strong');
+    label.style.color = 'yellow';
+    label.textContent = 'Roy:';
+    const span = document.createElement('span');
+    span.style.color = 'yellow';
+    span.textContent = '';
+    p.appendChild(label);
+    p.appendChild(document.createTextNode(' '));
+    p.appendChild(span);
+    chatBox.appendChild(p);
+    let index = 0;
+    const interval = setInterval(() => {
+      if (index < text.length) {
+        span.textContent += text.charAt(index);
+        index++;
+      } else {
+        clearInterval(interval);
+      }
+    }, 50);
+  }'>${sender}:</strong> <span style='color: ${color}'>${text}</span>`;
+    chatBox.appendChild(p);
+    chatBox.scrollTop = chatBox.scrollHeight;
+  }
+
   function showThinkingDots() {
     if (!chatBox) return;
     thinkingDotsEl = document.createElement('p');
@@ -155,7 +182,7 @@ window.addEventListener('DOMContentLoaded', () => {
       const data = await res.json();
       if (thinkingDotsEl) thinkingDotsEl.remove();
       thinkingDotsEl = null;
-      if (data.text) appendMessage('Roy', data.text);
+      if (data.text) typeRoyMessage(data.text);
       if (data.audio) {
         royAudio.src = `data:audio/mp3;base64,${data.audio}`;
         royAudio.play().catch(e => console.warn('Autoplay error', e));
@@ -248,5 +275,5 @@ window.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  appendMessage('Roy', "Welcome. I'm Roy. Speak when ready.");
+  typeRoyMessage("Welcome. I'm Roy. Speak when ready.");
 });
