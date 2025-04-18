@@ -15,8 +15,8 @@ window.addEventListener('DOMContentLoaded', () => {
   const timeEl = document.getElementById('current-time');
   const countdownEl = document.getElementById('countdown-timer');
 
-  userCanvas.height = 160;
-  royCanvas.height = 160;
+  userCanvas.height = 80;
+  royCanvas.height = 80;
 
   let audioContext = null;
   let analyser = null;
