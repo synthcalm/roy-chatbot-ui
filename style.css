@@ -1,59 +1,45 @@
-body {
-  margin: 0;
-  background: #000;
-  color: #0ff;
-  font-family: 'Courier New', monospace;
-}
-
-.header {
-  display: flex;
-  justify-content: space-between;
-  width: 600px;
-  margin: 10px auto;
-  font-size: 14px;
-}
-
-canvas {
-  display: block;
-  margin: 10px auto;
-  background-color: #000;
-  border: 2px solid #0ff;
-  background-image: linear-gradient(to right, rgba(255,255,0,0.2) 1px, transparent 1px),
-                    linear-gradient(to bottom, rgba(255,255,0,0.2) 1px, transparent 1px);
-  background-size: 20px 20px;
-}
-
-.button-row {
-  display: flex;
-  justify-content: center;
-  gap: 10px;
-  margin-top: 12px;
-  margin-bottom: 20px;
-}
-
-button {
-  background: black;
-  border: 2px solid #0ff;
-  color: #0ff;
-  font-family: 'Courier New', monospace;
-  font-size: 16px;
-  padding: 10px 14px;
-  cursor: pointer;
-  outline: none;
-}
-
-button:hover {
-  background: #0ff;
-  color: #000;
-}
-
-#chat {
-  max-width: 600px;
-  margin: 0 auto;
-  padding: 0 20px 40px;
-  color: yellow;
-  font-size: 16px;
-  line-height: 1.6;
-  white-space: pre-wrap;
-  text-align: left;
-}
+justify-content: center;
+   align-items: center;
+   min-height: 100vh;
+   flex-direction: column;
+ }
+ .container {
+   width: 90%;
+ @@ -20,7 +21,7 @@ canvas {
+   background: #111;
+   border: 1px solid #0ff;
+ }
+ button, select {
+ button {
+   margin: 10px 0;
+   padding: 10px;
+   font-size: 1rem;
+ @@ -29,6 +30,12 @@ button, select {
+   border: 1px solid #0ff;
+   border-radius: 6px;
+ }
+ button:active,
+ button.recording {
+   background-color: #0ff;
+   color: #000;
+   border-color: #0ff;
+ }
+ #messages {
+   margin-top: 20px;
+   max-height: 300px;
+ @@ -39,13 +46,7 @@ p.you { color: white; }
+ .header {
+   display: flex;
+   justify-content: space-between;
+   width: 100%;
+   padding: 0 20px;
+   margin-bottom: 10px;
+ }
+ 
+ 
+ button:active,
+ button.recording {
+   background-color: #0ff;
+   color: #000;
+   border-color: #0ff;
+ }
