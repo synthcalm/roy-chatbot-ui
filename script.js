@@ -1,21 +1,17 @@
-// SynthCalm Roy: Full-featured script.js
-
+// Full SynthCalm Roy script with CBT persona, emotion detection, waveform, typing, and voice
 window.addEventListener('DOMContentLoaded', () => {
+  const micBtn = document.getElementById('mic-toggle');
+  const chatBox = document.getElementById('chat');
+  const userCanvas = document.getElementById('userWaveform');
+  const royCanvas = document.getElementById('royWaveform');
+  const userCtx = userCanvas.getContext('2d');
+  const royCtx = royCanvas.getContext('2d');
   const dateEl = document.getElementById('current-date');
   const timeEl = document.getElementById('current-time');
   const countdownEl = document.getElementById('countdown-timer');
-  const chatBox = document.getElementById('chat');
-  const micBtn = document.getElementById('mic-toggle');
-  const saveBtn = document.getElementById('save-log');
-  const royCanvas = document.getElementById('royWaveform');
-  const userCanvas = document.getElementById('userWaveform');
-  const royCtx = royCanvas.getContext('2d');
-  const userCtx = userCanvas.getContext('2d');
   const royAudio = new Audio();
   let audioContext, mediaRecorder, analyser, stream;
-  let recording = false;
-  let sessionStart = Date.now();
-  let recordedChunks = [];
+  let isRecording = false, recordedChunks = [], sessionStart = Date.now();
 
   royAudio.setAttribute('playsinline', 'true');
   document.body.appendChild(royAudio);
@@ -37,7 +33,6 @@ window.addEventListener('DOMContentLoaded', () => {
     p.innerHTML = `<strong style='color:${color}'>${sender}:</strong> <span style='color:${color}'></span>`;
     chatBox.appendChild(p);
     chatBox.scrollTop = chatBox.scrollHeight;
-
     if (isTyping) typeRoyMessage(p.querySelector('span'), text);
     else p.querySelector('span').textContent = text;
   }
@@ -45,8 +40,58 @@ window.addEventListener('DOMContentLoaded', () => {
   function typeRoyMessage(el, text, i = 0) {
     if (i < text.length) {
       el.textContent += text.charAt(i);
-      setTimeout(() => typeRoyMessage(el, text, i + 1), 30);
+      setTimeout(() => typeRoyMessage(el, text, i + 1), 35);
     }
+  }
+
+  function speakWithRoyPersona(text) {
+    const u = new SpeechSynthesisUtterance(text);
+    u.voice = speechSynthesis.getVoices().find(v => v.name.includes("Daniel") || v.lang === "en-US");
+    u.pitch = 0.7;
+    u.rate = 0.85;
+    u.volume = 1;
+    speechSynthesis.speak(u);
+  }
+
+  function analyzeEmotion(text) {
+    const t = text.toLowerCase();
+    if (/hate|angry|stupid/.test(t)) return "anger";
+    if (/sad|upset|depressed/.test(t)) return "sadness";
+    if (/happy|grateful|thank/.test(t)) return "joy";
+    return "neutral";
+  }
+
+  function generateRoyResponse(userText) {
+    const tone = analyzeEmotion(userText);
+    if (tone === 'anger') return "Anger masks truth. What part of that pain speaks loudest to you?";
+    if (tone === 'sadness') return "Even stillness holds meaning. Sit with me in this shadow, just for a moment.";
+    if (tone === 'joy') return "A moment of clarity. Let’s keep that light in your hands a little longer.";
+    return "Say it again—but slower. I want to hear what you’re not saying out loud.";
+  }
+
+  function showThinkingDots() {
+    const p = document.createElement('p');
+    p.innerHTML = "<strong style='color: yellow'>Roy:</strong> <span id='dots' style='color: yellow'>.</span>";
+    chatBox.appendChild(p);
+    let count = 1;
+    const interval = setInterval(() => {
+      const span = document.getElementById('dots');
+      if (!span) return clearInterval(interval);
+      span.textContent = '.'.repeat((count % 3) + 1);
+      count++;
+    }, 400);
+    return { p, interval };
+  }
+
+  async function fetchRoyResponse(text) {
+    const { p, interval } = showThinkingDots();
+    const reply = generateRoyResponse(text);
+    setTimeout(() => {
+      clearInterval(interval);
+      p.remove();
+      appendMessage('Roy', reply, true);
+      speakWithRoyPersona(reply);
+    }, 1400);
   }
 
   async function startRecording() {
@@ -62,50 +107,38 @@ window.addEventListener('DOMContentLoaded', () => {
       source.connect(analyser);
       drawWaveform(userCtx, userCanvas, analyser, 'yellow');
 
-      recordedChunks = [];
       mediaRecorder = new MediaRecorder(stream);
-      mediaRecorder.ondataavailable = e => e.data.size > 0 && recordedChunks.push(e.data);
+      recordedChunks = [];
+      mediaRecorder.ondataavailable = e => recordedChunks.push(e.data);
+
       mediaRecorder.onstop = async () => {
         const blob = new Blob(recordedChunks, { type: 'audio/webm' });
         const formData = new FormData();
         formData.append('audio', blob);
-
-        let dots = document.createElement('p');
-        dots.innerHTML = "<strong style='color:yellow'>Roy:</strong> <span class='thinking-dots'>.</span>";
-        chatBox.appendChild(dots);
-        let dotCount = 1;
-        const dotTimer = setInterval(() => {
-          dotCount = (dotCount % 3) + 1;
-          dots.querySelector('span').textContent = '.'.repeat(dotCount);
-        }, 400);
-
         try {
           const res = await fetch('https://roy-chatbo-backend.onrender.com/api/transcribe', {
             method: 'POST', body: formData
           });
           const data = await res.json();
-          chatBox.removeChild(dots);
           if (data.text) {
             appendMessage('You', data.text);
             fetchRoyResponse(data.text);
           } else {
-            appendMessage('Roy', "Couldn't understand that.");
+            appendMessage('Roy', 'I couldn’t quite catch that.');
           }
         } catch (err) {
-          console.error('Whisper transcription error:', err);
+          console.error('Transcription error:', err);
           appendMessage('Roy', 'Transcription failed.');
-        } finally {
-          clearInterval(dotTimer);
         }
       };
 
       mediaRecorder.start();
+      isRecording = true;
       micBtn.textContent = 'Stop';
-      micBtn.style.borderColor = 'magenta';
-      recording = true;
+      micBtn.classList.add('recording');
     } catch (err) {
-      console.error('Mic error:', err);
-      appendMessage('Roy', 'Mic permission error.');
+      console.error('Mic access error:', err);
+      appendMessage('Roy', 'Mic error.');
     }
   }
 
@@ -113,36 +146,8 @@ window.addEventListener('DOMContentLoaded', () => {
     if (mediaRecorder && mediaRecorder.state !== 'inactive') mediaRecorder.stop();
     if (stream) stream.getTracks().forEach(t => t.stop());
     micBtn.textContent = 'Speak';
-    micBtn.style.borderColor = 'cyan';
-    recording = false;
-  }
-
-  async function fetchRoyResponse(text) {
-    try {
-      const emotion = analyzeEmotion(text); // mock emotion handler
-      const res = await fetch('https://roy-chatbo-backend.onrender.com/api/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: text, emotion, mode: 'both' })
-      });
-      const data = await res.json();
-      if (data.text) appendMessage('Roy', data.text, true);
-      if (data.audio) {
-        royAudio.src = `data:audio/mp3;base64,${data.audio}`;
-        royAudio.play().catch(e => console.warn('Audio play error:', e));
-        drawWaveformRoy(royAudio);
-      }
-    } catch (err) {
-      console.error('Roy response failed:', err);
-      appendMessage('Roy', 'Error generating response.');
-    }
-  }
-
-  function analyzeEmotion(text) {
-    if (/hate|angry|stupid/.test(text.toLowerCase())) return 'anger';
-    if (/sad|upset|depressed/.test(text.toLowerCase())) return 'sadness';
-    if (/happy|grateful|thank/.test(text.toLowerCase())) return 'joy';
-    return 'neutral';
+    micBtn.classList.remove('recording');
+    isRecording = false;
   }
 
   function drawWaveform(ctx, canvas, analyser, color) {
@@ -154,11 +159,11 @@ window.addEventListener('DOMContentLoaded', () => {
       ctx.fillRect(0, 0, canvas.width, canvas.height);
       ctx.strokeStyle = '#333';
       ctx.lineWidth = 0.5;
-      for (let x = 0; x <= canvas.width; x += 20) {
-        ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); ctx.stroke();
+      for (let i = 0; i <= canvas.width; i += 20) {
+        ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, canvas.height); ctx.stroke();
       }
-      for (let y = 0; y <= canvas.height; y += 20) {
-        ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(canvas.width, y); ctx.stroke();
+      for (let j = 0; j <= canvas.height; j += 20) {
+        ctx.beginPath(); ctx.moveTo(0, j); ctx.lineTo(canvas.width, j); ctx.stroke();
       }
       ctx.strokeStyle = color;
       ctx.beginPath();
@@ -174,43 +179,8 @@ window.addEventListener('DOMContentLoaded', () => {
     draw();
   }
 
-  function drawWaveformRoy(audio) {
-    const ac = new (window.AudioContext || window.webkitAudioContext)();
-    const analyser = ac.createAnalyser();
-    const source = ac.createMediaElementSource(audio);
-    source.connect(analyser);
-    analyser.connect(ac.destination);
-    analyser.fftSize = 2048;
-    const buffer = new Uint8Array(analyser.frequencyBinCount);
-    function draw() {
-      requestAnimationFrame(draw);
-      analyser.getByteTimeDomainData(buffer);
-      royCtx.fillStyle = '#000';
-      royCtx.fillRect(0, 0, royCanvas.width, royCanvas.height);
-      royCtx.strokeStyle = '#333';
-      royCtx.lineWidth = 0.5;
-      for (let x = 0; x <= royCanvas.width; x += 20) {
-        royCtx.beginPath(); royCtx.moveTo(x, 0); royCtx.lineTo(x, royCanvas.height); royCtx.stroke();
-      }
-      for (let y = 0; y <= royCanvas.height; y += 20) {
-        royCtx.beginPath(); royCtx.moveTo(0, y); royCtx.lineTo(royCanvas.width, y); royCtx.stroke();
-      }
-      royCtx.strokeStyle = 'magenta';
-      royCtx.beginPath();
-      const slice = royCanvas.width / buffer.length;
-      let x = 0;
-      for (let i = 0; i < buffer.length; i++) {
-        const y = (buffer[i] / 128.0) * royCanvas.height / 2;
-        i === 0 ? royCtx.moveTo(x, y) : royCtx.lineTo(x, y);
-        x += slice;
-      }
-      royCtx.stroke();
-    }
-    draw();
-  }
-
   micBtn.addEventListener('click', () => {
-    recording ? stopRecording() : startRecording();
+    isRecording ? stopRecording() : startRecording();
   });
 
   appendMessage('Roy', "Welcome. I'm Roy. Speak when ready.");
