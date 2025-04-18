@@ -1,4 +1,4 @@
-""window.addEventListener('DOMContentLoaded', () => {
+window.addEventListener('DOMContentLoaded', () => {
   console.log('Whisper mode initialized');
 
   const royAudio = new Audio();
@@ -15,8 +15,8 @@
   const timeEl = document.getElementById('current-time');
   const countdownEl = document.getElementById('countdown-timer');
 
-  userCanvas.height = 80;
-  royCanvas.height = 80;
+  userCanvas.height = 60;
+  royCanvas.height = 60;
 
   let audioContext = null;
   let analyser = null;
@@ -55,7 +55,7 @@
         } else {
           clearInterval(interval);
         }
-      }, 25);
+      }, 30);
     } else {
       span.textContent = text;
     }
@@ -137,8 +137,10 @@
       if (data.text) appendMessage('Roy', data.text, true);
       if (data.audio) {
         royAudio.src = `data:audio/mp3;base64,${data.audio}`;
-        royAudio.play().catch(e => console.warn('Autoplay error', e));
-        drawWaveformRoy(royAudio);
+        setTimeout(() => {
+          royAudio.play().catch(e => console.warn('Autoplay error', e));
+          drawWaveformRoy(royAudio);
+        }, 500);
       }
     } catch (err) {
       console.error('Roy response failed:', err);
@@ -166,7 +168,7 @@
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
       ctx.strokeStyle = '#333';
-      ctx.lineWidth = 0.5;
+      ctx.lineWidth = 0.25;
       for (let i = 0; i <= canvas.width; i += 20) {
         ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, canvas.height); ctx.stroke();
       }
@@ -175,6 +177,7 @@
       }
 
       ctx.strokeStyle = color;
+      ctx.lineWidth = 1;
       ctx.beginPath();
       const slice = canvas.width / buffer.length;
       let x = 0;
@@ -203,7 +206,7 @@
       royCtx.fillStyle = '#000';
       royCtx.fillRect(0, 0, royCanvas.width, royCanvas.height);
       royCtx.strokeStyle = '#333';
-      royCtx.lineWidth = 0.5;
+      royCtx.lineWidth = 0.25;
       for (let i = 0; i <= royCanvas.width; i += 20) {
         royCtx.beginPath(); royCtx.moveTo(i, 0); royCtx.lineTo(i, royCanvas.height); royCtx.stroke();
       }
@@ -211,6 +214,7 @@
         royCtx.beginPath(); royCtx.moveTo(0, j); royCtx.lineTo(royCanvas.width, j); royCtx.stroke();
       }
       royCtx.strokeStyle = 'magenta';
+      royCtx.lineWidth = 1;
       royCtx.beginPath();
       const slice = royCanvas.width / buffer.length;
       let x = 0;
