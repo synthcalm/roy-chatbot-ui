@@ -177,8 +177,8 @@ window.addEventListener('DOMContentLoaded', () => {
       } else {
         clearInterval(interval);
       }
-    }, 50);
-  }'>${sender}:</strong> <span style='color: ${color}'>${text}</span>`;
+    }, delay);
+  } <span style='color: ${color}'>${text}</span>`;
     chatBox.appendChild(p);
     chatBox.scrollTop = chatBox.scrollHeight;
   }
