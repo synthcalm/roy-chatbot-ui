@@ -1,8 +1,7 @@
-// Roy Chatbot: Full Restoration (April 17 Version)
+// Roy Chatbot: Voice-Priority Minimal Version
 let mediaRecorder, audioChunks = [], audioContext, sourceNode;
 let state = 'idle';
 let stream;
-const logHistory = [];
 
 const elements = {
   recordButton: document.getElementById('recordButton'),
@@ -48,23 +47,15 @@ setInterval(updateDateTime, 1000);
 updateDateTime();
 startCountdown();
 
-displayMessage("Roy", "Welcome. I'm Roy. Speak when ready.");
-
-function displayMessage(role, text) {
-  const message = document.createElement('div');
-  message.innerHTML = `<strong>${role}:</strong> ${text}`;
-  message.style.color = role === 'Roy' ? 'yellow' : 'white';
-  elements.chat.appendChild(message);
-  elements.chat.scrollTop = elements.chat.scrollHeight;
-  logHistory.push({ role, text });
-}
+elements.chat.innerHTML = `<div style="color: yellow;"><strong>Roy:</strong> Welcome. I'm Roy. Speak when ready.</div>`;
 
 elements.recordButton.addEventListener('click', () => {
   state === 'idle' ? startRecording() : stopRecording();
 });
 
 elements.saveButton.addEventListener('click', () => {
-  const blob = new Blob([logHistory.map(m => `${m.role}: ${m.text}`).join("\n")], { type: 'text/plain' });
+  const text = elements.chat.textContent;
+  const blob = new Blob([text], { type: 'text/plain' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
@@ -92,14 +83,11 @@ async function startRecording() {
       state = 'processing';
       cleanupStream();
       try {
-        const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
-        const userText = await simulateTranscription(audioBlob);
-        displayMessage('You', userText);
-        const royText = await getRoyResponse(userText);
-        displayMessage('Roy', royText);
-        await speakRoy(royText);
+        const response = "I hear you. That matters.";
+        appendRoy(response);
+        await speakRoy(response);
       } catch (error) {
-        displayMessage('System', `Error: ${error.message}`);
+        appendSystem(`Error: ${error.message}`);
       } finally {
         state = 'idle';
         updateRecordButton();
@@ -112,7 +100,7 @@ async function startRecording() {
       if (state === 'recording') stopRecording();
     }, config.maxRecordingTime);
   } catch (error) {
-    displayMessage('System', `Recording error: ${error.message}`);
+    appendSystem(`Recording error: ${error.message}`);
     state = 'idle';
     updateRecordButton();
   }
@@ -165,37 +153,48 @@ function drawWaveform(canvas, analyser) {
   draw();
 }
 
-async function simulateTranscription(blob) {
-  return new Promise(resolve => {
-    setTimeout(() => resolve("I'm tired of being ignored by my boss."), 400);
-  });
+function appendRoy(text) {
+  const msg = document.createElement('div');
+  msg.innerHTML = `<strong>Roy:</strong> ${text}`;
+  msg.style.color = 'yellow';
+  elements.chat.appendChild(msg);
+  elements.chat.scrollTop = elements.chat.scrollHeight;
 }
 
-async function getRoyResponse(userText) {
-  const options = [
-    "I hear you. That matters.",
-    "What makes that important to you?",
-    "That frustration you're carrying — let’s get it out in the open.",
-    "Truth. Always. Let’s face it, not flee from it.",
-    "You're not lost. You're searching. That’s different."
-  ];
-  return options[Math.floor(Math.random() * options.length)];
+function appendSystem(text) {
+  const msg = document.createElement('div');
+  msg.innerHTML = `<strong>System:</strong> ${text}`;
+  msg.style.color = 'red';
+  elements.chat.appendChild(msg);
+  elements.chat.scrollTop = elements.chat.scrollHeight;
 }
 
 async function speakRoy(text) {
   return new Promise((resolve, reject) => {
-    const voices = speechSynthesis.getVoices();
-    const royVoice = voices.find(v => v.name.toLowerCase().includes("onyx")) || voices.find(v => v.lang === 'en-US');
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.voice = royVoice;
-    utterance.lang = 'en-US';
-    utterance.pitch = 0.65;
-    utterance.rate = 0.9;
-    utterance.volume = 1;
-    speechSynthesis.cancel();
-    speechSynthesis.speak(utterance);
-    utterance.onend = resolve;
-    utterance.onerror = e => reject(new Error(e.message));
+    function speakNow() {
+      const voices = speechSynthesis.getVoices();
+      const royVoice = voices.find(v => v.name.toLowerCase().includes("onyx")) ||
+                       voices.find(v => v.name.toLowerCase().includes("microsoft aria")) ||
+                       voices.find(v => v.name.toLowerCase().includes("google us english")) ||
+                       voices.find(v => v.lang === 'en-US');
+
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.voice = royVoice;
+      utterance.lang = 'en-US';
+      utterance.pitch = 0.65;
+      utterance.rate = 0.9;
+      utterance.volume = 1;
+      speechSynthesis.cancel();
+      speechSynthesis.speak(utterance);
+      utterance.onend = resolve;
+      utterance.onerror = e => reject(new Error(e.message));
+    }
+
+    if (speechSynthesis.getVoices().length === 0) {
+      speechSynthesis.addEventListener('voiceschanged', speakNow, { once: true });
+    } else {
+      speakNow();
+    }
   });
 }
 
