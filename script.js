@@ -1,4 +1,5 @@
-const micToggle = document.getElementById('mic-toggle');
+const royToggle = document.getElementById('roy-toggle');
+const randyToggle = document.getElementById('randy-toggle');
 const saveButton = document.getElementById('saveButton');
 const userWaveform = document.getElementById('userWaveform');
 const royWaveform = document.getElementById('royWaveform');
@@ -32,167 +33,197 @@ function updateDateTime() {
 }
 setInterval(updateDateTime, 1000);
 
-// Toggle recording and Rant Mode
-micToggle.addEventListener('click', async () => {
-  if (!isRecording) {
-    isRecording = true;
-    isRantMode = !isRantMode;
-    micToggle.textContent = `Stop (Rant Mode: ${isRantMode ? 'On' : 'Off'})`;
-    micToggle.classList.add('recording');
-    sessionStartTime = new Date();
-
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    audioContext = new (window.AudioContext || window.webkitAudioContext)();
-    analyser = audioContext.createAnalyser();
-    source = audioContext.createMediaStreamSource(stream);
-    source.connect(analyser);
-    analyser.fftSize = 2048;
-    dataArray = new Uint8Array(analyser.frequencyBinCount);
-
-    mediaRecorder = new MediaRecorder(stream);
-    mediaRecorder.start(1000); // Send chunks every second for real-time analysis
-    chunks = [];
-    volumeData = [];
-
-    mediaRecorder.ondataavailable = async (e) => {
-      chunks.push(e.data);
-      // Simplified volume analysis
-      analyser.getByteFrequencyData(dataArray);
-      const avgVolume = dataArray.reduce((sum, val) => sum + val, 0) / dataArray.length;
-      volumeData.push(avgVolume);
-
-      // Transcribe chunk
-      const formData = new FormData();
-      formData.append('audio', e.data, 'audio.webm');
-      let transcribeRes;
-      try {
-        transcribeRes = await fetch(`${BACKEND_URL}/api/transcribe`, {
-          method: 'POST',
-          body: formData
-        });
-        if (!transcribeRes.ok) {
-          throw new Error(`HTTP error! status: ${transcribeRes.status}`);
-        }
-      } catch (err) {
-        console.error('Transcription fetch error:', err);
-        const msg = document.createElement('p');
-        msg.className = 'roy';
-        msg.innerHTML = `<em>Randy:</em> Hmm, I’m having trouble hearing you—let’s try again.`;
-        messagesDiv.appendChild(msg);
-        messagesDiv.scrollTop = messagesDiv.scrollHeight;
-        return;
-      }
-
-      let transcription;
-      try {
-        transcription = await transcribeRes.json();
-      } catch (err) {
-        console.error('Transcription JSON parse error:', err);
-        return;
-      }
-
-      // Send to chat for interim response
-      let chatRes;
-      try {
-        chatRes = await fetch(`${BACKEND_URL}/api/chat`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            message: transcription.text || '',
-            mode: 'both',
-            persona: isRantMode ? 'randy' : 'default',
-            volumeData: volumeData.slice(-5) // Last 5 seconds
-          })
-        });
-        if (!chatRes.ok) {
-          throw new Error(`HTTP error! status: ${chatRes.status}`);
-        }
-      } catch (err) {
-        console.error('Chat fetch error:', err);
-        return;
-      }
-
-      const { text: royText, audio: audioBase64 } = await chatRes.json();
-
-      // Display interim response
-      const msg = document.createElement('p');
-      msg.className = 'roy';
-      msg.innerHTML = `<em>${isRantMode ? 'Randy' : 'Roy'}:</em> ${royText}`;
-      messagesDiv.appendChild(msg);
-      messagesDiv.scrollTop = messagesDiv.scrollHeight;
-
-      if (audioBase64) {
-        const audio = new Audio(`data:audio/mp3;base64,${audioBase64}`);
-        audio.play();
-        visualizeAudio(audio, royWaveform, royCtx, 'yellow');
-      }
-    };
-
-    mediaRecorder.onstop = async () => {
-      const blob = new Blob(chunks, { type: 'audio/webm' });
-      const formData = new FormData();
-      formData.append('audio', blob, 'audio.webm');
-
-      let transcribeRes;
-      try {
-        transcribeRes = await fetch(`${BACKEND_URL}/api/transcribe`, {
-          method: 'POST',
-          body: formData
-        });
-        if (!transcribeRes.ok) {
-          throw new Error(`HTTP error! status: ${transcribeRes.status}`);
-        }
-      } catch (err) {
-        console.error('Final transcription fetch error:', err);
-        return;
-      }
-
-      const { text } = await transcribeRes.json();
-
-      let chatRes;
-      try {
-        chatRes = await fetch(`${BACKEND_URL}/api/chat`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            message: text,
-            mode: 'both',
-            persona: isRantMode ? 'randy' : 'default',
-            volumeData
-          })
-        });
-        if (!chatRes.ok) {
-          throw new Error(`HTTP error! status: ${chatRes.status}`);
-        }
-      } catch (err) {
-        console.error('Final chat fetch error:', err);
-        return;
-      }
-
-      const { text: royText, audio: audioBase64 } = await chatRes.json();
-
-      const msg = document.createElement('p');
-      msg.className = 'roy';
-      msg.innerHTML = `<em>${isRantMode ? 'Randy' : 'Roy'}:</em> ${royText}`;
-      messagesDiv.appendChild(msg);
-      messagesDiv.scrollTop = messagesDiv.scrollHeight;
-
-      if (audioBase64) {
-        const audio = new Audio(`data:audio/mp3;base64,${audioBase64}`);
-        audio.play();
-        visualizeAudio(audio, royWaveform, royCtx, 'yellow');
-      }
-    };
-
-    userWaveform.classList.toggle('rant-mode', isRantMode);
-    visualizeAudio(null, userWaveform, userCtx, isRantMode ? 'red' : 'cyan', analyser, dataArray);
+// Start recording (shared logic for both Roy and Randy)
+async function startRecording(mode) {
+  isRecording = true;
+  isRantMode = mode === 'randy';
+  royToggle.textContent = 'Roy';
+  randyToggle.textContent = 'Randy';
+  if (mode === 'roy') {
+    royToggle.textContent = 'Stop';
+    royToggle.classList.add('recording');
+    randyToggle.classList.remove('recording');
   } else {
-    isRecording = false;
-    micToggle.textContent = `Speak (Rant Mode: ${isRantMode ? 'On' : 'Off'})`;
-    micToggle.classList.remove('recording');
-    mediaRecorder.stop();
-    source.disconnect();
-    audioContext.close();
+    randyToggle.textContent = 'Stop';
+    randyToggle.classList.add('recording');
+    royToggle.classList.remove('recording');
+  }
+  sessionStartTime = new Date();
+
+  const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  audioContext = new (window.AudioContext || window.webkitAudioContext)();
+  analyser = audioContext.createAnalyser();
+  source = audioContext.createMediaStreamSource(stream);
+  source.connect(analyser);
+  analyser.fftSize = 2048;
+  dataArray = new Uint8Array(analyser.frequencyBinCount);
+
+  mediaRecorder = new MediaRecorder(stream);
+  mediaRecorder.start(1000); // Send chunks every second for real-time analysis
+  chunks = [];
+  volumeData = [];
+
+  mediaRecorder.ondataavailable = async (e) => {
+    chunks.push(e.data);
+    // Simplified volume analysis
+    analyser.getByteFrequencyData(dataArray);
+    const avgVolume = dataArray.reduce((sum, val) => sum + val, 0) / dataArray.length;
+    volumeData.push(avgVolume);
+
+    // Transcribe chunk
+    const formData = new FormData();
+    formData.append('audio', e.data, 'audio.webm');
+    let transcribeRes;
+    try {
+      transcribeRes = await fetch(`${BACKEND_URL}/api/transcribe`, {
+        method: 'POST',
+        body: formData
+      });
+      if (!transcribeRes.ok) {
+        throw new Error(`HTTP error! status: ${transcribeRes.status}`);
+      }
+    } catch (err) {
+      console.error('Transcription fetch error:', err);
+      const msg = document.createElement('p');
+      msg.className = 'roy';
+      msg.innerHTML = `<em>${isRantMode ? 'Randy' : 'Roy'}:</em> Hmm, I’m having trouble hearing you—let’s try again.`;
+      messagesDiv.appendChild(msg);
+      messagesDiv.scrollTop = messagesDiv.scrollHeight;
+      return;
+    }
+
+    let transcription;
+    try {
+      transcription = await transcribeRes.json();
+    } catch (err) {
+      console.error('Transcription JSON parse error:', err);
+      return;
+    }
+
+    // Send to chat for interim response
+    let chatRes;
+    try {
+      chatRes = await fetch(`${BACKEND_URL}/api/chat`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: transcription.text || '',
+          mode: 'both',
+          persona: isRantMode ? 'randy' : 'default',
+          volumeData: volumeData.slice(-5) // Last 5 seconds
+        })
+      });
+      if (!chatRes.ok) {
+        throw new Error(`HTTP error! status: ${chatRes.status}`);
+      }
+    } catch (err) {
+      console.error('Chat fetch error:', err);
+      return;
+    }
+
+    const { text: royText, audio: audioBase64 } = await chatRes.json();
+
+    // Display interim response
+    const msg = document.createElement('p');
+    msg.className = 'roy';
+    msg.innerHTML = `<em>${isRantMode ? 'Randy' : 'Roy'}:</em> ${royText}`;
+    messagesDiv.appendChild(msg);
+    messagesDiv.scrollTop = messagesDiv.scrollHeight;
+
+    if (audioBase64) {
+      const audio = new Audio(`data:audio/mp3;base64,${audioBase64}`);
+      audio.play();
+      visualizeAudio(audio, royWaveform, royCtx, 'yellow');
+    }
+  };
+
+  mediaRecorder.onstop = async () => {
+    const blob = new Blob(chunks, { type: 'audio/webm' });
+    const formData = new FormData();
+    formData.append('audio', blob, 'audio.webm');
+
+    let transcribeRes;
+    try {
+      transcribeRes = await fetch(`${BACKEND_URL}/api/transcribe`, {
+        method: 'POST',
+        body: formData
+      });
+      if (!transcribeRes.ok) {
+        throw new Error(`HTTP error! status: ${transcribeRes.status}`);
+      }
+    } catch (err) {
+      console.error('Final transcription fetch error:', err);
+      return;
+    }
+
+    const { text } = await transcribeRes.json();
+
+    let chatRes;
+    try {
+      chatRes = await fetch(`${BACKEND_URL}/api/chat`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: text,
+          mode: 'both',
+          persona: isRantMode ? 'randy' : 'default',
+          volumeData
+        })
+      });
+      if (!chatRes.ok) {
+        throw new Error(`HTTP error! status: ${chatRes.status}`);
+      }
+    } catch (err) {
+      console.error('Final chat fetch error:', err);
+      return;
+    }
+
+    const { text: royText, audio: audioBase64 } = await chatRes.json();
+
+    const msg = document.createElement('p');
+    msg.className = 'roy';
+    msg.innerHTML = `<em>${isRantMode ? 'Randy' : 'Roy'}:</em> ${royText}`;
+    messagesDiv.appendChild(msg);
+    messagesDiv.scrollTop = messagesDiv.scrollHeight;
+
+    if (audioBase64) {
+      const audio = new Audio(`data:audio/mp3;base64,${audioBase64}`);
+      audio.play();
+      visualizeAudio(audio, royWaveform, royCtx, 'yellow');
+    }
+  };
+
+  userWaveform.classList.toggle('rant-mode', isRantMode);
+  visualizeAudio(null, userWaveform, userCtx, isRantMode ? 'red' : 'cyan', analyser, dataArray);
+}
+
+// Stop recording (shared logic)
+function stopRecording() {
+  isRecording = false;
+  royToggle.textContent = 'Roy';
+  randyToggle.textContent = 'Randy';
+  royToggle.classList.remove('recording');
+  randyToggle.classList.remove('recording');
+  mediaRecorder.stop();
+  source.disconnect();
+  audioContext.close();
+}
+
+// Roy button toggle
+royToggle.addEventListener('click', async () => {
+  if (!isRecording) {
+    await startRecording('roy');
+  } else {
+    stopRecording();
+  }
+});
+
+// Randy button toggle
+randyToggle.addEventListener('click', async () => {
+  if (!isRecording) {
+    await startRecording('randy');
+  } else {
+    stopRecording();
   }
 });
 
