@@ -3,30 +3,26 @@ body {
   background: #000;
   color: #0ff;
   margin: 0;
-  padding: 0;
+  padding: 20px;
   display: flex;
   flex-direction: column;
   align-items: center;
-  min-height: 100vh;
 }
 
-#scope-header {
+#datetime-row {
   display: flex;
   justify-content: space-between;
-  width: 90%;
-  max-width: 600px;
-  margin-top: 20px;
+  width: 600px;
+  margin-bottom: 10px;
   font-size: 14px;
-  color: #0ff;
 }
 
 canvas {
-  width: 90%;
-  max-width: 600px;
+  width: 600px;
   height: 100px;
-  background-color: #000;
   border: 1px solid #0ff;
-  margin-top: 10px;
+  background-color: #000;
+  margin-bottom: 10px;
   background-image: linear-gradient(to right, rgba(255, 255, 0, 0.3) 1px, transparent 1px),
                     linear-gradient(to bottom, rgba(255, 255, 0, 0.3) 1px, transparent 1px);
   background-size: 20px 20px;
@@ -34,38 +30,39 @@ canvas {
 
 #controls {
   display: flex;
-  justify-content: center;
   gap: 10px;
-  margin-top: 15px;
-  margin-bottom: 20px;
+  margin-top: 10px;
 }
 
 button {
-  background: #000;
-  color: #0ff;
+  background: black;
   border: 1px solid #0ff;
-  padding: 10px 16px;
+  color: #0ff;
+  padding: 10px 20px;
   font-family: 'Courier New', monospace;
   font-size: 14px;
   cursor: pointer;
 }
 
 button:hover {
-  border-color: magenta;
-  color: magenta;
+  background-color: #022;
 }
 
 #chat {
-  width: 90%;
-  max-width: 600px;
-  font-size: 14px;
-  line-height: 1.4;
+  width: 600px;
+  max-width: 90%;
+  margin-top: 20px;
+  color: white;
   overflow-y: auto;
-  max-height: 300px;
-  padding: 0 10px;
-  margin-bottom: 20px;
+  font-size: 16px;
+  line-height: 1.4;
+}
+
+#chat div {
+  margin-bottom: 10px;
+  word-wrap: break-word;
 }
 
 strong {
-  font-weight: bold;
+  color: yellow;
 }
