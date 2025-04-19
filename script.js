@@ -11,7 +11,7 @@ const currentTime = document.getElementById('current-time');
 const countdownTimer = document.getElementById('countdown-timer');
 
 // Replace this with your actual deployed backend URL (e.g., Render URL)
-const BACKEND_URL = 'https://synthcalm-a2n7.onrender.com';
+const BACKEND_URL = 'https://your-backend.onrender.com';
 
 let audioContext, analyser, dataArray, source, mediaRecorder, chunks = [];
 let isRecording = false;
@@ -37,6 +37,7 @@ setInterval(updateDateTime, 1000);
 async function startRecording(mode) {
   isRecording = true;
   isRantMode = mode === 'randy';
+  console.log(`Starting recording in ${mode} mode (isRantMode: ${isRantMode})`);
   royToggle.textContent = 'Roy';
   randyToggle.textContent = 'Randy';
   if (mode === 'roy') {
@@ -86,7 +87,7 @@ async function startRecording(mode) {
       console.error('Transcription fetch error:', err);
       const msg = document.createElement('p');
       msg.className = 'roy';
-      msg.innerHTML = `<em>${isRantMode ? 'Randy' : 'Roy'}:</em> Hmm, I’m having trouble hearing you—let’s try again.`;
+      msg.innerHTML = `<em>${isRantMode ? 'Randy' : 'Roy'}:</em> Hmm, I’m having trouble hearing you—check the backend connection and try again.`;
       messagesDiv.appendChild(msg);
       messagesDiv.scrollTop = messagesDiv.scrollHeight;
       return;
@@ -95,33 +96,42 @@ async function startRecording(mode) {
     let transcription;
     try {
       transcription = await transcribeRes.json();
+      console.log('Transcription:', transcription.text);
     } catch (err) {
       console.error('Transcription JSON parse error:', err);
       return;
     }
 
     // Send to chat for interim response
+    const chatPayload = {
+      message: transcription.text || '',
+      mode: 'both',
+      persona: isRantMode ? 'randy' : 'default',
+      volumeData: volumeData.slice(-5) // Last 5 seconds
+    };
+    console.log('Sending /api/chat request:', chatPayload);
     let chatRes;
     try {
       chatRes = await fetch(`${BACKEND_URL}/api/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          message: transcription.text || '',
-          mode: 'both',
-          persona: isRantMode ? 'randy' : 'default',
-          volumeData: volumeData.slice(-5) // Last 5 seconds
-        })
+        body: JSON.stringify(chatPayload)
       });
       if (!chatRes.ok) {
         throw new Error(`HTTP error! status: ${chatRes.status}`);
       }
     } catch (err) {
       console.error('Chat fetch error:', err);
+      const msg = document.createElement('p');
+      msg.className = 'roy';
+      msg.innerHTML = `<em>${isRantMode ? 'Randy' : 'Roy'}:</em> I couldn’t connect—please check the backend and try again.`;
+      messagesDiv.appendChild(msg);
+      messagesDiv.scrollTop = messagesDiv.scrollHeight;
       return;
     }
 
     const { text: royText, audio: audioBase64 } = await chatRes.json();
+    console.log('Chat response:', { royText, audioBase64: audioBase64 ? 'present' : 'missing' });
 
     // Display interim response
     const msg = document.createElement('p');
@@ -157,18 +167,21 @@ async function startRecording(mode) {
     }
 
     const { text } = await transcribeRes.json();
+    console.log('Final transcription:', text);
 
+    const chatPayload = {
+      message: text,
+      mode: 'both',
+      persona: isRantMode ? 'randy' : 'default',
+      volumeData
+    };
+    console.log('Sending final /api/chat request:', chatPayload);
     let chatRes;
     try {
       chatRes = await fetch(`${BACKEND_URL}/api/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          message: text,
-          mode: 'both',
-          persona: isRantMode ? 'randy' : 'default',
-          volumeData
-        })
+        body: JSON.stringify(chatPayload)
       });
       if (!chatRes.ok) {
         throw new Error(`HTTP error! status: ${chatRes.status}`);
@@ -179,6 +192,7 @@ async function startRecording(mode) {
     }
 
     const { text: royText, audio: audioBase64 } = await chatRes.json();
+    console.log('Final chat response:', { royText, audioBase64: audioBase64 ? 'present' : 'missing' });
 
     const msg = document.createElement('p');
     msg.className = 'roy';
