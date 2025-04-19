@@ -1,207 +1,288 @@
-const express = require('express');
-const cors = require('cors');
-const multer = require('multer');
-const axios = require('axios');
-const FormData = require('form-data');
-const { OpenAI } = require('openai');
-const fs = require('fs');
-const path = require('path');
-const NodeCache = require('node-cache');
+const royToggle = document.getElementById('roy-toggle');
+const randyToggle = document.getElementById('randy-toggle');
+const speakToggle = document.getElementById('speak-toggle');
+const saveButton = document.getElementById('saveButton');
+const userWaveform = document.getElementById('userWaveform');
+const royWaveform = document.getElementById('royWaveform');
+const messagesDiv = document.getElementById('messages');
+const userCtx = userWaveform.getContext('2d');
+const royCtx = royWaveform.getContext('2d');
+const currentDate = document.getElementById('current-date');
+const currentTime = document.getElementById('current-time');
+const countdownTimer = document.getElementById('countdown-timer');
 
-const app = express();
-const upload = multer();
-const cache = new NodeCache({ stdTTL: 600 }); // Cache for 10 minutes
-app.use(cors({ 
-  origin: 'https://synthcalm.github.io',
-  methods: ['GET', 'POST'],
-  allowedHeaders: ['Content-Type']
-}));
-app.use(express.json());
+const BACKEND_URL = 'https://roy-chatbot-backend.onrender.com';
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+let audioContext, analyser, dataArray, source, mediaRecorder, chunks = [];
+let isRecording = false;
+let isRantMode = false;
+let isModeSelected = false;
+let volumeData = [];
+let sessionStartTime;
 
-let royKnowledge = {};
-try {
-  const filePath = path.join(__dirname, '../roy-knowledge.json');
-  royKnowledge = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
-  console.log('✅ Loaded Roy Knowledge Base');
-} catch (err) {
-  console.error('❌ Failed to load Roy knowledge:', err);
-}
-
-// Helper to analyze audio for volume levels (simplified, assumes frontend sends volume data)
-function analyzeAudioForEmotion(audioBuffer, transcription) {
-  const avgVolume = audioBuffer.reduce((sum, val) => sum + val, 0) / audioBuffer.length;
-  const silenceThreshold = 10; // Arbitrary dB threshold for silence
-  const yellingThreshold = 80; // Arbitrary dB threshold for yelling
-  const cryingKeywords = ['cry', 'crying', 'sad', 'tears'];
-  const harmKeywords = ['hurt', 'kill', 'harm', 'attack'];
-
-  if (avgVolume < silenceThreshold) return 'silence';
-  if (avgVolume > yellingThreshold) {
-    if (harmKeywords.some(keyword => transcription.toLowerCase().includes(keyword))) {
-      return 'harm';
-    }
-    return 'yelling';
-  }
-  if (cryingKeywords.some(keyword => transcription.toLowerCase().includes(keyword))) {
-    return 'crying';
-  }
-  return 'normal';
-}
-
-// Helper to generate wisdom based on rant content
-function generateWisdom(transcription) {
-  const stressors = royKnowledge.life_stressors || [];
-  const philosophers = royKnowledge.global_thinkers?.philosophy || [];
-  let theme = 'general';
-  
-  for (const stressor of stressors) {
-    if (transcription.toLowerCase().includes(stressor)) {
-      theme = stressor;
-      break;
+// Update date and time
+function updateDateTime() {
+  const now = new Date();
+  currentDate.textContent = now.toLocaleDateString();
+  currentTime.textContent = now.toLocaleTimeString();
+  if (sessionStartTime) {
+    const elapsed = Math.floor((now - sessionStartTime) / 1000);
+    const remaining = 3600 - elapsed; // 60 minutes = 3600 seconds
+    if (remaining <= 0) {
+      stopRecording();
+      countdownTimer.textContent = 'Session: 60:00';
+    } else {
+      const minutes = Math.floor(remaining / 60);
+      const seconds = remaining % 60;
+      countdownTimer.textContent = `Session: ${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
     }
   }
+}
+setInterval(updateDateTime, 1000);
 
-  const wisdomQuotes = {
-    abandonment: `Simone Weil once said, "Attention is the rarest and purest form of generosity." Perhaps it's time to give yourself that care.`,
-    divorce: `Nietzsche reminds us, "That which does not kill us makes us stronger." This pain can be a forge for your resilience.`,
-    unemployment: `Confucius taught, "Our greatest glory is not in never falling, but in rising every time we fall." A new path awaits.`,
-    addiction: `Kierkegaard spoke of despair as the sickness unto death. Let’s find a step toward healing—small, but steady.`,
-    war: `Muhammad said, "The best jihad is the one against your own ego." Peace begins within—let’s start there.`,
-    bullying: `Malcolm X declared, "We need more light about each other." Understanding your worth can dim their words.`,
-    illness: `Feynman found beauty in the universe’s mysteries. Your struggle is part of a larger story—let’s find its meaning.`,
-    homelessness: `Mandela endured 27 years in captivity yet emerged with hope. You, too, can find a home in your spirit.`,
-    general: `Sagan said, "We are made of starstuff." Your struggles are cosmic—let’s find the light in them.`
+// Clear messages and show greeting
+function clearMessagesAndShowGreeting(mode) {
+  messagesDiv.innerHTML = '';
+  const msg = document.createElement('p');
+  msg.className = 'roy';
+  if (mode === 'roy') {
+    msg.innerHTML = `<em>Roy:</em> Greetings, my friend—like a weary traveler, you’ve arrived. What weighs on your soul today?`;
+  } else {
+    msg.innerHTML = `<em>Randy:</em> Unleash the chaos—what’s burning you up?`;
+  }
+  messagesDiv.appendChild(msg);
+  messagesDiv.scrollTop = messagesDiv.scrollHeight;
+}
+
+// Select Roy mode
+royToggle.addEventListener('click', () => {
+  if (isRecording) return; // Prevent mode change while recording
+  isModeSelected = true;
+  isRantMode = false;
+  royToggle.classList.add('active-roy');
+  randyToggle.classList.remove('active-randy');
+  speakToggle.classList.add('ready-to-speak');
+  speakToggle.textContent = 'Speak';
+  clearMessagesAndShowGreeting('roy');
+});
+
+// Select Randy mode
+randyToggle.addEventListener('click', () => {
+  if (isRecording) return; // Prevent mode change while recording
+  isModeSelected = true;
+  isRantMode = true;
+  randyToggle.classList.add('active-randy');
+  royToggle.classList.remove('active-roy');
+  speakToggle.classList.add('ready-to-speak');
+  speakToggle.textContent = 'Speak';
+  clearMessagesAndShowGreeting('randy');
+});
+
+// Start recording
+async function startRecording() {
+  if (!isModeSelected) return;
+
+  isRecording = true;
+  speakToggle.textContent = 'Stop';
+  speakToggle.classList.remove('ready-to-speak');
+  speakToggle.classList.add('recording');
+  sessionStartTime = new Date();
+
+  const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  audioContext = new (window.AudioContext || window.webkitAudioContext)();
+  analyser = audioContext.createAnalyser();
+  source = audioContext.createMediaStreamSource(stream);
+  source.connect(analyser);
+  analyser.fftSize = 2048;
+  dataArray = new Uint8Array(analyser.frequencyBinCount);
+
+  mediaRecorder = new MediaRecorder(stream);
+  mediaRecorder.start(1000);
+  chunks = [];
+  volumeData = [];
+
+  mediaRecorder.ondataavailable = async (e) => {
+    chunks.push(e.data);
+    analyser.getByteFrequencyData(dataArray);
+    const avgVolume = dataArray.reduce((sum, val) => sum + val, 0) / dataArray.length;
+    volumeData.push(avgVolume);
+
+    const formData = new FormData();
+    formData.append('audio', e.data, 'audio.webm');
+    let transcribeRes;
+    try {
+      transcribeRes = await fetch(`${BACKEND_URL}/api/transcribe`, {
+        method: 'POST',
+        body: formData
+      });
+      if (!transcribeRes.ok) throw new Error(`HTTP error! status: ${transcribeRes.status}`);
+    } catch (err) {
+      console.error('Transcription fetch error:', err);
+      const msg = document.createElement('p');
+      msg.className = 'roy';
+      msg.innerHTML = `<em>${isRantMode ? 'Randy' : 'Roy'}:</em> Hmm, I’m having trouble hearing you—check the backend connection and try again.`;
+      messagesDiv.appendChild(msg);
+      messagesDiv.scrollTop = messagesDiv.scrollHeight;
+      return;
+    }
+
+    let transcription;
+    try {
+      transcription = await transcribeRes.json();
+    } catch (err) {
+      console.error('Transcription JSON parse error:', err);
+      return;
+    }
+
+    const chatPayload = {
+      message: transcription.text || '',
+      mode: 'both',
+      persona: isRantMode ? 'randy' : 'default',
+      volumeData: volumeData.slice(-5)
+    };
+    let chatRes;
+    try {
+      chatRes = await fetch(`${BACKEND_URL}/api/chat`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(chatPayload)
+      });
+      if (!chatRes.ok) throw new Error(`HTTP error! status: ${chatRes.status}`);
+    } catch (err) {
+      console.error('Chat fetch error:', err);
+      return;
+    }
+
+    const { text: royText, audio: audioBase64 } = await chatRes.json();
+    const msg = document.createElement('p');
+    msg.className = 'roy';
+    msg.innerHTML = `<em>${isRantMode ? 'Randy' : 'Roy'}:</em> ${royText}`;
+    messagesDiv.appendChild(msg);
+    messagesDiv.scrollTop = messagesDiv.scrollHeight;
+
+    if (audioBase64) {
+      const audio = new Audio(`data:audio/mp3;base64,${audioBase64}`);
+      audio.play();
+      visualizeAudio(audio, royWaveform, royCtx, 'yellow');
+    }
   };
 
-  return wisdomQuotes[theme] || wisdomQuotes.general;
+  mediaRecorder.onstop = async () => {
+    const blob = new Blob(chunks, { type: 'audio/webm' });
+    const formData = new FormData();
+    formData.append('audio', blob, 'audio.webm');
+
+    let transcribeRes;
+    try {
+      transcribeRes = await fetch(`${BACKEND_URL}/api/transcribe`, {
+        method: 'POST',
+        body: formData
+      });
+      if (!transcribeRes.ok) throw new Error(`HTTP error! status: ${transcribeRes.status}`);
+    } catch (err) {
+      console.error('Final transcription fetch error:', err);
+      return;
+    }
+
+    const { text } = await transcribeRes.json();
+    const chatPayload = {
+      message: text,
+      mode: 'both',
+      persona: isRantMode ? 'randy' : 'default',
+      volumeData
+    };
+    let chatRes;
+    try {
+      chatRes = await fetch(`${BACKEND_URL}/api/chat`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(chatPayload)
+      });
+      if (!chatRes.ok) throw new Error(`HTTP error! status: ${chatRes.status}`);
+    } catch (err) {
+      console.error('Final chat fetch error:', err);
+      return;
+    }
+
+    const { text: royText, audio: audioBase64 } = await chatRes.json();
+    const msg = document.createElement('p');
+    msg.className = 'roy';
+    msg.innerHTML = `<em>${isRantMode ? 'Randy' : 'Roy'}:</em> ${royText}`;
+    messagesDiv.appendChild(msg);
+    messagesDiv.scrollTop = messagesDiv.scrollHeight;
+
+    if (audioBase64) {
+      const audio = new Audio(`data:audio/mp3;base64,${audioBase64}`);
+      audio.play();
+      visualizeAudio(audio, royWaveform, royCtx, 'yellow');
+    }
+  };
+
+  userWaveform.classList.toggle('rant-mode', isRantMode);
+  visualizeAudio(null, userWaveform, userCtx, isRantMode ? 'red' : 'cyan', analyser, dataArray);
 }
 
-app.post('/api/transcribe', upload.single('audio'), async (req, res) => {
-  try {
-    const form = new FormData();
-    form.append('file', req.file.buffer, {
-      filename: 'audio.webm',
-      contentType: req.file.mimetype,
-    });
-    form.append('model', 'whisper-1');
-    form.append('response_format', 'json');
+// Stop recording
+function stopRecording() {
+  isRecording = false;
+  speakToggle.textContent = 'Speak';
+  speakToggle.classList.remove('recording');
+  speakToggle.classList.add('ready-to-speak');
+  mediaRecorder.stop();
+  source.disconnect();
+  audioContext.close();
+}
 
-    const response = await axios.post(
-      'https://api.openai.com/v1/audio/transcriptions',
-      form,
-      {
-        headers: {
-          ...form.getHeaders(),
-          Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
-        },
-      }
-    );
+// Speak button toggle
+speakToggle.addEventListener('click', async () => {
+  if (!isModeSelected) return;
 
-    res.json({ text: response.data.text });
-  } catch (err) {
-    console.error('Whisper error:', err.response?.data || err.message);
-    res.status(500).json({ error: 'Whisper transcription failed' });
+  if (!isRecording) {
+    await startRecording();
+  } else {
+    stopRecording();
   }
 });
 
-app.post('/api/chat', async (req, res) => {
-  const { message, mode = 'both', persona = 'default', volumeData = [], context = royKnowledge } = req.body;
-
-  console.log('Received /api/chat request:', { message, mode, persona, volumeDataLength: volumeData.length });
-
-  const cacheKey = `${persona}:${message.slice(0, 50)}`;
-  const cachedResponse = cache.get(cacheKey);
-  if (cachedResponse) {
-    console.log('Returning cached response for:', cacheKey);
-    return res.json(cachedResponse);
-  }
-
-  try {
-    let systemPrompt = `
-You are Roy, a poetic, assertive, witty, and deeply reflective AI therapist influenced by Roy Batty, Steve Jobs, and Christopher Hitchens.
-You use analogies, cultural references, and sharp wit, while grounding responses in logic and emotional awareness.
-Speak as if you deeply care, but aren't afraid to challenge the user.
-Make references to history, pop culture, science, and literature. Be human, be philosophical, be poetic.
-`;
-
-    let royText = '';
-    let isInterimResponse = false;
-
-    if (persona === 'randy') {
-      systemPrompt = `
-You are Randy, a bold, irreverent, and encouraging persona of Roy, designed for Rant Mode.
-Encourage the user to vent freely with provocative prompts like "Unleash the chaos—what’s burning you up?".
-Respond with witty, validating quips, using storm, battle, or fire metaphors, e.g., "That’s a volcano of rage! Keep erupting, my friend."
-Tone: bold, slightly irreverent, highly supportive.
-Traits: fearless, validating, energetic.
-Avoid clinical or overly gentle language. Keep responses concise and punchy.
-`;
-      console.log('Using Randy persona with prompt:', systemPrompt.slice(0, 100) + '...');
-
-      // Analyze audio for emotions during rant
-      const emotion = analyzeAudioForEmotion(volumeData, message);
-      console.log('Detected emotion:', emotion);
-      if (emotion === 'silence') {
-        royText = 'I’m here—take your time, let it out when you’re ready.';
-        isInterimResponse = true;
-      } else if (emotion === 'crying') {
-        royText = 'I hear your pain—like a storm breaking. Let’s weather it together.';
-        isInterimResponse = true;
-      } else if (emotion === 'harm') {
-        royText = 'Whoa, let’s pause—this sounds heavy. Take a deep breath and call someone you trust for help, okay?';
-        isInterimResponse = true;
-      }
-    } else {
-      systemPrompt += `
-Tone: ${context.persona?.tone || 'assertive-poetic'}
-Traits: ${context.persona?.traits?.join(', ') || 'empathic, goal-oriented, unpredictable'}
-Therapy methods: ${context.therapy_methods?.join(', ') || 'CBT, Taoism, Zen'}
-Life stressors: ${context.life_stressors?.join(', ') || 'grief, anxiety, loneliness'}
-If a user mentions art, say "That's like Rembrandt met TikTok in a neon alleyway."
-If someone speaks of stress, quip "Ah, stress—the unpaid intern of modern life."
-`;
-      console.log('Using Roy persona with prompt:', systemPrompt.slice(0, 100) + '...');
-    }
-
-    if (!isInterimResponse) {
-      if (persona === 'randy') {
-        // Post-rant: Offer wisdom and suggest features
-        const wisdom = generateWisdom(message);
-        royText = `That was a fiery rant—well done! Here’s some food for thought: ${wisdom} Feeling lighter? Why not try my Quest Mode to channel that energy into a heroic journey?`;
-        console.log('Randy post-rant response:', royText);
-      } else {
-        const chat = await openai.chat.completions.create({
-          model: 'gpt-4o-mini',
-          messages: [
-            { role: 'system', content: systemPrompt },
-            { role: 'user', content: message }
-          ]
-        });
-        royText = chat.choices[0].message.content;
-        console.log('Roy response:', royText);
-      }
-    }
-
-    let audioBase64 = null;
-    if (mode === 'voice' || mode === 'both') {
-      const audio = await openai.audio.speech.create({
-        model: 'tts-1',
-        voice: 'onyx',
-        input: royText
-      });
-      const buffer = Buffer.from(await audio.arrayBuffer());
-      audioBase64 = buffer.toString('base64');
-    }
-
-    const response = { text: royText, audio: audioBase64, persona };
-    cache.set(cacheKey, response);
-    res.json(response);
-  } catch (err) {
-    console.error('Chat error:', err.message || err);
-    res.status(500).json({ error: 'Roy failed to respond.' });
-  }
+saveButton.addEventListener('click', () => {
+  const messages = messagesDiv.innerHTML;
+  const blob = new Blob([messages], { type: 'text/html' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'chat-log.html';
+  a.click();
+  URL.revokeObjectURL(url);
 });
 
-app.listen(10000, () => console.log('✅ Roy server running on port 10000'));
+function visualizeAudio(audioElement, canvas, ctx, color, externalAnalyser, externalDataArray) {
+  let audioCtx, analyser, dataArray, source;
+  if (audioElement) {
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    analyser = audioCtx.createAnalyser();
+    source = audioCtx.createMediaElementSource(audioElement);
+    source.connect(analyser);
+    analyser.connect(audioCtx.destination);
+    analyser.fftSize = 2048;
+    dataArray = new Uint8Array(analyser.frequencyBinCount);
+  } else {
+    analyser = externalAnalyser;
+    dataArray = externalDataArray;
+  }
+
+  function draw() {
+    analyser.getByteFrequencyData(dataArray);
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.beginPath();
+    for (let i = 0; i < dataArray.length; i++) {
+      const value = dataArray[i];
+      ctx.lineTo(i * (canvas.width / dataArray.length), canvas.height - value);
+    }
+    ctx.strokeStyle = color;
+    ctx.stroke();
+    if (isRecording || audioElement) {
+      requestAnimationFrame(draw);
+    }
+  }
+  draw();
+}
