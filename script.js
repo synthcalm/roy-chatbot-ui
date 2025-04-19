@@ -70,7 +70,13 @@ window.addEventListener('DOMContentLoaded', async () => {
         const { text, message_type } = JSON.parse(msg.data);
         if (message_type === 'FinalTranscript' && text) {
           appendMessage('You', text);
+          const dots = document.createElement('p');
+          dots.className = 'roy dots';
+          dots.innerHTML = `<strong style='color: yellow'>Roy:</strong> <span style='color: yellow'>...</span>`;
+          messagesEl.appendChild(dots);
+          messagesEl.scrollTop = messagesEl.scrollHeight;
           await fetchRoyResponse(text);
+          messagesEl.removeChild(dots);
         }
       };
 
@@ -97,7 +103,6 @@ window.addEventListener('DOMContentLoaded', async () => {
   }
 
   async function fetchRoyResponse(text) {
-    appendMessage('Roy', '<em>Roy is reflecting...</em>');
     try {
       const res = await fetch('https://roy-chatbo-backend.onrender.com/api/chat', {
         method: 'POST',
