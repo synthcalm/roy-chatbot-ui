@@ -17,7 +17,7 @@ window.addEventListener('DOMContentLoaded', () => {
   function updateClock() {
     const now = new Date();
     document.getElementById('current-date').textContent = now.toISOString().split('T')[0];
-    document.getElementById('current-time').textContent = now.toLocaleTimeString();
+    document.getElementById('current-time').textContent = now.toLocaleTimeString('en-US');
     const elapsed = Math.floor((Date.now() - sessionStart) / 1000);
     const remaining = Math.max(0, 3600 - elapsed);
     document.getElementById('countdown-timer').textContent = `${String(Math.floor(remaining / 60)).padStart(2, '0')}:${String(remaining % 60).padStart(2, '0')}`;
@@ -97,7 +97,7 @@ window.addEventListener('DOMContentLoaded', () => {
   }
 
   async function fetchRoyResponse(text) {
-    appendMessage('Roy', '<em>Roy is reflecting...</em>');
+    appendMessage('Roy', '<span class="dots">...</span>');
 
     try {
       const res = await fetch('https://roy-chatbo-backend.onrender.com/api/chat', {
