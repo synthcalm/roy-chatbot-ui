@@ -47,12 +47,12 @@ setInterval(updateDateTime, 1000);
 updateDateTime();
 startCountdown();
 
-displayMessage("Roy", "Welcome. I'm Roy. Speak when ready.");
+displayMessage("Therapist", "Hello, I'm your CBT chatbot. What's on your mind today?");
 
 function displayMessage(role, text) {
   const message = document.createElement('div');
   message.innerHTML = `<strong>${role}:</strong> ${text}`;
-  message.style.color = role === 'Roy' ? 'yellow' : 'white';
+  message.style.color = role === 'Therapist' ? 'yellow' : 'white';
   elements.chat.appendChild(message);
   elements.chat.scrollTop = elements.chat.scrollHeight;
   logHistory.push({ role, text });
@@ -94,9 +94,9 @@ async function startRecording() {
         const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
         const userText = await transcribeAudio(audioBlob);
         displayMessage('You', userText);
-        const royText = await getRoyResponse(userText);
-        await typeRoyMessage(royText);
-        await speakRoy(royText);
+        const responseText = await getCBTResponse(userText);
+        await typeCBTMessage(responseText);
+        await speakCBT(responseText);
       } catch (error) {
         displayMessage('System', `Error: ${error.message}`);
       } finally {
@@ -170,65 +170,41 @@ async function transcribeAudio(blob) {
   });
 }
 
-async function getRoyResponse(userText) {
-  const tone = /frustrated|stupid|angry/.test(userText.toLowerCase()) ? "frustrated" :
-               /sad|depressed|tired/.test(userText.toLowerCase()) ? "sad" : "neutral";
-
-  const affirmations = [
-    "You're stronger than you think.",
-    "Let’s redirect this energy. What would Roy Batty do?",
-    "No clichés. No fluff. Just presence.",
-    "Observe. Reflect. Choose.",
-    "Inhale truth. Exhale fear."
+async function getCBTResponse(userText) {
+  const responses = [
+    "Let's try identifying the thought behind that feeling.",
+    "Can you tell me what triggered that reaction?",
+    "It might help to challenge that belief. What evidence supports it?",
+    "How would you respond if a friend told you that?",
+    "You're doing well. Just take it one step at a time."
   ];
-
-  const reflections = {
-    frustrated: "I sense tension. Let’s channel that into clarity.",
-    sad: "I can feel that heaviness in your words. Let's walk through it.",
-    neutral: "Let’s explore that further. I'm here with you."
-  };
-
-  return `${reflections[tone]} ${affirmations[Math.floor(Math.random() * affirmations.length)]}`;
+  return responses[Math.floor(Math.random() * responses.length)];
 }
 
-async function speakRoy(text) {
+async function speakCBT(text) {
   return new Promise((resolve, reject) => {
-    function speakNow() {
-      const voices = speechSynthesis.getVoices();
-      const royVoice = voices.find(v => v.name.toLowerCase().includes("onyx")) ||
-                       voices.find(v => v.name.startsWith("O")) ||
-                       voices.find(v => v.lang === 'en-US');
-
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.voice = royVoice;
-      utterance.pitch = 0.7;
-      utterance.rate = 0.92;
-      utterance.volume = 1;
-      utterance.lang = 'en-US';
-      speechSynthesis.cancel();
-      speechSynthesis.speak(utterance);
-      utterance.onend = resolve;
-      utterance.onerror = e => reject(new Error(e.message));
-    }
-
-    if (speechSynthesis.getVoices().length === 0) {
-      speechSynthesis.addEventListener('voiceschanged', speakNow, { once: true });
-    } else {
-      speakNow();
-    }
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = 'en-US';
+    utterance.pitch = 1;
+    utterance.rate = 1;
+    utterance.volume = 1;
+    speechSynthesis.cancel();
+    speechSynthesis.speak(utterance);
+    utterance.onend = resolve;
+    utterance.onerror = e => reject(new Error(e.message));
   });
 }
 
-async function typeRoyMessage(text) {
+async function typeCBTMessage(text) {
   return new Promise(resolve => {
     let i = 0;
     const msg = document.createElement('div');
-    msg.innerHTML = `<strong>Roy:</strong> `;
+    msg.innerHTML = `<strong>Therapist:</strong> `;
     msg.style.color = 'yellow';
     elements.chat.appendChild(msg);
     const interval = setInterval(() => {
       if (i <= text.length) {
-        msg.innerHTML = `<strong>Roy:</strong> ${text.slice(0, i)}`;
+        msg.innerHTML = `<strong>Therapist:</strong> ${text.slice(0, i)}`;
         i++;
       } else {
         clearInterval(interval);
