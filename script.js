@@ -1,4 +1,4 @@
-""window.addEventListener('DOMContentLoaded', () => {
+window.addEventListener('DOMContentLoaded', () => {
   const micBtn = document.getElementById('mic-toggle');
   const messagesEl = document.getElementById('messages');
   const userCanvas = document.getElementById('userWaveform');
@@ -13,13 +13,12 @@
   let isRecording = false;
   let mediaRecorder, audioContext, analyser, stream;
   let sessionStart = Date.now();
-  let lastReflectingMessage = null;
   let royAc = null, royAnalyser = null, roySource = null;
 
   function updateClock() {
     const now = new Date();
     document.getElementById('current-date').textContent = now.toISOString().split('T')[0];
-    document.getElementById('current-time').textContent = now.toLocaleTimeString();
+    document.getElementById('current-time').textContent = now.toLocaleTimeString('en-US', { hour: 'numeric', minute: 'numeric', hour12: true });
     const elapsed = Math.floor((Date.now() - sessionStart) / 1000);
     const remaining = Math.max(0, 3600 - elapsed);
     document.getElementById('countdown-timer').textContent = `${String(Math.floor(remaining / 60)).padStart(2, '0')}:${String(remaining % 60).padStart(2, '0')}`;
@@ -61,8 +60,6 @@
         const blob = new Blob(chunks, { type: 'audio/webm' });
         const formData = new FormData();
         formData.append('audio', blob);
-
-        lastReflectingMessage = appendMessage('Roy', '<em>Roy is reflecting...</em>');
 
         try {
           const res = await fetch('https://roy-chatbo-backend.onrender.com/api/transcribe', {
@@ -108,12 +105,6 @@
       });
 
       const data = await res.json();
-
-      if (lastReflectingMessage) {
-        messagesEl.removeChild(lastReflectingMessage);
-        lastReflectingMessage = null;
-      }
-
       if (data.text) appendMessage('Roy', data.text);
       if (data.audio) {
         royAudio.src = `data:audio/mp3;base64,${data.audio}`;
@@ -224,4 +215,5 @@
     return p;
   }
 
-  appendMessage('Roy', "Welcome. I'm Roy. Speak
+  appendMessage('Roy', "Welcome. I'm Roy. Speak when ready.");
+});
