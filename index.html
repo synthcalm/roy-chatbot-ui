@@ -2,24 +2,24 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ROY Interface</title>
+  <title>Roy Interface</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <div id="datetime-row">
-    <div id="date">2025-04-19</div>
-    <div id="clock">11:11:11</div>
-    <div id="countdown">60:00</div>
+  <div class="scope-container">
+    <canvas id="userScope"></canvas>
+    <canvas id="royScope"></canvas>
+    <div id="datetime-row">
+      <span id="date"></span>
+      <span id="clock"></span>
+      <span id="countdown"></span>
+    </div>
   </div>
-
-  <canvas id="userScope"></canvas>
-  <canvas id="royScope"></canvas>
 
   <div id="controls">
     <button id="recordButton">Speak</button>
     <button id="saveButton">Save Log</button>
-    <button onclick="location.href='/'">SynthCalm Home</button>
+    <button onclick="window.location.href='https://synthcalm.com'">SynthCalm Home</button>
   </div>
 
   <div id="chat"></div>
