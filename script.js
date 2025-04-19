@@ -96,6 +96,12 @@ window.addEventListener('DOMContentLoaded', () => {
   }
 
   async function fetchRoyResponse(text) {
+    const typingEl = document.createElement('p');
+    typingEl.className = 'roy typing';
+    typingEl.innerHTML = `<strong style="color: yellow">Roy:</strong> <span style="color: yellow">...</span>`;
+    messagesEl.appendChild(typingEl);
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+
     try {
       const res = await fetch('https://roy-chatbo-backend.onrender.com/api/chat', {
         method: 'POST',
@@ -103,6 +109,7 @@ window.addEventListener('DOMContentLoaded', () => {
         body: JSON.stringify({ message: text, mode: 'both' })
       });
       const data = await res.json();
+      messagesEl.removeChild(typingEl);
       if (data.text) appendMessage('Roy', data.text);
       if (data.audio) {
         royAudio.src = `data:audio/mp3;base64,${data.audio}`;
