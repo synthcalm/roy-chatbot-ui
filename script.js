@@ -34,6 +34,7 @@ window.addEventListener('DOMContentLoaded', () => {
     isRecording = true;
     micBtn.textContent = 'Stop';
     micBtn.classList.add('recording');
+    micBtn.style.borderColor = 'magenta';
 
     try {
       if (!audioContext) {
@@ -58,7 +59,7 @@ window.addEventListener('DOMContentLoaded', () => {
             ws.send(e.data);
           }
         };
-        mediaRecorder.start(500);
+        mediaRecorder.start(250);
       };
 
       ws.onmessage = async e => {
@@ -93,6 +94,7 @@ window.addEventListener('DOMContentLoaded', () => {
 
     micBtn.textContent = 'Speak';
     micBtn.classList.remove('recording');
+    micBtn.style.borderColor = '#0ff';
     isRecording = false;
   }
 
@@ -128,7 +130,6 @@ window.addEventListener('DOMContentLoaded', () => {
       ctx.fillStyle = '#000';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-      // Draw grid
       ctx.strokeStyle = '#333';
       ctx.lineWidth = 0.5;
       for (let i = 0; i <= canvas.width; i += 20) {
@@ -173,7 +174,6 @@ window.addEventListener('DOMContentLoaded', () => {
       royCtx.fillStyle = '#000';
       royCtx.fillRect(0, 0, royCanvas.width, royCanvas.height);
 
-      // Draw grid
       royCtx.strokeStyle = '#333';
       royCtx.lineWidth = 0.5;
       for (let i = 0; i <= royCanvas.width; i += 20) {
