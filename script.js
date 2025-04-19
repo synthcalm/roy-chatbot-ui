@@ -12,6 +12,7 @@ window.addEventListener('DOMContentLoaded', () => {
   let audioContext = null;
   let analyser = null;
   let stream = null;
+  let mediaRecorder = null;
   let ws = null;
   let isRecording = false;
   let sessionStart = Date.now();
@@ -55,14 +56,6 @@ window.addEventListener('DOMContentLoaded', () => {
 
       ws.onopen = () => {
         ws.send(JSON.stringify({ auth_token: "c204c69052074ce98287a515e68da0c4" }));
-
-        const mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm;codecs=opus' });
-        mediaRecorder.ondataavailable = e => {
-          if (e.data.size > 0 && ws.readyState === WebSocket.OPEN) {
-            ws.send(e.data);
-          }
-        };
-        mediaRecorder.start(500);
       };
 
       ws.onmessage = async (e) => {
@@ -79,7 +72,6 @@ window.addEventListener('DOMContentLoaded', () => {
       };
 
       ws.onclose = () => stopRecording();
-
     } catch (err) {
       appendMessage('Roy', 'Microphone access error.');
       console.error('Mic error:', err);
