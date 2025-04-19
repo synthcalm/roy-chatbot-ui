@@ -15,7 +15,7 @@ const elements = {
 };
 
 const config = {
-  duration: 3600, // 1 hour in seconds
+  duration: 3600,
   maxRecordingTime: 60000
 };
 
@@ -47,6 +47,8 @@ setInterval(updateDateTime, 1000);
 updateDateTime();
 startCountdown();
 
+displayMessage("Roy", "Welcome. I'm Roy. Speak when ready.");
+
 function displayMessage(role, text) {
   const message = document.createElement('div');
   message.innerHTML = `<strong>${role}:</strong> ${text}`;
@@ -56,7 +58,19 @@ function displayMessage(role, text) {
   logHistory.push({ role, text });
 }
 
-displayMessage("Roy", "Welcome. I'm Roy. Speak when ready.");
+elements.recordButton.addEventListener('click', () => {
+  state === 'idle' ? startRecording() : stopRecording();
+});
+
+elements.saveButton.addEventListener('click', () => {
+  const blob = new Blob([logHistory.map(m => `${m.role}: ${m.text}`).join("\n")], { type: 'text/plain' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'chat_log.txt';
+  a.click();
+  URL.revokeObjectURL(url);
+});
 
 async function startRecording() {
   if (state !== 'idle') return;
@@ -70,7 +84,6 @@ async function startRecording() {
     sourceNode = audioContext.createMediaStreamSource(stream);
     const analyser = audioContext.createAnalyser();
     sourceNode.connect(analyser);
-
     drawWaveform(elements.userScope, analyser);
 
     mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
@@ -119,20 +132,6 @@ function updateRecordButton() {
   elements.recordButton.style.borderColor = state === 'recording' ? 'magenta' : '#0ff';
   elements.recordButton.disabled = state === 'processing';
 }
-
-elements.recordButton.addEventListener('click', () => {
-  state === 'idle' ? startRecording() : stopRecording();
-});
-
-elements.saveButton.addEventListener('click', () => {
-  const blob = new Blob([logHistory.map(m => `${m.role}: ${m.text}`).join("\n")], { type: 'text/plain' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = 'chat_log.txt';
-  a.click();
-  URL.revokeObjectURL(url);
-});
 
 function drawWaveform(canvas, analyser) {
   const ctx = canvas.getContext('2d');
@@ -189,8 +188,7 @@ async function getRoyResponse(userText) {
     neutral: "Let’s explore that further. I'm here with you."
   };
 
-  const chosen = `${reflections[tone]} ${affirmations[Math.floor(Math.random() * affirmations.length)]}`;
-  return chosen;
+  return `${reflections[tone]} ${affirmations[Math.floor(Math.random() * affirmations.length)]}`;
 }
 
 async function speakRoy(text) {
