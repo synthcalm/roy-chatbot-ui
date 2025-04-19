@@ -39,21 +39,6 @@ canvas {
   background-size: 20px 20px;
 }
 
-button {
-  background: transparent;
-  color: #0ff;
-  font-family: 'Courier New', monospace;
-  font-size: 16px;
-  border: 1px solid #0ff;
-  padding: 8px 16px;
-  cursor: pointer;
-  transition: border-color 0.3s;
-}
-
-button:hover {
-  border-color: magenta;
-}
-
 #chat {
   background: black;
   padding: 10px;
@@ -72,6 +57,22 @@ button:hover {
   display: flex;
   gap: 10px;
   justify-content: center;
+  margin-top: 20px;
+}
+
+button {
+  background: transparent;
+  color: #0ff;
+  font-family: 'Courier New', monospace;
+  font-size: 16px;
+  border: 1px solid #0ff;
+  padding: 8px 16px;
+  cursor: pointer;
+  transition: border-color 0.3s;
+}
+
+button:hover {
+  border-color: magenta;
 }
 
 @media (max-width: 500px) {
