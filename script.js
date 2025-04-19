@@ -19,7 +19,7 @@ window.addEventListener('DOMContentLoaded', async () => {
   }
 
   let isRecording = false;
-  let mediaRecorder, audioContext, analyser, stream, ws;
+  let mediaRecorder, audioContext, analyser, stream, chunks = [];
   let sessionStart = Date.now();
 
   function updateClock() {
@@ -55,33 +55,42 @@ window.addEventListener('DOMContentLoaded', async () => {
       source.connect(analyser);
       drawWaveform(userCtx, userCanvas, analyser, 'yellow');
 
-      ws = new WebSocket("wss://api.assemblyai.com/v2/realtime/ws?sample_rate=16000", ['assemblyai-realtime']);
-      ws.onopen = () => {
-        ws.send(JSON.stringify({ auth_token: "c204c69052074ce98287a515e68da0c4" }));
+      chunks = [];
+      mediaRecorder = new MediaRecorder(stream);
+      mediaRecorder.ondataavailable = e => chunks.push(e.data);
 
-        mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm;codecs=opus' });
-        mediaRecorder.ondataavailable = e => {
-          if (e.data.size > 0 && ws.readyState === WebSocket.OPEN) {
-            ws.send(e.data);
+      mediaRecorder.onstop = async () => {
+        const blob = new Blob(chunks, { type: 'audio/webm' });
+        const formData = new FormData();
+        formData.append('audio', blob);
+
+        const typingMsg = appendMessage('Roy', '<em class="dots">typing</em>');
+
+        try {
+          const res = await fetch('https://roy-chatbo-backend.onrender.com/api/chat', {
+            method: 'POST',
+            body: formData
+          });
+
+          const data = await res.json();
+          typingMsg.remove();
+
+          if (data.transcript) appendMessage('You', data.transcript);
+          if (data.text) appendMessage('Roy', data.text);
+
+          if (data.audio) {
+            royAudio.src = `data:audio/mp3;base64,${data.audio}`;
+            royAudio.play().catch(e => console.warn('Autoplay error:', e));
+            drawWaveformRoy(royAudio);
           }
-        };
-        mediaRecorder.start(250);
-      };
-
-      ws.onmessage = async e => {
-        const msg = JSON.parse(e.data);
-        if (msg.text && msg.message_type === 'FinalTranscript' && msg.text.trim()) {
-          appendMessage('You', msg.text);
-          await fetchRoyResponse(msg.text);
+        } catch (err) {
+          typingMsg.remove();
+          console.error('Roy response failed:', err);
+          appendMessage('Roy', 'Error generating response.');
         }
       };
 
-      ws.onerror = err => {
-        console.error('WebSocket error:', err);
-        stopRecording();
-      };
-
-      ws.onclose = () => stopRecording();
+      mediaRecorder.start();
 
     } catch (err) {
       appendMessage('Roy', 'Microphone access error.');
@@ -93,43 +102,9 @@ window.addEventListener('DOMContentLoaded', async () => {
   function stopRecording() {
     if (mediaRecorder && mediaRecorder.state !== 'inactive') mediaRecorder.stop();
     if (stream) stream.getTracks().forEach(track => track.stop());
-    if (ws && ws.readyState === WebSocket.OPEN) {
-      ws.send(JSON.stringify({ terminate_session: true }));
-      ws.close();
-    }
     micBtn.textContent = 'Speak';
     micBtn.classList.remove('recording');
     isRecording = false;
-  }
-
-  async function fetchRoyResponse(text) {
-    const typingMsg = appendMessage('Roy', '<em class="dots">typing</em>');
-
-    try {
-      const res = await fetch('https://roy-chatbo-backend.onrender.com/api/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: text, mode: 'both', knowledge: royKnowledge })
-      });
-
-      const data = await res.json();
-      typingMsg.remove();
-
-      if (data.text) {
-        appendMessage('Roy', data.text);
-        if (data.audio) {
-          royAudio.src = `data:audio/mp3;base64,${data.audio}`;
-          royAudio.play().catch(e => console.warn('Autoplay error:', e));
-          drawWaveformRoy(royAudio);
-        }
-      } else {
-        appendMessage('Roy', 'Sorry, I didn’t catch that.');
-      }
-    } catch (err) {
-      typingMsg.remove();
-      console.error('Roy response failed:', err);
-      appendMessage('Roy', 'Error generating response.');
-    }
   }
 
   function drawWaveform(ctx, canvas, analyser, color) {
