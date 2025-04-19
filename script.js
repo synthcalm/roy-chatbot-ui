@@ -12,7 +12,7 @@ const currentTime = document.getElementById('current-time');
 const countdownTimer = document.getElementById('countdown-timer');
 
 // Replace this with your actual deployed backend URL (e.g., Render URL)
-const BACKEND_URL = 'https://your-backend.onrender.com';
+const BACKEND_URL = 'https://roy-chatbot-backend.onrender.com';
 
 let audioContext, analyser, dataArray, source, mediaRecorder, chunks = [];
 let isRecording = false;
