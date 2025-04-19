@@ -59,6 +59,22 @@ button.recording {
   max-width: 800px;
   padding: 6px 0;
   font-size: 14px;
+  text-transform: uppercase;
+}
+
+#current-date {
+  text-align: left;
+  flex: 1;
+}
+
+#current-time {
+  text-align: center;
+  flex: 1;
+}
+
+#countdown-timer {
+  text-align: right;
+  flex: 1;
 }
 
 #messages {
