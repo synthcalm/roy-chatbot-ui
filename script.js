@@ -1,266 +1,226 @@
-let mediaRecorder, audioChunks = [], audioContext, sourceNode;
-let state = 'idle';
-let stream;
-const logHistory = [];
-let recognition;
+// Roy Whisper Integration with MIA Input Logic
 
-const elements = {
-  recordButton: document.getElementById('recordButton'),
-  saveButton: document.getElementById('saveButton'),
-  chat: document.getElementById('chat'),
-  userScope: document.getElementById('userScope'),
-  royScope: document.getElementById('royScope'),
-  clock: document.getElementById('clock'),
-  date: document.getElementById('date'),
-  countdown: document.getElementById('countdown')
-};
+window.addEventListener('DOMContentLoaded', () => {
+  let audioContext = null;
+  let analyser = null;
+  let stream = null;
+  let mediaRecorder = null;
+  let ws = null;
+  let isRecording = false;
+  const sessionStart = Date.now();
+  const recordedChunks = [];
 
-const config = {
-  duration: 3600,
-  maxRecordingTime: 60000
-};
+  const royAudio = new Audio();
+  royAudio.setAttribute('playsinline', 'true');
+  document.body.appendChild(royAudio);
 
-let countdownInterval;
+  const micBtn = document.getElementById('mic-toggle');
+  const messagesEl = document.getElementById('messages');
+  const userCanvas = document.getElementById('userWaveform');
+  const royCanvas = document.getElementById('royWaveform');
+  const userCtx = userCanvas.getContext('2d');
+  const royCtx = royCanvas.getContext('2d');
+  const dateSpan = document.getElementById('current-date');
+  const timeSpan = document.getElementById('current-time');
+  const timerSpan = document.getElementById('countdown-timer');
 
-function updateDateTime() {
-  const now = new Date();
-  if (elements.clock) elements.clock.textContent = now.toTimeString().split(' ')[0];
-  if (elements.date) elements.date.textContent = now.toISOString().split('T')[0];
-}
+  updateClock();
+  setInterval(updateClock, 1000);
 
-function startCountdown() {
-  let remaining = config.duration;
-  if (elements.countdown) elements.countdown.textContent = '60:00';
-  clearInterval(countdownInterval);
-  countdownInterval = setInterval(() => {
-    if (remaining <= 0) {
-      clearInterval(countdownInterval);
-      if (state === 'recording') stopRecording();
-      if (elements.countdown) elements.countdown.textContent = '00:00';
-    } else {
-      const minutes = String(Math.floor(remaining / 60)).padStart(2, '0');
-      const seconds = String(remaining % 60).padStart(2, '0');
-      if (elements.countdown) elements.countdown.textContent = `${minutes}:${seconds}`;
-      remaining--;
+  function updateClock() {
+    const now = new Date();
+    if (dateSpan) dateSpan.textContent = now.toISOString().split('T')[0];
+    if (timeSpan) timeSpan.textContent = now.toTimeString().split(' ')[0];
+    if (timerSpan) {
+      const elapsed = Math.floor((Date.now() - sessionStart) / 1000);
+      const remaining = Math.max(0, 3600 - elapsed);
+      timerSpan.textContent = `${String(Math.floor(remaining / 60)).padStart(2, '0')}:${String(remaining % 60).padStart(2, '0')}`;
     }
-  }, 1000);
-}
-
-function initialize() {
-  const missingElements = Object.keys(elements).filter(key => !elements[key]);
-  if (missingElements.length > 0) {
-    console.error('Missing DOM elements:', missingElements);
-    displayMessage('System', 'Error: Some page elements are missing. Please check the console.');
-    return;
   }
-  setInterval(updateDateTime, 1000);
-  updateDateTime();
-  startCountdown();
-  displayMessage('Therapist', "Hello, I'm your CBT chatbot. What's on your mind today?");
-  speakCBT("Hello, I'm your CBT chatbot. What's on your mind today?");
-}
 
-function displayMessage(role, text) {
-  if (!elements.chat) {
-    console.error('Chat element not found');
-    return;
+  function appendMessage(sender, text) {
+    const p = document.createElement('p');
+    p.className = sender.toLowerCase();
+    const color = sender === 'Roy' ? 'yellow' : 'white';
+    p.innerHTML = `<strong style='color: ${color}'>${sender}:</strong> <span style='color: ${color}'>${text}</span>`;
+    messagesEl.appendChild(p);
+    messagesEl.scrollTop = messagesEl.scrollHeight;
   }
-  const message = document.createElement('div');
-  message.innerHTML = `<strong>${role}:</strong> ${text}`;
-  message.style.color = role === 'Therapist' ? 'yellow' : 'white';
-  elements.chat.appendChild(message);
-  elements.chat.scrollTop = elements.chat.scrollHeight;
-  logHistory.push({ role, text });
-}
 
-elements.recordButton.addEventListener('click', async () => {
-  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-    displayMessage('System', 'Microphone access not supported in this browser.');
-    console.error('MediaDevices API not supported');
-    return;
-  }
-  if (state === 'idle') {
-    await startRecording();
-  } else if (state === 'recording') {
-    stopRecording();
-  }
-});
-
-elements.saveButton.addEventListener('click', () => {
-  const blob = new Blob([logHistory.map(m => `${m.role}: ${m.text}`).join("\n")], { type: 'text/plain' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = 'chat_log.txt';
-  a.click();
-  URL.revokeObjectURL(url);
-});
-
-async function startRecording() {
-  if (state !== 'idle') return;
-  state = 'recording';
-  try {
-    stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    mediaRecorder = new MediaRecorder(stream);
-    audioChunks = [];
-
-    // Initialize speech recognition
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SpeechRecognition) {
-      console.warn('SpeechRecognition API not supported');
-      displayMessage('System', 'Speech transcription not supported in this browser.');
-    } else {
-      recognition = new SpeechRecognition();
-      recognition.lang = 'en-US';
-      recognition.interimResults = false;
-      recognition.maxAlternatives = 1;
-      recognition.start();
-    }
-
-    audioContext = new (window.AudioContext || window.webkitAudioContext)();
-    sourceNode = audioContext.createMediaStreamSource(stream);
-    const analyser = audioContext.createAnalyser();
-    sourceNode.connect(analyser);
-    drawWaveform(elements.userScope, analyser);
-
-    mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
-    mediaRecorder.onstop = async () => {
-      state = 'processing';
-      if (recognition) recognition.stop();
-      cleanupStream();
-      try {
-        const userText = await new Promise((resolve) => {
-          if (!recognition) return resolve('');
-          recognition.onresult = (event) => {
-            const transcript = event.results[0][0].transcript;
-            resolve(transcript);
-          };
-          recognition.onerror = () => resolve('');
-          recognition.onend = () => resolve('');
-        });
-        if (userText) {
-          displayMessage('User', userText);
-        } else {
-          displayMessage('System', 'No transcription available.');
-        }
-        const responseText = "Thanks for sharing. I'm here to listen.";
-        displayMessage('Therapist', responseText);
-        await speakCBT(responseText);
-      } catch (error) {
-        console.error('Processing error:', error);
-        displayMessage('System', `Error: ${error.message}`);
-      } finally {
-        state = 'idle';
-        updateRecordButton();
+  async function startRecording() {
+    try {
+      if (!audioContext) {
+        audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        await audioContext.resume();
       }
-    };
+      stream = await navigator.mediaDevices.getUserMedia({ audio: true });
 
-    mediaRecorder.start();
-    updateRecordButton();
-    setTimeout(() => {
-      if (state === 'recording') stopRecording();
-    }, config.maxRecordingTime);
-  } catch (error) {
-    console.error('Recording error:', error);
-    displayMessage('System', `Recording error: ${error.message}. Please ensure microphone access is allowed.`);
-    state = 'idle';
-    updateRecordButton();
-  }
-}
+      const source = audioContext.createMediaStreamSource(stream);
+      analyser = audioContext.createAnalyser();
+      analyser.fftSize = 2048;
+      source.connect(analyser);
+      drawWaveform(userCtx, userCanvas, analyser, 'yellow');
 
-function stopRecording() {
-  if (state === 'recording' && mediaRecorder) {
-    mediaRecorder.stop();
-  }
-}
+      mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm;codecs=opus' });
+      recordedChunks.length = 0;
 
-function cleanupStream() {
-  if (stream) stream.getTracks().forEach(track => track.stop());
-  if (sourceNode) sourceNode.disconnect();
-  if (audioContext) audioContext.close();
-  stream = null;
-  sourceNode = null;
-  audioContext = null;
-  if (recognition) recognition = null;
-}
-
-function updateRecordButton() {
-  if (!elements.recordButton) return;
-  elements.recordButton.textContent = state === 'recording' ? 'Stop' : 'Speak';
-  elements.recordButton.style.borderColor = state === 'recording' ? 'magenta' : '#0ff';
-  elements.recordButton.disabled = state === 'processing';
-  elements.recordButton.classList.toggle('recording', state === 'recording');
-}
-
-function drawWaveform(canvas, analyser) {
-  if (!canvas) return;
-  const ctx = canvas.getContext('2d');
-  canvas.width = canvas.offsetWidth;
-  canvas.height = canvas.offsetHeight;
-  analyser.fftSize = 256;
-  const bufferLength = analyser.frequencyBinCount;
-  const dataArray = new Uint8Array(bufferLength);
-
-  function draw() {
-    if (state !== 'recording') return;
-    requestAnimationFrame(draw);
-    analyser.getByteTimeDomainData(dataArray);
-    ctx.fillStyle = '#000';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    ctx.lineWidth = 1;
-    ctx.strokeStyle = 'yellow';
-    ctx.beginPath();
-    const sliceWidth = canvas.width / bufferLength;
-    let x = 0;
-    for (let i = 0; i < bufferLength; i++) {
-      const v = dataArray[i] / 128.0;
-      const y = v * canvas.height / 2;
-      i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
-      x += sliceWidth;
-    }
-    ctx.lineTo(canvas.width, canvas.height / 2);
-    ctx.stroke();
-  }
-  draw();
-}
-
-async function speakCBT(text) {
-  return new Promise((resolve, reject) => {
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = 'en-GB';
-    utterance.volume = 1;
-    utterance.rate = 0.9;
-    utterance.pitch = 0.8;
-
-    const voices = speechSynthesis.getVoices();
-    const britishVoice = voices.find(voice => voice.lang === 'en-GB' && voice.name.toLowerCase().includes('male')) || 
-                        voices.find(voice => voice.lang === 'en-GB');
-    if (britishVoice) {
-      utterance.voice = britishVoice;
-    } else {
-      console.warn('No British male voice found, using default en-GB voice');
-    }
-
-    if (voices.length === 0) {
-      speechSynthesis.onvoiceschanged = () => {
-        const voices = speechSynthesis.getVoices();
-        const britishVoice = voices.find(voice => voice.lang === 'en-GB' && voice.name.toLowerCase().includes('male')) || 
-                            voices.find(voice => voice.lang === 'en-GB');
-        if (britishVoice) {
-          utterance.voice = britishVoice;
-        }
-        speechSynthesis.cancel();
-        speechSynthesis.speak(utterance);
+      mediaRecorder.ondataavailable = e => {
+        if (e.data.size > 0) recordedChunks.push(e.data);
       };
-    } else {
-      speechSynthesis.cancel();
-      speechSynthesis.speak(utterance);
+
+      mediaRecorder.onstop = async () => {
+        const blob = new Blob(recordedChunks, { type: 'audio/webm' });
+        const formData = new FormData();
+        formData.append('audio', blob);
+
+        appendMessage('Roy', '<em>Transcribing...</em>');
+
+        try {
+          const res = await fetch('https://roy-chatbo-backend.onrender.com/api/transcribe', {
+            method: 'POST',
+            body: formData
+          });
+          const data = await res.json();
+          if (data.text) {
+            appendMessage('You', data.text);
+            await fetchRoyResponse(data.text);
+          } else {
+            appendMessage('Roy', 'Sorry, I didn’t catch that.');
+          }
+        } catch (err) {
+          console.error('Whisper transcription error:', err);
+          appendMessage('Roy', 'Transcription failed.');
+        }
+      };
+
+      mediaRecorder.start();
+      isRecording = true;
+      micBtn.textContent = 'Stop';
+      micBtn.classList.add('recording');
+    } catch (err) {
+      appendMessage('Roy', 'Mic permission error.');
+      console.error('Mic error:', err);
     }
+  }
 
-    utterance.onend = resolve;
-    utterance.onerror = e => reject(new Error(e.message));
-  });
-}
+  function stopRecording() {
+    if (mediaRecorder && mediaRecorder.state !== 'inactive') mediaRecorder.stop();
+    if (stream) stream.getTracks().forEach(t => t.stop());
+    micBtn.textContent = 'Speak';
+    micBtn.classList.remove('recording');
+    isRecording = false;
+  }
 
-window.addEventListener('unload', cleanupStream);
-document.addEventListener('DOMContentLoaded', initialize);
+  async function fetchRoyResponse(text) {
+    appendMessage('Roy', '<em>Roy is reflecting...</em>');
+    try {
+      const res = await fetch('https://roy-chatbo-backend.onrender.com/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: text, mode: 'both' })
+      });
+      const data = await res.json();
+      if (data.text) appendMessage('Roy', data.text);
+      if (data.audio) {
+        royAudio.src = `data:audio/mp3;base64,${data.audio}`;
+        royAudio.play().catch(e => console.warn('Autoplay error', e));
+        drawWaveformRoy(royAudio);
+      }
+    } catch (err) {
+      console.error('Roy response failed:', err);
+      appendMessage('Roy', 'Error generating response.');
+    }
+  }
+
+  function drawWaveform(ctx, canvas, analyser, color) {
+    const buffer = new Uint8Array(analyser.frequencyBinCount);
+    function draw() {
+      if (!isRecording) return;
+      requestAnimationFrame(draw);
+      analyser.getByteTimeDomainData(buffer);
+      ctx.fillStyle = '#000';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.strokeStyle = '#333';
+      ctx.lineWidth = 0.5;
+      for (let i = 0; i <= canvas.width; i += 20) {
+        ctx.beginPath();
+        ctx.moveTo(i, 0);
+        ctx.lineTo(i, canvas.height);
+        ctx.stroke();
+      }
+      for (let j = 0; j <= canvas.height; j += 20) {
+        ctx.beginPath();
+        ctx.moveTo(0, j);
+        ctx.lineTo(canvas.width, j);
+        ctx.stroke();
+      }
+      ctx.strokeStyle = color;
+      ctx.beginPath();
+      const slice = canvas.width / buffer.length;
+      let x = 0;
+      for (let i = 0; i < buffer.length; i++) {
+        const y = (buffer[i] / 128.0) * canvas.height / 2;
+        i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+        x += slice;
+      }
+      ctx.lineTo(canvas.width, canvas.height / 2);
+      ctx.stroke();
+    }
+    draw();
+  }
+
+  function drawWaveformRoy(audio) {
+    const ac = new (window.AudioContext || window.webkitAudioContext)();
+    const analyser = ac.createAnalyser();
+    const source = ac.createMediaElementSource(audio);
+    source.connect(analyser);
+    analyser.connect(ac.destination);
+    analyser.fftSize = 2048;
+    const buffer = new Uint8Array(analyser.frequencyBinCount);
+    function draw() {
+      requestAnimationFrame(draw);
+      analyser.getByteTimeDomainData(buffer);
+      royCtx.fillStyle = '#000';
+      royCtx.fillRect(0, 0, royCanvas.width, royCanvas.height);
+      royCtx.strokeStyle = '#333';
+      royCtx.lineWidth = 0.5;
+      for (let i = 0; i <= royCanvas.width; i += 20) {
+        royCtx.beginPath();
+        royCtx.moveTo(i, 0);
+        royCtx.lineTo(i, royCanvas.height);
+        royCtx.stroke();
+      }
+      for (let j = 0; j <= royCanvas.height; j += 20) {
+        royCtx.beginPath();
+        royCtx.moveTo(0, j);
+        royCtx.lineTo(royCanvas.width, j);
+        royCtx.stroke();
+      }
+      royCtx.strokeStyle = 'magenta';
+      royCtx.beginPath();
+      const slice = royCanvas.width / buffer.length;
+      let x = 0;
+      for (let i = 0; i < buffer.length; i++) {
+        const y = (buffer[i] / 128.0) * royCanvas.height / 2;
+        i === 0 ? royCtx.moveTo(x, y) : royCtx.lineTo(x, y);
+        x += slice;
+      }
+      royCtx.lineTo(royCanvas.width, royCanvas.height / 2);
+      royCtx.stroke();
+    }
+    draw();
+  }
+
+  document.body.addEventListener('touchstart', () => {
+    if (!audioContext) audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    if (audioContext.state === 'suspended') audioContext.resume();
+  }, { once: true });
+
+  if (micBtn) {
+    micBtn.addEventListener('click', () => {
+      isRecording ? stopRecording() : startRecording();
+    });
+  }
+
+  appendMessage('Roy', "Welcome. I'm Roy. Speak when ready.");
+});
