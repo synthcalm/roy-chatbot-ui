@@ -1,52 +1,47 @@
 body {
-  margin: 0;
-  background: #000;
+  background-color: black;
+  color: cyan;
   font-family: 'Courier New', monospace;
-  color: #fff;
-  display: flex;
-  justify-content: center;
-  align-items: flex-start;
-  min-height: 100vh;
-  padding: 20px;
+  text-align: center;
+  margin: 0;
+  padding: 2em;
 }
 
-.interface {
-  width: 100%;
-  max-width: 700px;
-}
-
-.status-bar {
+#clock-wrapper {
   display: flex;
   justify-content: space-between;
-  font-size: 14px;
+  margin-bottom: 1em;
   color: cyan;
-  margin-bottom: 12px;
+  font-size: 14px;
+  width: 100%;
+  max-width: 800px;
+  margin-inline: auto;
 }
 
 canvas {
+  display: block;
   width: 100%;
-  height: 120px;
-  background-color: #000;
-  border: 1px solid #0ff;
-  margin-bottom: 10px;
-  background-image: linear-gradient(to right, rgba(255, 255, 0, 0.3) 1px, transparent 1px),
-                    linear-gradient(to bottom, rgba(255, 255, 0, 0.3) 1px, transparent 1px);
+  max-width: 800px;
+  height: 100px;
+  margin: 0 auto 10px;
+  background: black;
+  border: 1px solid cyan;
+  background-image: linear-gradient(to right, rgba(255, 255, 0, 0.2) 1px, transparent 1px),
+                    linear-gradient(to bottom, rgba(255, 255, 0, 0.2) 1px, transparent 1px);
   background-size: 20px 20px;
 }
 
-.controls {
-  display: flex;
-  justify-content: space-evenly;
-  margin-bottom: 12px;
+#controls {
+  margin-top: 10px;
 }
 
 button {
-  padding: 10px 20px;
   font-family: 'Courier New', monospace;
-  font-size: 16px;
-  border: 1px solid #0ff;
-  background-color: transparent;
-  color: #0ff;
+  background-color: black;
+  border: 1px solid cyan;
+  color: cyan;
+  padding: 8px 16px;
+  margin: 6px;
   cursor: pointer;
 }
 
@@ -55,11 +50,39 @@ button.recording {
   color: magenta;
 }
 
-.chat-box {
+.divider {
+  margin: 30px auto;
+  width: 100%;
+  max-width: 800px;
+  border-top: 1px dashed cyan;
+}
+
+#messages {
+  max-width: 800px;
+  margin: 0 auto;
+  text-align: left;
   font-size: 16px;
   line-height: 1.6;
-  padding-top: 10px;
-  border-top: 1px dashed #555;
   overflow-y: auto;
-  max-height: 300px;
+  padding-bottom: 30px;
+}
+
+#messages p {
+  margin: 10px 0;
+}
+
+#messages .roy strong {
+  color: yellow;
+}
+
+#messages .roy span {
+  color: yellow;
+}
+
+#messages .you strong {
+  color: white;
+}
+
+#messages .you span {
+  color: white;
 }
