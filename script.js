@@ -1,3 +1,4 @@
+// Roy Chatbot: Full Restoration (April 17 Version)
 let mediaRecorder, audioChunks = [], audioContext, sourceNode;
 let state = 'idle';
 let stream;
@@ -47,12 +48,12 @@ setInterval(updateDateTime, 1000);
 updateDateTime();
 startCountdown();
 
-displayMessage("Therapist", "Hello, I'm your CBT chatbot. What's on your mind today?");
+displayMessage("Roy", "Welcome. I'm Roy. Speak when ready.");
 
 function displayMessage(role, text) {
   const message = document.createElement('div');
   message.innerHTML = `<strong>${role}:</strong> ${text}`;
-  message.style.color = role === 'Therapist' ? 'yellow' : 'white';
+  message.style.color = role === 'Roy' ? 'yellow' : 'white';
   elements.chat.appendChild(message);
   elements.chat.scrollTop = elements.chat.scrollHeight;
   logHistory.push({ role, text });
@@ -91,9 +92,12 @@ async function startRecording() {
       state = 'processing';
       cleanupStream();
       try {
-        const responseText = "Thanks for sharing. I'm here to listen.";
-        displayMessage('Therapist', responseText);
-        await speakCBT(responseText);
+        const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+        const userText = await simulateTranscription(audioBlob);
+        displayMessage('You', userText);
+        const royText = await getRoyResponse(userText);
+        displayMessage('Roy', royText);
+        await speakRoy(royText);
       } catch (error) {
         displayMessage('System', `Error: ${error.message}`);
       } finally {
@@ -161,41 +165,35 @@ function drawWaveform(canvas, analyser) {
   draw();
 }
 
-async function speakCBT(text) {
+async function simulateTranscription(blob) {
+  return new Promise(resolve => {
+    setTimeout(() => resolve("I'm tired of being ignored by my boss."), 400);
+  });
+}
+
+async function getRoyResponse(userText) {
+  const options = [
+    "I hear you. That matters.",
+    "What makes that important to you?",
+    "That frustration you're carrying — let’s get it out in the open.",
+    "Truth. Always. Let’s face it, not flee from it.",
+    "You're not lost. You're searching. That’s different."
+  ];
+  return options[Math.floor(Math.random() * options.length)];
+}
+
+async function speakRoy(text) {
   return new Promise((resolve, reject) => {
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = 'en-GB'; // Set British English
-    utterance.volume = 1;
-    utterance.rate = 0.9; // Slightly slower for natural pacing
-    utterance.pitch = 0.8; // Lower pitch for a middle-aged male voice
-
-    // Select a male-sounding British voice
     const voices = speechSynthesis.getVoices();
-    const britishVoice = voices.find(voice => voice.lang === 'en-GB' && voice.name.toLowerCase().includes('male')) || 
-                        voices.find(voice => voice.lang === 'en-GB');
-    if (britishVoice) {
-      utterance.voice = britishVoice;
-    } else {
-      console.warn('No British male voice found, using default en-GB voice');
-    }
-
-    // Ensure voices are loaded
-    if (voices.length === 0) {
-      speechSynthesis.onvoiceschanged = () => {
-        const voices = speechSynthesis.getVoices();
-        const britishVoice = voices.find(voice => voice.lang === 'en-GB' && voice.name.toLowerCase().includes('male')) || 
-                            voices.find(voice => voice.lang === 'en-GB');
-        if (britishVoice) {
-          utterance.voice = britishVoice;
-        }
-        speechSynthesis.cancel();
-        speechSynthesis.speak(utterance);
-      };
-    } else {
-      speechSynthesis.cancel();
-      speechSynthesis.speak(utterance);
-    }
-
+    const royVoice = voices.find(v => v.name.toLowerCase().includes("onyx")) || voices.find(v => v.lang === 'en-US');
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.voice = royVoice;
+    utterance.lang = 'en-US';
+    utterance.pitch = 0.65;
+    utterance.rate = 0.9;
+    utterance.volume = 1;
+    speechSynthesis.cancel();
+    speechSynthesis.speak(utterance);
     utterance.onend = resolve;
     utterance.onerror = e => reject(new Error(e.message));
   });
