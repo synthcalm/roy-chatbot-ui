@@ -1,114 +1,94 @@
-@keyframes pulse {
-  0% { box-shadow: 0 0 0 0 rgba(0,255,255, 0.7); }
-  70% { box-shadow: 0 0 0 10px rgba(0,255,255, 0); }
-  100% { box-shadow: 0 0 0 0 rgba(0,255,255, 0); }
-}
-
-/* SynthCalm Roy | Finalized UI Styles - Locked Layout */
-
 body {
   margin: 0;
   padding: 0;
-  background-color: #000;
+  background: black;
+  color: white;
   font-family: 'Courier New', monospace;
-  color: #fff;
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: flex-start;
-  min-height: 100vh;
+}
+
+.info-bar {
+  display: flex;
+  justify-content: space-between;
+  width: 90%;
+  max-width: 800px;
+  padding: 10px 0;
+  font-size: 14px;
+}
+
+#current-date,
+#current-time,
+#countdown-timer {
+  color: #0ff;
+  padding: 0 10px;
 }
 
 canvas {
-  background-color: #000;
-  border: 1px solid cyan;
-  margin-top: 10px;
-  max-width: 90vw;
-  width: 800px;
-  height: 80px;
-  background-image: 
-    linear-gradient(to right, rgba(255,255,0,0.2) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(255,255,0,0.2) 1px, transparent 1px);
+  width: 90%;
+  max-width: 800px;
+  height: 100px;
+  background: black;
+  border: none;
+  display: block;
+  margin: 10px 0;
+  background-image: linear-gradient(to right, rgba(255,255,0,0.15) 1px, transparent 1px),
+                    linear-gradient(to bottom, rgba(255,255,0,0.15) 1px, transparent 1px);
   background-size: 20px 20px;
 }
 
 #controls {
   display: flex;
   justify-content: center;
-  gap: 16px;
-  margin: 20px 0;
+  gap: 10px;
+  margin: 10px 0;
 }
 
 button {
   font-family: 'Courier New', monospace;
   font-size: 14px;
-  padding: 8px 16px;
+  padding: 10px 20px;
   color: cyan;
-  background-color: black;
+  background: black;
   border: 1px solid cyan;
   cursor: pointer;
-  transition: all 0.2s ease-in-out;
-}
-
-button:hover {
-  background-color: cyan;
-  color: black;
+  text-transform: uppercase;
 }
 
 button.recording {
-  background-color: black;
-  color: cyan;
   border-color: magenta;
-  animation: pulse 1s infinite;
+  color: magenta;
 }
 
 #messages {
+  width: 90%;
   max-width: 800px;
-  width: 90vw;
-  max-height: 300px;
-  padding: 10px;
-  margin-bottom: 40px;
-  overflow-y: auto;
-}
-
-#messages p {
+  margin: 20px 0;
   font-size: 16px;
-  line-height: 1.6;
-  margin: 6px 0;
-  word-wrap: break-word;
+  overflow-y: auto;
+  max-height: 300px;
 }
 
-.roy {
+p.roy {
   color: yellow;
+  margin: 5px 0;
 }
 
-.you {
+p.you {
   color: white;
+  margin: 5px 0;
 }
 
-.info-bar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  width: 800px;
-  max-width: 90vw;
-  padding: 10px;
-  color: cyan;
-  font-size: 14px;
-  position: relative;
+.dots {
+  display: inline-block;
+  width: 20px;
+  text-align: center;
+  animation: blink 1s infinite;
 }
 
-#current-date {
-  position: absolute;
-  left: 10px;
-}
-
-#current-time {
-  position: absolute;
-  left: 180px;
-}
-
-#countdown-timer {
-  position: absolute;
-  right: 10px;
+@keyframes blink {
+  0% { opacity: 0.2; }
+  50% { opacity: 1; }
+  100% { opacity: 0.2; }
 }
