@@ -91,11 +91,8 @@ async function startRecording() {
       state = 'processing';
       cleanupStream();
       try {
-        const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
-        const userText = await transcribeAudio(audioBlob);
-        displayMessage('You', userText);
-        const responseText = await getCBTResponse(userText);
-        await typeCBTMessage(responseText);
+        const responseText = "Thanks for sharing. I'm here to listen.";
+        displayMessage('Therapist', responseText);
         await speakCBT(responseText);
       } catch (error) {
         displayMessage('System', `Error: ${error.message}`);
@@ -164,23 +161,6 @@ function drawWaveform(canvas, analyser) {
   draw();
 }
 
-async function transcribeAudio(blob) {
-  return new Promise(resolve => {
-    setTimeout(() => resolve("I feel weird today."), 500);
-  });
-}
-
-async function getCBTResponse(userText) {
-  const responses = [
-    "Let's try identifying the thought behind that feeling.",
-    "Can you tell me what triggered that reaction?",
-    "It might help to challenge that belief. What evidence supports it?",
-    "How would you respond if a friend told you that?",
-    "You're doing well. Just take it one step at a time."
-  ];
-  return responses[Math.floor(Math.random() * responses.length)];
-}
-
 async function speakCBT(text) {
   return new Promise((resolve, reject) => {
     const utterance = new SpeechSynthesisUtterance(text);
@@ -192,25 +172,6 @@ async function speakCBT(text) {
     speechSynthesis.speak(utterance);
     utterance.onend = resolve;
     utterance.onerror = e => reject(new Error(e.message));
-  });
-}
-
-async function typeCBTMessage(text) {
-  return new Promise(resolve => {
-    let i = 0;
-    const msg = document.createElement('div');
-    msg.innerHTML = `<strong>Therapist:</strong> `;
-    msg.style.color = 'yellow';
-    elements.chat.appendChild(msg);
-    const interval = setInterval(() => {
-      if (i <= text.length) {
-        msg.innerHTML = `<strong>Therapist:</strong> ${text.slice(0, i)}`;
-        i++;
-      } else {
-        clearInterval(interval);
-        resolve();
-      }
-    }, 25);
   });
 }
 
