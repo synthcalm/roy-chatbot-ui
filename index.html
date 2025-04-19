@@ -15,19 +15,17 @@
     </div>
     <canvas id="userScope"></canvas>
     <canvas id="royScope"></canvas>
+
+    <div id="controls">
+      <button id="recordButton">Speak</button>
+      <button id="saveButton">Save Log</button>
+      <button onclick="window.location.href='/'">SynthCalm Home</button>
+    </div>
+
+    <div id="chat"></div>
   </div>
 
-  <div id="chat"></div>
-
-  <div id="controls">
-    <button id="recordButton">Speak</button>
-    <button id="saveButton">Save Log</button>
-    <button onclick="window.location.href='/'">SynthCalm Home</button>
-  </div>
-
-  <!-- Hidden Roy voice audio for waveform visualization -->
   <audio id="royAudio" src="roy-voice.mp3"></audio>
-
   <script src="script.js"></script>
 </body>
 </html>
