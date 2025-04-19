@@ -1,4 +1,4 @@
-// SynthCalm Roy - Revised script.js for synced waveform, voice, and persona
+// SynthCalm Roy - Revised script.js with voice prioritization, emotion detection, type-sync
 let mediaRecorder, audioChunks = [], audioContext, sourceNode;
 let state = 'idle';
 let stream;
