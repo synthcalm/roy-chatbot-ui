@@ -1,4 +1,4 @@
-// script.js (extracted from index.html)
+// script.js (extended with Roy's knowledgebase + natural 70% spontaneous speech patterns)
 
 window.addEventListener('DOMContentLoaded', () => {
   const micBtn = document.getElementById('mic-toggle');
@@ -111,7 +111,7 @@ window.addEventListener('DOMContentLoaded', () => {
       const data = await res.json();
       const typingEl = document.getElementById('typing');
       if (typingEl) typingEl.remove();
-      if (data.text) appendMessage('Roy', data.text);
+      if (data.text) appendMessage('Roy', infuseNaturalSpeech(addCBTResponse(data.text, text)));
       if (data.audio) {
         royAudio.src = `data:audio/mp3;base64,${data.audio}`;
         royAudio.play().catch(err => console.warn('Autoplay error:', err));
@@ -121,6 +121,32 @@ window.addEventListener('DOMContentLoaded', () => {
       console.error('Roy response failed:', err);
       appendMessage('Roy', 'Error generating response.');
     }
+  }
+
+  function infuseNaturalSpeech(original) {
+    const naturalPhrases = [
+      "You know...",
+      "How should I say this...",
+      "Let me think about this...",
+      "Mmm, alright...",
+      "Honestly...",
+      "If I can be real with you...",
+      "Let me be straight with you...",
+      "Okay, here's the thing..."
+    ];
+    return Math.random() < 0.7 ? `${naturalPhrases[Math.floor(Math.random() * naturalPhrases.length)]} ${original}` : original;
+  }
+
+  function addCBTResponse(original, userText) {
+    const stressors = ['loss', 'divorce', 'illness', 'financial difficulty', 'isolation', 'failure', 'betrayal', 'identity crisis', 'violence', 'trauma'];
+    const detected = stressors.find(s => userText.toLowerCase().includes(s));
+    const affirmations = [
+      "You are allowed to feel this.",
+      "Let’s work through this together.",
+      "You’re here, and that’s a strong first step.",
+      "Let’s explore why this affects you."
+    ];
+    return `${original} ${detected ? '\n\n' + affirmations[Math.floor(Math.random() * affirmations.length)] : ''}`;
   }
 
   function drawWaveform(ctx, canvas, analyser, color) {
