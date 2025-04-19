@@ -1,4 +1,4 @@
-// SynthCalm Roy - Updated script.js with fixed voice targeting and waveform loop
+// Finalized SynthCalm Roy script with waveform for Roy's voice using royAudio
 let mediaRecorder, audioChunks = [], audioContext, sourceNode;
 let state = 'idle';
 let stream;
@@ -12,11 +12,12 @@ const elements = {
   royScope: document.getElementById('royScope'),
   clock: document.getElementById('clock'),
   date: document.getElementById('date'),
-  countdown: document.getElementById('countdown')
+  countdown: document.getElementById('countdown'),
+  royAudio: document.getElementById('royAudio')
 };
 
 const config = {
-  duration: 60,
+  duration: 3600,
   maxRecordingTime: 60000
 };
 
@@ -71,6 +72,7 @@ async function startRecording() {
     sourceNode = audioContext.createMediaStreamSource(stream);
     const analyser = audioContext.createAnalyser();
     sourceNode.connect(analyser);
+
     drawWaveform(elements.userScope, analyser);
 
     mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
@@ -82,10 +84,8 @@ async function startRecording() {
         const userText = await transcribeAudio(audioBlob);
         displayMessage('You', userText);
         const royText = await getRoyResponse(userText);
-        await Promise.all([
-          typeRoyMessage(royText),
-          speakRoy(royText)
-        ]);
+        await typeRoyMessage(royText);
+        await speakRoy(royText);
       } catch (error) {
         displayMessage('System', `Error: ${error.message}`);
       } finally {
@@ -126,6 +126,18 @@ elements.recordButton.addEventListener('click', () => {
   state === 'idle' ? startRecording() : stopRecording();
 });
 
+elements.saveButton.addEventListener('click', () => {
+  const blob = new Blob([logHistory.map(m => `${m.role}: ${m.text}`).join("\n")], { type: 'text/plain' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'chat_log.txt';
+  a.click();
+  URL.revokeObjectURL(url);
+});
+
+window.addEventListener('unload', cleanupStream);
+
 function drawWaveform(canvas, analyser) {
   const ctx = canvas.getContext('2d');
   canvas.width = canvas.offsetWidth;
@@ -136,7 +148,6 @@ function drawWaveform(canvas, analyser) {
 
   function draw() {
     requestAnimationFrame(draw);
-    if (state !== 'recording') return;
     analyser.getByteTimeDomainData(dataArray);
     ctx.fillStyle = '#000';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -181,33 +192,24 @@ async function getRoyResponse(userText) {
     neutral: "Let’s explore that further. I'm here with you."
   };
 
-  const chosen = `${reflections[tone]} ${affirmations[Math.floor(Math.random() * affirmations.length)]}`;
-  return chosen;
+  return `${reflections[tone]} ${affirmations[Math.floor(Math.random() * affirmations.length)]}`;
 }
 
 async function speakRoy(text) {
   return new Promise((resolve, reject) => {
-    function speakNow() {
-      const voices = speechSynthesis.getVoices();
-      const royVoice = voices.find(v => v.name === "Google US English") || voices.find(v => v.lang === 'en-US');
+    const audio = elements.royAudio;
+    audio.pause();
+    audio.currentTime = 0;
+    audio.play().catch(reject);
 
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.voice = royVoice;
-      utterance.pitch = 0.7;
-      utterance.rate = 0.92;
-      utterance.volume = 1;
-      utterance.lang = 'en-US';
-      speechSynthesis.cancel();
-      speechSynthesis.speak(utterance);
-      utterance.onend = resolve;
-      utterance.onerror = e => reject(new Error(e.message));
-    }
+    const ac = new (window.AudioContext || window.webkitAudioContext)();
+    const analyser = ac.createAnalyser();
+    const source = ac.createMediaElementSource(audio);
+    source.connect(analyser);
+    analyser.connect(ac.destination);
+    drawWaveform(elements.royScope, analyser);
 
-    if (speechSynthesis.getVoices().length === 0) {
-      speechSynthesis.addEventListener('voiceschanged', speakNow, { once: true });
-    } else {
-      speakNow();
-    }
+    audio.onended = resolve;
   });
 }
 
@@ -219,25 +221,4 @@ async function typeRoyMessage(text) {
     msg.style.color = 'yellow';
     elements.chat.appendChild(msg);
     const interval = setInterval(() => {
-      if (i <= text.length) {
-        msg.innerHTML = `<strong>Roy:</strong> ${text.slice(0, i)}`;
-        i++;
-      } else {
-        clearInterval(interval);
-        resolve();
-      }
-    }, 25);
-  });
-}
-
-elements.saveButton.addEventListener('click', () => {
-  const blob = new Blob([logHistory.map(m => `${m.role}: ${m.text}`).join("\n")], { type: 'text/plain' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = 'chat_log.txt';
-  a.click();
-  URL.revokeObjectURL(url);
-});
-
-window.addEventListener('unload', cleanupStream);
+      if (i <= text.length
