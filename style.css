@@ -37,6 +37,10 @@ canvas {
   height: 100px;
 }
 
+#userWaveform.rant-mode {
+  border: 1px solid red;
+}
+
 #controls {
   display: flex;
   justify-content: center;
@@ -55,6 +59,11 @@ button {
   border: 1px solid cyan;
   padding: 6px 12px;
   cursor: pointer;
+}
+
+button:hover {
+  background: yellow;
+  color: black;
 }
 
 button.recording {
