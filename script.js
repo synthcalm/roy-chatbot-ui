@@ -1,4 +1,4 @@
-// SynthCalm Roy - Updated script.js with synced waveform, typing, and voice
+// SynthCalm Roy - Revised script.js for synced waveform, voice, and persona
 let mediaRecorder, audioChunks = [], audioContext, sourceNode;
 let state = 'idle';
 let stream;
@@ -190,6 +190,7 @@ async function speakRoy(text) {
     function speakNow() {
       const voices = speechSynthesis.getVoices();
       const royVoice = voices.find(v => v.name.toLowerCase().includes("onyx")) ||
+                       voices.find(v => v.name === "Google US English") ||
                        voices.find(v => v.name.startsWith("O")) ||
                        voices.find(v => v.lang === 'en-US');
 
