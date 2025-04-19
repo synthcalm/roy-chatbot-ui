@@ -52,16 +52,17 @@ function clearMessagesAndShowGreeting(mode) {
   }
   messagesDiv.appendChild(msg);
   messagesDiv.scrollTop = messagesDiv.scrollHeight;
+  speakToggle.classList.add('ready-to-speak'); // Ensure Speak button glows when mode is selected
 }
 
 // Select Roy mode
 royToggle.addEventListener('click', () => {
   if (isRecording) return; // Prevent mode change while recording
+  if (isModeSelected && !isRantMode) return; // Already in Roy mode
   isModeSelected = true;
   isRantMode = false;
   royToggle.classList.add('active-roy');
   randyToggle.classList.remove('active-randy');
-  speakToggle.classList.add('ready-to-speak');
   speakToggle.textContent = 'Speak';
   clearMessagesAndShowGreeting('roy');
 });
@@ -69,11 +70,11 @@ royToggle.addEventListener('click', () => {
 // Select Randy mode
 randyToggle.addEventListener('click', () => {
   if (isRecording) return; // Prevent mode change while recording
+  if (isModeSelected && isRantMode) return; // Already in Randy mode
   isModeSelected = true;
   isRantMode = true;
   randyToggle.classList.add('active-randy');
   royToggle.classList.remove('active-roy');
-  speakToggle.classList.add('ready-to-speak');
   speakToggle.textContent = 'Speak';
   clearMessagesAndShowGreeting('randy');
 });
@@ -247,42 +248,3 @@ speakToggle.addEventListener('click', async () => {
 saveButton.addEventListener('click', () => {
   const messages = messagesDiv.innerHTML;
   const blob = new Blob([messages], { type: 'text/html' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = 'chat-log.html';
-  a.click();
-  URL.revokeObjectURL(url);
-});
-
-function visualizeAudio(audioElement, canvas, ctx, color, externalAnalyser, externalDataArray) {
-  let audioCtx, analyser, dataArray, source;
-  if (audioElement) {
-    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    analyser = audioCtx.createAnalyser();
-    source = audioCtx.createMediaElementSource(audioElement);
-    source.connect(analyser);
-    analyser.connect(audioCtx.destination);
-    analyser.fftSize = 2048;
-    dataArray = new Uint8Array(analyser.frequencyBinCount);
-  } else {
-    analyser = externalAnalyser;
-    dataArray = externalDataArray;
-  }
-
-  function draw() {
-    analyser.getByteFrequencyData(dataArray);
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    ctx.beginPath();
-    for (let i = 0; i < dataArray.length; i++) {
-      const value = dataArray[i];
-      ctx.lineTo(i * (canvas.width / dataArray.length), canvas.height - value);
-    }
-    ctx.strokeStyle = color;
-    ctx.stroke();
-    if (isRecording || audioElement) {
-      requestAnimationFrame(draw);
-    }
-  }
-  draw();
-}
