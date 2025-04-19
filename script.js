@@ -1,5 +1,6 @@
 const royToggle = document.getElementById('roy-toggle');
 const randyToggle = document.getElementById('randy-toggle');
+const speakToggle = document.getElementById('speak-toggle');
 const saveButton = document.getElementById('saveButton');
 const userWaveform = document.getElementById('userWaveform');
 const royWaveform = document.getElementById('royWaveform');
@@ -16,8 +17,10 @@ const BACKEND_URL = 'https://your-backend.onrender.com';
 let audioContext, analyser, dataArray, source, mediaRecorder, chunks = [];
 let isRecording = false;
 let isRantMode = false;
+let isModeSelected = false;
 let volumeData = [];
 let sessionStartTime;
+let timerInterval;
 
 // Update date and time
 function updateDateTime() {
@@ -26,29 +29,61 @@ function updateDateTime() {
   currentTime.textContent = now.toLocaleTimeString();
   if (sessionStartTime) {
     const elapsed = Math.floor((now - sessionStartTime) / 1000);
-    const minutes = Math.floor(elapsed / 60);
-    const seconds = elapsed % 60;
-    countdownTimer.textContent = `Session: ${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
+    const remaining = 3600 - elapsed; // 60 minutes = 3600 seconds
+    if (remaining <= 0) {
+      stopRecording();
+      countdownTimer.textContent = 'Session: 60:00';
+    } else {
+      const minutes = Math.floor(remaining / 60);
+      const seconds = remaining % 60;
+      countdownTimer.textContent = `Session: ${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
+    }
   }
 }
 setInterval(updateDateTime, 1000);
 
-// Start recording (shared logic for both Roy and Randy)
-async function startRecording(mode) {
-  isRecording = true;
-  isRantMode = mode === 'randy';
-  console.log(`Starting recording in ${mode} mode (isRantMode: ${isRantMode})`);
-  royToggle.textContent = 'Roy';
-  randyToggle.textContent = 'Randy';
-  if (mode === 'roy') {
-    royToggle.textContent = 'Stop';
-    royToggle.classList.add('recording');
-    randyToggle.classList.remove('recording');
-  } else {
-    randyToggle.textContent = 'Stop';
-    randyToggle.classList.add('recording');
-    royToggle.classList.remove('recording');
+// Select Roy mode
+royToggle.addEventListener('click', () => {
+  if (!isModeSelected || isRantMode) {
+    isModeSelected = true;
+    isRantMode = false;
+    royToggle.classList.add('active-roy');
+    randyToggle.classList.remove('active-randy');
+    speakToggle.classList.add('ready-to-speak');
+    speakToggle.textContent = 'Speak';
+    const msg = document.createElement('p');
+    msg.className = 'roy';
+    msg.innerHTML = `<em>Roy:</em> Greetings, my friend—like a weary traveler, you’ve arrived. What weighs on your soul today?`;
+    messagesDiv.appendChild(msg);
+    messagesDiv.scrollTop = messagesDiv.scrollHeight;
   }
+});
+
+// Select Randy mode
+randyToggle.addEventListener('click', () => {
+  if (!isModeSelected || !isRantMode) {
+    isModeSelected = true;
+    isRantMode = true;
+    randyToggle.classList.add('active-randy');
+    royToggle.classList.remove('active-roy');
+    speakToggle.classList.add('ready-to-speak');
+    speakToggle.textContent = 'Speak';
+    const msg = document.createElement('p');
+    msg.className = 'roy';
+    msg.innerHTML = `<em>Randy:</em> Unleash the chaos—what’s burning you up?`;
+    messagesDiv.appendChild(msg);
+    messagesDiv.scrollTop = messagesDiv.scrollHeight;
+  }
+});
+
+// Start recording
+async function startRecording() {
+  if (!isModeSelected) return; // Prevent recording if no mode is selected
+
+  isRecording = true;
+  speakToggle.textContent = 'Stop';
+  speakToggle.classList.remove('ready-to-speak');
+  speakToggle.classList.add('recording');
   sessionStartTime = new Date();
 
   const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -66,12 +101,10 @@ async function startRecording(mode) {
 
   mediaRecorder.ondataavailable = async (e) => {
     chunks.push(e.data);
-    // Simplified volume analysis
     analyser.getByteFrequencyData(dataArray);
     const avgVolume = dataArray.reduce((sum, val) => sum + val, 0) / dataArray.length;
     volumeData.push(avgVolume);
 
-    // Transcribe chunk
     const formData = new FormData();
     formData.append('audio', e.data, 'audio.webm');
     let transcribeRes;
@@ -80,9 +113,7 @@ async function startRecording(mode) {
         method: 'POST',
         body: formData
       });
-      if (!transcribeRes.ok) {
-        throw new Error(`HTTP error! status: ${transcribeRes.status}`);
-      }
+      if (!transcribeRes.ok) throw new Error(`HTTP error! status: ${transcribeRes.status}`);
     } catch (err) {
       console.error('Transcription fetch error:', err);
       const msg = document.createElement('p');
@@ -96,20 +127,17 @@ async function startRecording(mode) {
     let transcription;
     try {
       transcription = await transcribeRes.json();
-      console.log('Transcription:', transcription.text);
     } catch (err) {
       console.error('Transcription JSON parse error:', err);
       return;
     }
 
-    // Send to chat for interim response
     const chatPayload = {
       message: transcription.text || '',
       mode: 'both',
       persona: isRantMode ? 'randy' : 'default',
-      volumeData: volumeData.slice(-5) // Last 5 seconds
+      volumeData: volumeData.slice(-5)
     };
-    console.log('Sending /api/chat request:', chatPayload);
     let chatRes;
     try {
       chatRes = await fetch(`${BACKEND_URL}/api/chat`, {
@@ -117,23 +145,13 @@ async function startRecording(mode) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(chatPayload)
       });
-      if (!chatRes.ok) {
-        throw new Error(`HTTP error! status: ${chatRes.status}`);
-      }
+      if (!chatRes.ok) throw new Error(`HTTP error! status: ${chatRes.status}`);
     } catch (err) {
       console.error('Chat fetch error:', err);
-      const msg = document.createElement('p');
-      msg.className = 'roy';
-      msg.innerHTML = `<em>${isRantMode ? 'Randy' : 'Roy'}:</em> I couldn’t connect—please check the backend and try again.`;
-      messagesDiv.appendChild(msg);
-      messagesDiv.scrollTop = messagesDiv.scrollHeight;
       return;
     }
 
     const { text: royText, audio: audioBase64 } = await chatRes.json();
-    console.log('Chat response:', { royText, audioBase64: audioBase64 ? 'present' : 'missing' });
-
-    // Display interim response
     const msg = document.createElement('p');
     msg.className = 'roy';
     msg.innerHTML = `<em>${isRantMode ? 'Randy' : 'Roy'}:</em> ${royText}`;
@@ -158,24 +176,19 @@ async function startRecording(mode) {
         method: 'POST',
         body: formData
       });
-      if (!transcribeRes.ok) {
-        throw new Error(`HTTP error! status: ${transcribeRes.status}`);
-      }
+      if (!transcribeRes.ok) throw new Error(`HTTP error! status: ${transcribeRes.status}`);
     } catch (err) {
       console.error('Final transcription fetch error:', err);
       return;
     }
 
     const { text } = await transcribeRes.json();
-    console.log('Final transcription:', text);
-
     const chatPayload = {
       message: text,
       mode: 'both',
       persona: isRantMode ? 'randy' : 'default',
       volumeData
     };
-    console.log('Sending final /api/chat request:', chatPayload);
     let chatRes;
     try {
       chatRes = await fetch(`${BACKEND_URL}/api/chat`, {
@@ -183,17 +196,13 @@ async function startRecording(mode) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(chatPayload)
       });
-      if (!chatRes.ok) {
-        throw new Error(`HTTP error! status: ${chatRes.status}`);
-      }
+      if (!chatRes.ok) throw new Error(`HTTP error! status: ${chatRes.status}`);
     } catch (err) {
       console.error('Final chat fetch error:', err);
       return;
     }
 
     const { text: royText, audio: audioBase64 } = await chatRes.json();
-    console.log('Final chat response:', { royText, audioBase64: audioBase64 ? 'present' : 'missing' });
-
     const msg = document.createElement('p');
     msg.className = 'roy';
     msg.innerHTML = `<em>${isRantMode ? 'Randy' : 'Roy'}:</em> ${royText}`;
@@ -211,31 +220,23 @@ async function startRecording(mode) {
   visualizeAudio(null, userWaveform, userCtx, isRantMode ? 'red' : 'cyan', analyser, dataArray);
 }
 
-// Stop recording (shared logic)
+// Stop recording
 function stopRecording() {
   isRecording = false;
-  royToggle.textContent = 'Roy';
-  randyToggle.textContent = 'Randy';
-  royToggle.classList.remove('recording');
-  randyToggle.classList.remove('recording');
+  speakToggle.textContent = 'Speak';
+  speakToggle.classList.remove('recording');
+  speakToggle.classList.add('ready-to-speak');
   mediaRecorder.stop();
   source.disconnect();
   audioContext.close();
 }
 
-// Roy button toggle
-royToggle.addEventListener('click', async () => {
-  if (!isRecording) {
-    await startRecording('roy');
-  } else {
-    stopRecording();
-  }
-});
+// Speak button toggle
+speakToggle.addEventListener('click', async () => {
+  if (!isModeSelected) return;
 
-// Randy button toggle
-randyToggle.addEventListener('click', async () => {
   if (!isRecording) {
-    await startRecording('randy');
+    await startRecording();
   } else {
     stopRecording();
   }
