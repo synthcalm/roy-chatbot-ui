@@ -75,11 +75,11 @@ window.addEventListener('DOMContentLoaded', async () => {
           const { text: transcript } = await transcribeRes.json();
           appendMessage('You', transcript);
 
-          // Step 2: Send to chat API
+          // Step 2: Send to chat API with Roy's knowledge
           const chatRes = await fetch('https://roy-chatbo-backend.onrender.com/api/chat', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ message: transcript, mode: 'both' })
+            body: JSON.stringify({ message: transcript, mode: 'both', context: royKnowledge })
           });
 
           const data = await chatRes.json();
