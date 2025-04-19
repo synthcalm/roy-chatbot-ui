@@ -13,36 +13,35 @@ window.addEventListener('DOMContentLoaded', () => {
   let isRecording = false;
   let mediaRecorder, audioContext, analyser, stream;
   let recordedChunks = [];
-  let sessionStart = Date.now();
+  const sessionStart = Date.now();
+
+  updateClock();
+  setInterval(updateClock, 1000);
 
   function updateClock() {
     const now = new Date();
     document.getElementById('current-date').textContent = now.toISOString().split('T')[0];
-    document.getElementById('current-time').textContent = now.toLocaleTimeString('en-US');
+    document.getElementById('current-time').textContent = now.toLocaleTimeString();
     const elapsed = Math.floor((Date.now() - sessionStart) / 1000);
     const remaining = Math.max(0, 3600 - elapsed);
-    document.getElementById('countdown-timer').textContent = `${String(Math.floor(remaining / 60)).padStart(2, '0')}:${String(remaining % 60).padStart(2, '0')}`;
+    document.getElementById('countdown-timer').textContent =
+      `${String(Math.floor(remaining / 60)).padStart(2, '0')}:${String(remaining % 60).padStart(2, '0')}`;
   }
-
-  setInterval(updateClock, 1000);
-  updateClock();
 
   micBtn.addEventListener('click', () => {
     isRecording ? stopRecording() : startRecording();
   });
 
   async function startRecording() {
-    isRecording = true;
     micBtn.textContent = 'Stop';
     micBtn.classList.add('recording');
+    isRecording = true;
 
     try {
-      if (!audioContext) {
-        audioContext = new (window.AudioContext || window.webkitAudioContext)();
-        await audioContext.resume();
-      }
-
+      audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      await audioContext.resume();
       stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+
       const source = audioContext.createMediaStreamSource(stream);
       analyser = audioContext.createAnalyser();
       analyser.fftSize = 2048;
@@ -61,6 +60,8 @@ window.addEventListener('DOMContentLoaded', () => {
         const formData = new FormData();
         formData.append('audio', blob);
 
+        appendMessage('Roy', '<em>Roy is reflecting...</em>');
+
         try {
           const res = await fetch('https://roy-chatbo-backend.onrender.com/api/transcribe', {
             method: 'POST',
@@ -74,15 +75,15 @@ window.addEventListener('DOMContentLoaded', () => {
             appendMessage('Roy', 'Sorry, I didn’t catch that.');
           }
         } catch (err) {
-          appendMessage('Roy', 'Transcription failed.');
           console.error('Transcription error:', err);
+          appendMessage('Roy', 'Transcription failed.');
         }
       };
 
       mediaRecorder.start();
     } catch (err) {
-      appendMessage('Roy', 'Microphone access error.');
       console.error('Mic error:', err);
+      appendMessage('Roy', 'Mic permission error.');
       stopRecording();
     }
   }
@@ -96,12 +97,6 @@ window.addEventListener('DOMContentLoaded', () => {
   }
 
   async function fetchRoyResponse(text) {
-    const typingEl = document.createElement('p');
-    typingEl.className = 'roy typing';
-    typingEl.innerHTML = `<strong style="color: yellow">Roy:</strong> <span style="color: yellow">...</span>`;
-    messagesEl.appendChild(typingEl);
-    messagesEl.scrollTop = messagesEl.scrollHeight;
-
     try {
       const res = await fetch('https://roy-chatbo-backend.onrender.com/api/chat', {
         method: 'POST',
@@ -109,15 +104,17 @@ window.addEventListener('DOMContentLoaded', () => {
         body: JSON.stringify({ message: text, mode: 'both' })
       });
       const data = await res.json();
-      messagesEl.removeChild(typingEl);
-      if (data.text) appendMessage('Roy', data.text);
+      if (data.text) {
+        removeReflecting();
+        appendMessage('Roy', data.text);
+      }
       if (data.audio) {
         royAudio.src = `data:audio/mp3;base64,${data.audio}`;
         royAudio.play().catch(err => console.warn('Autoplay error:', err));
         drawWaveformRoy(royAudio);
       }
     } catch (err) {
-      console.error('Roy response error:', err);
+      console.error('Roy response failed:', err);
       appendMessage('Roy', 'Error generating response.');
     }
   }
@@ -130,20 +127,22 @@ window.addEventListener('DOMContentLoaded', () => {
       analyser.getByteTimeDomainData(buffer);
       ctx.fillStyle = '#000';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
+
       ctx.strokeStyle = '#333';
       ctx.lineWidth = 0.5;
-      for (let i = 0; i <= canvas.width; i += 20) {
+      for (let x = 0; x <= canvas.width; x += 20) {
         ctx.beginPath();
-        ctx.moveTo(i, 0);
-        ctx.lineTo(i, canvas.height);
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, canvas.height);
         ctx.stroke();
       }
-      for (let j = 0; j <= canvas.height; j += 20) {
+      for (let y = 0; y <= canvas.height; y += 20) {
         ctx.beginPath();
-        ctx.moveTo(0, j);
-        ctx.lineTo(canvas.width, j);
+        ctx.moveTo(0, y);
+        ctx.lineTo(canvas.width, y);
         ctx.stroke();
       }
+
       ctx.strokeStyle = color;
       ctx.beginPath();
       const slice = canvas.width / buffer.length;
@@ -153,59 +152,76 @@ window.addEventListener('DOMContentLoaded', () => {
         i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
         x += slice;
       }
+      ctx.lineTo(canvas.width, canvas.height / 2);
       ctx.stroke();
     }
     draw();
   }
 
   function drawWaveformRoy(audio) {
-    const ac = new (window.AudioContext || window.webkitAudioContext)();
-    const analyser = ac.createAnalyser();
-    const source = ac.createMediaElementSource(audio);
-    source.connect(analyser);
-    analyser.connect(ac.destination);
-    analyser.fftSize = 2048;
-    const buffer = new Uint8Array(analyser.frequencyBinCount);
-    function draw() {
-      requestAnimationFrame(draw);
-      analyser.getByteTimeDomainData(buffer);
-      royCtx.fillStyle = '#000';
-      royCtx.fillRect(0, 0, royCanvas.width, royCanvas.height);
-      royCtx.strokeStyle = '#333';
-      royCtx.lineWidth = 0.5;
-      for (let i = 0; i <= royCanvas.width; i += 20) {
+    try {
+      const ac = new (window.AudioContext || window.webkitAudioContext)();
+      const analyser = ac.createAnalyser();
+      const source = ac.createMediaElementSource(audio);
+      source.connect(analyser);
+      analyser.connect(ac.destination);
+      analyser.fftSize = 2048;
+      const buffer = new Uint8Array(analyser.frequencyBinCount);
+
+      function draw() {
+        requestAnimationFrame(draw);
+        analyser.getByteTimeDomainData(buffer);
+        royCtx.fillStyle = '#000';
+        royCtx.fillRect(0, 0, royCanvas.width, royCanvas.height);
+
+        royCtx.strokeStyle = '#333';
+        royCtx.lineWidth = 0.5;
+        for (let x = 0; x <= royCanvas.width; x += 20) {
+          royCtx.beginPath();
+          royCtx.moveTo(x, 0);
+          royCtx.lineTo(x, royCanvas.height);
+          royCtx.stroke();
+        }
+        for (let y = 0; y <= royCanvas.height; y += 20) {
+          royCtx.beginPath();
+          royCtx.moveTo(0, y);
+          royCtx.lineTo(royCanvas.width, y);
+          royCtx.stroke();
+        }
+
+        royCtx.strokeStyle = 'magenta';
         royCtx.beginPath();
-        royCtx.moveTo(i, 0);
-        royCtx.lineTo(i, royCanvas.height);
+        const slice = royCanvas.width / buffer.length;
+        let x = 0;
+        for (let i = 0; i < buffer.length; i++) {
+          const y = (buffer[i] / 128.0) * royCanvas.height / 2;
+          i === 0 ? royCtx.moveTo(x, y) : royCtx.lineTo(x, y);
+          x += slice;
+        }
+        royCtx.lineTo(royCanvas.width, royCanvas.height / 2);
         royCtx.stroke();
       }
-      for (let j = 0; j <= royCanvas.height; j += 20) {
-        royCtx.beginPath();
-        royCtx.moveTo(0, j);
-        royCtx.lineTo(royCanvas.width, j);
-        royCtx.stroke();
-      }
-      royCtx.strokeStyle = 'magenta';
-      royCtx.beginPath();
-      const slice = royCanvas.width / buffer.length;
-      let x = 0;
-      for (let i = 0; i < buffer.length; i++) {
-        const y = (buffer[i] / 128.0) * royCanvas.height / 2;
-        i === 0 ? royCtx.moveTo(x, y) : royCtx.lineTo(x, y);
-        x += slice;
-      }
-      royCtx.stroke();
+
+      draw();
+    } catch (e) {
+      console.warn('Waveform error:', e);
     }
-    draw();
   }
 
   function appendMessage(sender, text) {
     const p = document.createElement('p');
-    p.className = sender.toLowerCase();
     const color = sender === 'Roy' ? 'yellow' : 'white';
     p.innerHTML = `<strong style="color: ${color}">${sender}:</strong> <span style="color: ${color}">${text}</span>`;
     messagesEl.appendChild(p);
     messagesEl.scrollTop = messagesEl.scrollHeight;
+  }
+
+  function removeReflecting() {
+    const all = [...messagesEl.querySelectorAll('p')];
+    const last = all[all.length - 1];
+    if (last && last.innerHTML.includes('reflecting')) {
+      messagesEl.removeChild(last);
+    }
   }
 
   appendMessage('Roy', "Welcome. I'm Roy. Speak when ready.");
