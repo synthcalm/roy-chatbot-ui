@@ -1,4 +1,4 @@
-// SynthCalm Roy - Revised script.js with voice prioritization, emotion detection, type-sync
+// SynthCalm Roy - Updated script.js with fixed voice targeting and waveform loop
 let mediaRecorder, audioChunks = [], audioContext, sourceNode;
 let state = 'idle';
 let stream;
@@ -135,8 +135,8 @@ function drawWaveform(canvas, analyser) {
   const dataArray = new Uint8Array(bufferLength);
 
   function draw() {
-    if (state !== 'recording') return;
     requestAnimationFrame(draw);
+    if (state !== 'recording') return;
     analyser.getByteTimeDomainData(dataArray);
     ctx.fillStyle = '#000';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -189,10 +189,7 @@ async function speakRoy(text) {
   return new Promise((resolve, reject) => {
     function speakNow() {
       const voices = speechSynthesis.getVoices();
-      const royVoice = voices.find(v => v.name.toLowerCase().includes("onyx")) ||
-                       voices.find(v => v.name === "Google US English") ||
-                       voices.find(v => v.name.startsWith("O")) ||
-                       voices.find(v => v.lang === 'en-US');
+      const royVoice = voices.find(v => v.name === "Google US English") || voices.find(v => v.lang === 'en-US');
 
       const utterance = new SpeechSynthesisUtterance(text);
       utterance.voice = royVoice;
