@@ -1,91 +1,67 @@
-/* SynthCalm Roy - Clean, retro-futuristic style */
 body {
-  margin: 0;
   font-family: 'Courier New', monospace;
-  background: black;
+  background: #000;
   color: #0ff;
+  margin: 0;
+  padding: 0;
   display: flex;
-  justify-content: center;
+  flex-direction: column;
   align-items: center;
   min-height: 100vh;
-  flex-direction: column;
-  padding: 10px;
 }
 
-.container {
-  width: 100%;
-  max-width: 700px;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.header {
+#scope-header {
   display: flex;
   justify-content: space-between;
+  width: 90%;
+  max-width: 600px;
+  margin-top: 20px;
   font-size: 14px;
   color: #0ff;
-  width: 100%;
 }
 
 canvas {
-  width: 100%;
-  height: 80px;
-  background: #000;
+  width: 90%;
+  max-width: 600px;
+  height: 100px;
+  background-color: #000;
   border: 1px solid #0ff;
-  background-image:
-    linear-gradient(to right, rgba(255, 255, 0, 0.3) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(255, 255, 0, 0.3) 1px, transparent 1px);
-  background-size: 20px 20px;
+  margin-top: 10px;
 }
 
-#chat {
-  background: black;
-  padding: 10px;
-  overflow-y: auto;
-  height: 180px;
-  border: none;
-}
-
-#chat div {
-  margin-bottom: 8px;
-  line-height: 1.4;
-  white-space: pre-wrap;
-}
-
-.controls {
+#controls {
   display: flex;
-  gap: 10px;
   justify-content: center;
-  margin-top: 20px;
+  gap: 10px;
+  margin-top: 15px;
 }
 
 button {
-  background: transparent;
+  background: #000;
   color: #0ff;
-  font-family: 'Courier New', monospace;
-  font-size: 16px;
   border: 1px solid #0ff;
-  padding: 8px 16px;
+  padding: 10px 16px;
+  font-family: 'Courier New', monospace;
+  font-size: 14px;
   cursor: pointer;
-  transition: border-color 0.3s;
 }
 
 button:hover {
   border-color: magenta;
+  color: magenta;
 }
 
-@media (max-width: 500px) {
-  .header {
-    font-size: 12px;
-  }
-  canvas {
-    height: 60px;
-  }
-  button {
-    font-size: 14px;
-  }
-  #chat {
-    height: 140px;
-  }
+#chat {
+  width: 90%;
+  max-width: 600px;
+  margin-top: 20px;
+  font-size: 14px;
+  line-height: 1.4;
+  overflow-y: auto;
+  max-height: 300px;
+  padding: 0 10px;
+}
+
+strong {
+  font-weight: bold;
 }
