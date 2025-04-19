@@ -21,7 +21,7 @@ let volumeData = [];
 let sessionStartTime;
 let silenceTimeout;
 
-// Update date and time
+// Update date and time display
 function updateDateTime() {
   const now = new Date();
   currentDate.textContent = now.toLocaleDateString();
@@ -42,15 +42,16 @@ function updateDateTime() {
 }
 setInterval(updateDateTime, 1000);
 
-// Clear messages and show greeting
+// Clear messages and show greeting for Roy or Randy
 function clearMessagesAndShowGreeting(mode) {
   messagesDiv.innerHTML = '';
   const msg = document.createElement('p');
   msg.className = 'roy';
-  if (mode === 'roy') {
-    msg.innerHTML = `<em>Roy:</em> Greetings, my friend—like a weary traveler, you’ve arrived. What weighs on your soul today?`;
-  } else {
+  if (mode === 'randy') {
+    msg.classList.add('randy');
     msg.innerHTML = `<em>Randy:</em> Unleash the chaos—what’s burning you up?`;
+  } else {
+    msg.innerHTML = `<em>Roy:</em> Greetings, my friend—like a weary traveler, you’ve arrived. What weighs on your soul today?`;
   }
   messagesDiv.appendChild(msg);
   messagesDiv.scrollTop = messagesDiv.scrollHeight;
@@ -91,7 +92,7 @@ async function startRecording() {
   chunks = [];
   volumeData = [];
 
-  // Update favicon to show microphone icon
+  // Show recording icon in browser tab
   let link = document.querySelector("link[rel*='icon']") || document.createElement('link');
   link.type = 'image/x-icon';
   link.rel = 'shortcut icon';
@@ -109,20 +110,20 @@ async function startRecording() {
   mediaRecorder = new MediaRecorder(stream);
   mediaRecorder.start(1000);
 
-  // Monitor silence in Randy mode
+  // Check for silence in Randy mode
   if (isRantMode) {
     const checkSilence = () => {
       analyser.getByteFrequencyData(dataArray);
       const avgVolume = dataArray.reduce((sum, val) => sum + val, 0) / dataArray.length;
       if (avgVolume < 10 && isRecording) { // Silence threshold
         const msg = document.createElement('p');
-        msg.className = 'roy';
+        msg.className = 'roy randy';
         msg.innerHTML = `<em>Randy:</em> I’m here—don’t hold back! Let the storm rage on!`;
         messagesDiv.appendChild(msg);
         messagesDiv.scrollTop = messagesDiv.scrollHeight;
       }
       if (isRecording) {
-        silenceTimeout = setTimeout(checkSilence, 5000); // Check every 5 seconds
+        silenceTimeout = setTimeout(checkSilence, 5000);
       }
     };
     silenceTimeout = setTimeout(checkSilence, 5000);
@@ -148,9 +149,10 @@ async function startRecording() {
       });
       if (!transcribeRes.ok) throw new Error(`HTTP error! status: ${transcribeRes.status}`);
     } catch (err) {
-      console.error('Final transcription fetch error:', err);
+      console.error('Transcription fetch error:', err);
       const msg = document.createElement('p');
       msg.className = 'roy';
+      if (isRantMode) msg.classList.add('randy');
       msg.innerHTML = `<em>${isRantMode ? 'Randy' : 'Roy'}:</em> Hmm, I’m having trouble hearing you—check the backend connection and try again.`;
       messagesDiv.appendChild(msg);
       messagesDiv.scrollTop = messagesDiv.scrollHeight;
@@ -164,9 +166,9 @@ async function startRecording() {
     messagesDiv.appendChild(userMsg);
     messagesDiv.scrollTop = messagesDiv.scrollHeight;
 
-    // Show thinking dots
     const thinkingMsg = document.createElement('p');
     thinkingMsg.className = 'roy';
+    if (isRantMode) thinkingMsg.classList.add('randy');
     thinkingMsg.innerHTML = `<em>${isRantMode ? 'Randy' : 'Roy'}:</em> Thinking <span class="dots"></span>`;
     messagesDiv.appendChild(thinkingMsg);
     messagesDiv.scrollTop = messagesDiv.scrollHeight;
@@ -186,10 +188,11 @@ async function startRecording() {
       });
       if (!chatRes.ok) throw new Error(`HTTP error! status: ${chatRes.status}`);
     } catch (err) {
-      console.error('Final chat fetch error:', err);
+      console.error('Chat fetch error:', err);
       thinkingMsg.remove();
       const msg = document.createElement('p');
       msg.className = 'roy';
+      if (isRantMode) msg.classList.add('randy');
       msg.innerHTML = `<em>${isRantMode ? 'Randy' : 'Roy'}:</em> I couldn’t connect—please check the backend and try again.`;
       messagesDiv.appendChild(msg);
       messagesDiv.scrollTop = messagesDiv.scrollHeight;
@@ -200,6 +203,7 @@ async function startRecording() {
     thinkingMsg.remove();
     const msg = document.createElement('p');
     msg.className = 'roy';
+    if (isRantMode) msg.classList.add('randy');
     msg.innerHTML = `<em>${isRantMode ? 'Randy' : 'Roy'}:</em> ${royText}`;
     messagesDiv.appendChild(msg);
     messagesDiv.scrollTop = messagesDiv.scrollHeight;
@@ -226,7 +230,6 @@ function stopRecording() {
   audioContext.close();
   if (silenceTimeout) clearTimeout(silenceTimeout);
 
-  // Reset favicon
   let link = document.querySelector("link[rel*='icon']") || document.createElement('link');
   link.type = 'image/x-icon';
   link.rel = 'shortcut icon';
@@ -245,6 +248,7 @@ speakToggle.addEventListener('click', async () => {
   }
 });
 
+// Save log button
 saveButton.addEventListener('click', () => {
   const messages = messagesDiv.innerHTML;
   const blob = new Blob([messages], { type: 'text/html' });
@@ -256,6 +260,7 @@ saveButton.addEventListener('click', () => {
   URL.revokeObjectURL(url);
 });
 
+// Visualize waveform
 function visualizeAudio(audioElement, canvas, ctx, color, externalAnalyser, externalDataArray) {
   let audioCtx, analyser, dataArray, source;
   if (audioElement) {
