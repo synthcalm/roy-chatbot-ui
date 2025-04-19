@@ -9,6 +9,9 @@ const currentDate = document.getElementById('current-date');
 const currentTime = document.getElementById('current-time');
 const countdownTimer = document.getElementById('countdown-timer');
 
+// Replace this with your actual backend URL (e.g., Render deployment URL)
+const BACKEND_URL = 'http://localhost:10000';
+
 let audioContext, analyser, dataArray, source, mediaRecorder, chunks = [];
 let isRecording = false;
 let isRantMode = false;
@@ -29,12 +32,12 @@ function updateDateTime() {
 }
 setInterval(updateDateTime, 1000);
 
-// Toggle Rant Mode
+// Toggle recording and Rant Mode
 micToggle.addEventListener('click', async () => {
   if (!isRecording) {
     isRecording = true;
     isRantMode = !isRantMode;
-    micToggle.textContent = 'Stop';
+    micToggle.textContent = `Stop (Rant Mode: ${isRantMode ? 'On' : 'Off'})`;
     micToggle.classList.add('recording');
     sessionStartTime = new Date();
 
@@ -61,29 +64,60 @@ micToggle.addEventListener('click', async () => {
       // Transcribe chunk
       const formData = new FormData();
       formData.append('audio', e.data, 'audio.webm');
-      const transcribeRes = await fetch('/api/transcribe', {
-        method: 'POST',
-        body: formData
-      });
-      const { text } = await transcribeRes.json();
+      let transcribeRes;
+      try {
+        transcribeRes = await fetch(`${BACKEND_URL}/api/transcribe`, {
+          method: 'POST',
+          body: formData
+        });
+        if (!transcribeRes.ok) {
+          throw new Error(`HTTP error! status: ${transcribeRes.status}`);
+        }
+      } catch (err) {
+        console.error('Transcription fetch error:', err);
+        const msg = document.createElement('p');
+        msg.className = 'roy';
+        msg.innerHTML = `<em>Randy:</em> Hmm, I’m having trouble hearing you—let’s try again.`;
+        messagesDiv.appendChild(msg);
+        messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        return;
+      }
+
+      let transcription;
+      try {
+        transcription = await transcribeRes.json();
+      } catch (err) {
+        console.error('Transcription JSON parse error:', err);
+        return;
+      }
 
       // Send to chat for interim response
-      const chatRes = await fetch('/api/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          message: text,
-          mode: 'both',
-          persona: isRantMode ? 'randy' : 'default',
-          volumeData: volumeData.slice(-5) // Last 5 seconds
-        })
-      });
+      let chatRes;
+      try {
+        chatRes = await fetch(`${BACKEND_URL}/api/chat`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            message: transcription.text || '',
+            mode: 'both',
+            persona: isRantMode ? 'randy' : 'default',
+            volumeData: volumeData.slice(-5) // Last 5 seconds
+          })
+        });
+        if (!chatRes.ok) {
+          throw new Error(`HTTP error! status: ${chatRes.status}`);
+        }
+      } catch (err) {
+        console.error('Chat fetch error:', err);
+        return;
+      }
+
       const { text: royText, audio: audioBase64 } = await chatRes.json();
 
       // Display interim response
       const msg = document.createElement('p');
       msg.className = 'roy';
-      msg.innerHTML = `<em>Randy:</em> ${royText}`;
+      msg.innerHTML = `<em>${isRantMode ? 'Randy' : 'Roy'}:</em> ${royText}`;
       messagesDiv.appendChild(msg);
       messagesDiv.scrollTop = messagesDiv.scrollHeight;
 
@@ -99,27 +133,47 @@ micToggle.addEventListener('click', async () => {
       const formData = new FormData();
       formData.append('audio', blob, 'audio.webm');
 
-      const transcribeRes = await fetch('/api/transcribe', {
-        method: 'POST',
-        body: formData
-      });
+      let transcribeRes;
+      try {
+        transcribeRes = await fetch(`${BACKEND_URL}/api/transcribe`, {
+          method: 'POST',
+          body: formData
+        });
+        if (!transcribeRes.ok) {
+          throw new Error(`HTTP error! status: ${transcribeRes.status}`);
+        }
+      } catch (err) {
+        console.error('Final transcription fetch error:', err);
+        return;
+      }
+
       const { text } = await transcribeRes.json();
 
-      const chatRes = await fetch('/api/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          message: text,
-          mode: 'both',
-          persona: isRantMode ? 'randy' : 'default',
-          volumeData
-        })
-      });
+      let chatRes;
+      try {
+        chatRes = await fetch(`${BACKEND_URL}/api/chat`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            message: text,
+            mode: 'both',
+            persona: isRantMode ? 'randy' : 'default',
+            volumeData
+          })
+        });
+        if (!chatRes.ok) {
+          throw new Error(`HTTP error! status: ${chatRes.status}`);
+        }
+      } catch (err) {
+        console.error('Final chat fetch error:', err);
+        return;
+      }
+
       const { text: royText, audio: audioBase64 } = await chatRes.json();
 
       const msg = document.createElement('p');
       msg.className = 'roy';
-      msg.innerHTML = `<em>Randy:</em> ${royText}`;
+      msg.innerHTML = `<em>${isRantMode ? 'Randy' : 'Roy'}:</em> ${royText}`;
       messagesDiv.appendChild(msg);
       messagesDiv.scrollTop = messagesDiv.scrollHeight;
 
@@ -130,10 +184,11 @@ micToggle.addEventListener('click', async () => {
       }
     };
 
-    visualizeAudio(null, userWaveform, userCtx, isRantMode ? 'red' : 'cyan');
+    userWaveform.classList.toggle('rant-mode', isRantMode);
+    visualizeAudio(null, userWaveform, userCtx, isRantMode ? 'red' : 'cyan', analyser, dataArray);
   } else {
     isRecording = false;
-    micToggle.textContent = 'Speak';
+    micToggle.textContent = `Speak (Rant Mode: ${isRantMode ? 'On' : 'Off'})`;
     micToggle.classList.remove('recording');
     mediaRecorder.stop();
     source.disconnect();
@@ -152,7 +207,7 @@ saveButton.addEventListener('click', () => {
   URL.revokeObjectURL(url);
 });
 
-function visualizeAudio(audioElement, canvas, ctx, color) {
+function visualizeAudio(audioElement, canvas, ctx, color, externalAnalyser, externalDataArray) {
   let audioCtx, analyser, dataArray, source;
   if (audioElement) {
     audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -160,13 +215,12 @@ function visualizeAudio(audioElement, canvas, ctx, color) {
     source = audioCtx.createMediaElementSource(audioElement);
     source.connect(analyser);
     analyser.connect(audioCtx.destination);
+    analyser.fftSize = 2048;
+    dataArray = new Uint8Array(analyser.frequencyBinCount);
   } else {
-    audioCtx = audioContext;
-    analyser = this.analyser;
-    dataArray = this.dataArray;
+    analyser = externalAnalyser;
+    dataArray = externalDataArray;
   }
-  analyser.fftSize = 2048;
-  dataArray = dataArray || new Uint8Array(analyser.frequencyBinCount);
 
   function draw() {
     analyser.getByteFrequencyData(dataArray);
@@ -178,7 +232,9 @@ function visualizeAudio(audioElement, canvas, ctx, color) {
     }
     ctx.strokeStyle = color;
     ctx.stroke();
-    requestAnimationFrame(draw);
+    if (isRecording || audioElement) {
+      requestAnimationFrame(draw);
+    }
   }
   draw();
 }
