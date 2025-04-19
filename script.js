@@ -164,12 +164,38 @@ function drawWaveform(canvas, analyser) {
 async function speakCBT(text) {
   return new Promise((resolve, reject) => {
     const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = 'en-US';
-    utterance.pitch = 1;
-    utterance.rate = 1;
+    utterance.lang = 'en-GB'; // Set British English
     utterance.volume = 1;
-    speechSynthesis.cancel();
-    speechSynthesis.speak(utterance);
+    utterance.rate = 0.9; // Slightly slower for natural pacing
+    utterance.pitch = 0.8; // Lower pitch for a middle-aged male voice
+
+    // Select a male-sounding British voice
+    const voices = speechSynthesis.getVoices();
+    const britishVoice = voices.find(voice => voice.lang === 'en-GB' && voice.name.toLowerCase().includes('male')) || 
+                        voices.find(voice => voice.lang === 'en-GB');
+    if (britishVoice) {
+      utterance.voice = britishVoice;
+    } else {
+      console.warn('No British male voice found, using default en-GB voice');
+    }
+
+    // Ensure voices are loaded
+    if (voices.length === 0) {
+      speechSynthesis.onvoiceschanged = () => {
+        const voices = speechSynthesis.getVoices();
+        const britishVoice = voices.find(voice => voice.lang === 'en-GB' && voice.name.toLowerCase().includes('male')) || 
+                            voices.find(voice => voice.lang === 'en-GB');
+        if (britishVoice) {
+          utterance.voice = britishVoice;
+        }
+        speechSynthesis.cancel();
+        speechSynthesis.speak(utterance);
+      };
+    } else {
+      speechSynthesis.cancel();
+      speechSynthesis.speak(utterance);
+    }
+
     utterance.onend = resolve;
     utterance.onerror = e => reject(new Error(e.message));
   });
