@@ -173,10 +173,18 @@ async function speakRoy(text) {
   return new Promise((resolve, reject) => {
     function speakNow() {
       const voices = speechSynthesis.getVoices();
+      console.log("Available voices:", voices.map(v => v.name));
+
       const royVoice = voices.find(v => v.name.toLowerCase().includes("onyx")) ||
                        voices.find(v => v.name.toLowerCase().includes("microsoft aria")) ||
                        voices.find(v => v.name.toLowerCase().includes("google us english")) ||
                        voices.find(v => v.lang === 'en-US');
+
+      if (!royVoice) {
+        console.warn("Roy voice not found. Using default.");
+      } else {
+        console.log("Roy voice selected:", royVoice.name);
+      }
 
       const utterance = new SpeechSynthesisUtterance(text);
       utterance.voice = royVoice;
@@ -184,10 +192,12 @@ async function speakRoy(text) {
       utterance.pitch = 0.65;
       utterance.rate = 0.9;
       utterance.volume = 1;
-      speechSynthesis.cancel();
-      speechSynthesis.speak(utterance);
+
       utterance.onend = resolve;
       utterance.onerror = e => reject(new Error(e.message));
+
+      speechSynthesis.cancel();
+      speechSynthesis.speak(utterance);
     }
 
     if (speechSynthesis.getVoices().length === 0) {
