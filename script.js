@@ -9,8 +9,8 @@ const currentDate = document.getElementById('current-date');
 const currentTime = document.getElementById('current-time');
 const countdownTimer = document.getElementById('countdown-timer');
 
-// Replace this with your actual backend URL (e.g., Render deployment URL)
-const BACKEND_URL = 'http://localhost:10000';
+// Replace this with your actual deployed backend URL (e.g., Render URL)
+const BACKEND_URL = 'https://synthcalm-a2n7.onrender.com';
 
 let audioContext, analyser, dataArray, source, mediaRecorder, chunks = [];
 let isRecording = false;
