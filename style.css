@@ -98,8 +98,9 @@ button.recording {
 
 button.ready-to-speak {
   animation: pulsate-magenta 1.5s infinite;
-  border-color: magenta;
+  background: black;
   color: magenta;
+  border: 1px solid magenta;
 }
 
 #messages {
