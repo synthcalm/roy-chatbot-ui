@@ -79,25 +79,27 @@ button:hover {
 }
 
 button.active-roy {
-  background: yellow;
-  color: black;
-  border: 1px solid yellow;
+  background: black;
+  color: green;
+  border: 1px solid green;
 }
 
 button.active-randy {
-  background: red;
-  color: black;
-  border: 1px solid red;
+  background: black;
+  color: orange;
+  border: 1px solid orange;
 }
 
 button.recording {
-  background: white;
-  color: red;
-  border: 1px solid white;
+  background: magenta;
+  color: white;
+  border: 1px solid magenta;
 }
 
 button.ready-to-speak {
-  animation: pulsate 1.5s infinite;
+  animation: pulsate-magenta 1.5s infinite;
+  border-color: magenta;
+  color: magenta;
 }
 
 #messages {
@@ -139,4 +141,10 @@ p.roy em {
   0% { border-color: cyan; color: cyan; }
   50% { border-color: #0ff80; color: #0ff80; }
   100% { border-color: cyan; color: cyan; }
+}
+
+@keyframes pulsate-magenta {
+  0% { background: black; color: magenta; }
+  50% { background: magenta; color: black; }
+  100% { background: black; color: magenta; }
 }
