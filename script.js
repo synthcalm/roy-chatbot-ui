@@ -1,3 +1,5 @@
+// script.js (extracted from index.html)
+
 window.addEventListener('DOMContentLoaded', () => {
   const micBtn = document.getElementById('mic-toggle');
   const messagesEl = document.getElementById('messages');
@@ -24,8 +26,7 @@ window.addEventListener('DOMContentLoaded', () => {
     document.getElementById('current-time').textContent = now.toLocaleTimeString();
     const elapsed = Math.floor((Date.now() - sessionStart) / 1000);
     const remaining = Math.max(0, 3600 - elapsed);
-    document.getElementById('countdown-timer').textContent =
-      `${String(Math.floor(remaining / 60)).padStart(2, '0')}:${String(remaining % 60).padStart(2, '0')}`;
+    document.getElementById('countdown-timer').textContent = `${String(Math.floor(remaining / 60)).padStart(2, '0')}:${String(remaining % 60).padStart(2, '0')}`;
   }
 
   micBtn.addEventListener('click', () => {
@@ -60,7 +61,11 @@ window.addEventListener('DOMContentLoaded', () => {
         const formData = new FormData();
         formData.append('audio', blob);
 
-        appendMessage('Roy', '<em>Roy is reflecting...</em>');
+        const dots = document.createElement('p');
+        dots.className = 'roy';
+        dots.id = 'typing';
+        dots.innerHTML = "<strong style='color: yellow'>Roy:</strong> <span style='color: yellow'><em>typing</em><span class='dots'>...</span></span>";
+        messagesEl.appendChild(dots);
 
         try {
           const res = await fetch('https://roy-chatbo-backend.onrender.com/api/transcribe', {
@@ -104,10 +109,9 @@ window.addEventListener('DOMContentLoaded', () => {
         body: JSON.stringify({ message: text, mode: 'both' })
       });
       const data = await res.json();
-      if (data.text) {
-        removeReflecting();
-        appendMessage('Roy', data.text);
-      }
+      const typingEl = document.getElementById('typing');
+      if (typingEl) typingEl.remove();
+      if (data.text) appendMessage('Roy', data.text);
       if (data.audio) {
         royAudio.src = `data:audio/mp3;base64,${data.audio}`;
         royAudio.play().catch(err => console.warn('Autoplay error:', err));
@@ -159,53 +163,49 @@ window.addEventListener('DOMContentLoaded', () => {
   }
 
   function drawWaveformRoy(audio) {
-    try {
-      const ac = new (window.AudioContext || window.webkitAudioContext)();
-      const analyser = ac.createAnalyser();
-      const source = ac.createMediaElementSource(audio);
-      source.connect(analyser);
-      analyser.connect(ac.destination);
-      analyser.fftSize = 2048;
-      const buffer = new Uint8Array(analyser.frequencyBinCount);
+    const ac = new (window.AudioContext || window.webkitAudioContext)();
+    const analyser = ac.createAnalyser();
+    const source = ac.createMediaElementSource(audio);
+    source.connect(analyser);
+    analyser.connect(ac.destination);
+    analyser.fftSize = 2048;
+    const buffer = new Uint8Array(analyser.frequencyBinCount);
 
-      function draw() {
-        requestAnimationFrame(draw);
-        analyser.getByteTimeDomainData(buffer);
-        royCtx.fillStyle = '#000';
-        royCtx.fillRect(0, 0, royCanvas.width, royCanvas.height);
+    function draw() {
+      requestAnimationFrame(draw);
+      analyser.getByteTimeDomainData(buffer);
+      royCtx.fillStyle = '#000';
+      royCtx.fillRect(0, 0, royCanvas.width, royCanvas.height);
 
-        royCtx.strokeStyle = '#333';
-        royCtx.lineWidth = 0.5;
-        for (let x = 0; x <= royCanvas.width; x += 20) {
-          royCtx.beginPath();
-          royCtx.moveTo(x, 0);
-          royCtx.lineTo(x, royCanvas.height);
-          royCtx.stroke();
-        }
-        for (let y = 0; y <= royCanvas.height; y += 20) {
-          royCtx.beginPath();
-          royCtx.moveTo(0, y);
-          royCtx.lineTo(royCanvas.width, y);
-          royCtx.stroke();
-        }
-
-        royCtx.strokeStyle = 'magenta';
+      royCtx.strokeStyle = '#333';
+      royCtx.lineWidth = 0.5;
+      for (let x = 0; x <= royCanvas.width; x += 20) {
         royCtx.beginPath();
-        const slice = royCanvas.width / buffer.length;
-        let x = 0;
-        for (let i = 0; i < buffer.length; i++) {
-          const y = (buffer[i] / 128.0) * royCanvas.height / 2;
-          i === 0 ? royCtx.moveTo(x, y) : royCtx.lineTo(x, y);
-          x += slice;
-        }
-        royCtx.lineTo(royCanvas.width, royCanvas.height / 2);
+        royCtx.moveTo(x, 0);
+        royCtx.lineTo(x, royCanvas.height);
+        royCtx.stroke();
+      }
+      for (let y = 0; y <= royCanvas.height; y += 20) {
+        royCtx.beginPath();
+        royCtx.moveTo(0, y);
+        royCtx.lineTo(royCanvas.width, y);
         royCtx.stroke();
       }
 
-      draw();
-    } catch (e) {
-      console.warn('Waveform error:', e);
+      royCtx.strokeStyle = 'magenta';
+      royCtx.beginPath();
+      const slice = royCanvas.width / buffer.length;
+      let x = 0;
+      for (let i = 0; i < buffer.length; i++) {
+        const y = (buffer[i] / 128.0) * royCanvas.height / 2;
+        i === 0 ? royCtx.moveTo(x, y) : royCtx.lineTo(x, y);
+        x += slice;
+      }
+      royCtx.lineTo(royCanvas.width, royCanvas.height / 2);
+      royCtx.stroke();
     }
+
+    draw();
   }
 
   function appendMessage(sender, text) {
@@ -214,14 +214,6 @@ window.addEventListener('DOMContentLoaded', () => {
     p.innerHTML = `<strong style="color: ${color}">${sender}:</strong> <span style="color: ${color}">${text}</span>`;
     messagesEl.appendChild(p);
     messagesEl.scrollTop = messagesEl.scrollHeight;
-  }
-
-  function removeReflecting() {
-    const all = [...messagesEl.querySelectorAll('p')];
-    const last = all[all.length - 1];
-    if (last && last.innerHTML.includes('reflecting')) {
-      messagesEl.removeChild(last);
-    }
   }
 
   appendMessage('Roy', "Welcome. I'm Roy. Speak when ready.");
