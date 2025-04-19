@@ -27,6 +27,9 @@ canvas {
   background-color: #000;
   border: 1px solid #0ff;
   margin-top: 10px;
+  background-image: linear-gradient(to right, rgba(255, 255, 0, 0.3) 1px, transparent 1px),
+                    linear-gradient(to bottom, rgba(255, 255, 0, 0.3) 1px, transparent 1px);
+  background-size: 20px 20px;
 }
 
 #controls {
@@ -34,6 +37,7 @@ canvas {
   justify-content: center;
   gap: 10px;
   margin-top: 15px;
+  margin-bottom: 20px;
 }
 
 button {
@@ -54,12 +58,12 @@ button:hover {
 #chat {
   width: 90%;
   max-width: 600px;
-  margin-top: 20px;
   font-size: 14px;
   line-height: 1.4;
   overflow-y: auto;
   max-height: 300px;
   padding: 0 10px;
+  margin-bottom: 20px;
 }
 
 strong {
