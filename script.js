@@ -1,153 +1,266 @@
+let mediaRecorder, audioChunks = [], audioContext, sourceNode;
+let state = 'idle';
+let stream;
+const logHistory = [];
+let recognition;
 
- window.addEventListener('DOMContentLoaded', () => {
-   try {
-     console.log('Script initialized');
-     console.log('Whisper mode initialized');
- 
-     const royAudio = new Audio();
-     royAudio.setAttribute('playsinline', 'true');
- @@ -21,8 +21,8 @@ window.addEventListener('DOMContentLoaded', () => {
-     let analyser = null;
-     let stream = null;
-     let mediaRecorder = null;
-     let ws = null;
-     let isRecording = false;
-     let recordedChunks = [];
-     let sessionStart = Date.now();
- 
-     function updateClock() {
- @@ -53,81 +53,82 @@ window.addEventListener('DOMContentLoaded', () => {
-           audioContext = new (window.AudioContext || window.webkitAudioContext)();
-           await audioContext.resume();
-         }
-         stream = await navigator.mediaDevices.getUserMedia({ audio: true });
- 
-         stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-         const source = audioContext.createMediaStreamSource(stream);
-         analyser = audioContext.createAnalyser();
-         analyser.fftSize = 2048;
-         source.connect(analyser);
-         drawWaveform(userCtx, userCanvas, analyser, 'yellow');
- 
-         ws = new WebSocket("wss://api.assemblyai.com/v2/realtime/ws?sample_rate=16000", ['assemblyai-realtime']);
-         ws.onopen = () => {
-           ws.send(JSON.stringify({ auth_token: "c204c69052074ce98287a515e68da0c4" }));
-           mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm;codecs=opus' });
-         mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm;codecs=opus' });
-         recordedChunks = [];
- 
-           mediaRecorder.ondataavailable = e => {
-             if (e.data.size > 0 && ws.readyState === WebSocket.OPEN) {
-               ws.send(e.data);
-               console.log('Sent audio chunk');
-             }
-           };
-           mediaRecorder.start(500);
-           isRecording = true;
-           micBtn.textContent = 'Stop';
-           micBtn.classList.add('recording');
-         mediaRecorder.ondataavailable = e => {
-           if (e.data.size > 0) recordedChunks.push(e.data);
-         };
- 
-         ws.onmessage = async e => {
-           const msg = JSON.parse(e.data);
-           if (msg.text && msg.message_type === 'FinalTranscript') {
-             appendMessage('You', msg.text);
-             await fetchRoyResponse(msg.text);
-         mediaRecorder.onstop = async () => {
-           const blob = new Blob(recordedChunks, { type: 'audio/webm' });
-           const formData = new FormData();
-           formData.append('audio', blob);
- 
-           appendMessage('Roy', '<em>Transcribing...</em>');
- 
-           try {
-             const res = await fetch('https://roy-chatbo-backend.onrender.com/api/transcribe', {
-               method: 'POST',
-               body: formData
-             });
-             const data = await res.json();
-             if (data.text) {
-               appendMessage('You', data.text);
-               await fetchRoyResponse(data.text);
-             } else {
-               appendMessage('Roy', 'Sorry, I didn’t catch that.');
-             }
-           } catch (err) {
-             console.error('Whisper transcription error:', err);
-             appendMessage('Roy', 'Transcription failed.');
-           }
-         };
- 
-         ws.onerror = err => {
-           console.error('WebSocket error', err);
-           stopRecording();
-         };
-         mediaRecorder.start();
-         isRecording = true;
-         micBtn.textContent = 'Stop';
-         micBtn.classList.add('recording');
- 
-         ws.onclose = () => stopRecording();
-       } catch (err) {
-         appendMessage('Roy', 'Mic access error. Check permissions.');
-         console.error('Mic error:', err);
-         appendMessage('Roy', 'Mic permission error.');
-       }
-     }
- 
-     function stopRecording() {
-       if (mediaRecorder && mediaRecorder.state !== 'inactive') mediaRecorder.stop();
-       if (stream) stream.getTracks().forEach(track => track.stop());
-       if (ws && ws.readyState === WebSocket.OPEN) {
-         ws.send(JSON.stringify({ terminate_session: true }));
-         ws.close();
-       }
-       if (stream) stream.getTracks().forEach(t => t.stop());
-       micBtn.textContent = 'Speak';
-       micBtn.classList.remove('recording');
-       isRecording = false;
-     }
- 
-     async function fetchRoyResponse(text) {
-       appendMessage('Roy', '<em>Roy is reflecting...</em>');
-       try {
-         const res = await fetch('https://roy-chatbo-backend.onrender.com/api/chat', {
-           method: 'POST',
-           headers: { 'Content-Type': 'application/json' },
-           body: JSON.stringify({ message: text, mode: "both" })
-           body: JSON.stringify({ message: text, mode: 'both' })
-         });
-         const data = await res.json();
-         if (data.text) appendMessage('Roy', data.text);
-         if (data.audio) {
-           royAudio.src = `data:audio/mp3;base64,${data.audio}`;
-           royAudio.play().catch(err => console.warn('Audio play blocked', err));
-           royAudio.play().catch(e => console.warn('Autoplay error', e));
-           drawWaveformRoy(royAudio);
-         }
-       } catch (err) {
-         appendMessage('Roy', 'Roy failed to respond.');
-         console.error(err);
-         console.error('Roy response failed:', err);
-         appendMessage('Roy', 'Error generating response.');
-       }
-     }
- 
- @@ -211,10 +212,10 @@ window.addEventListener('DOMContentLoaded', () => {
- 
-     appendMessage('Roy', "Welcome. I'm Roy. Speak when ready.");
-   } catch (err) {
-     console.error('Fatal error:', err);
-     const errBox = document.createElement('p');
-     errBox.textContent = 'Roy failed to initialize.';
-     errBox.style.color = 'red';
-     document.body.appendChild(errBox);
-     console.error('Fatal init error:', err);
-     const fallback = document.createElement('p');
-     fallback.textContent = 'Roy failed to load.';
-     fallback.style.color = 'red';
-     document.body.appendChild(fallback);
-   }
- });
+const elements = {
+  recordButton: document.getElementById('recordButton'),
+  saveButton: document.getElementById('saveButton'),
+  chat: document.getElementById('chat'),
+  userScope: document.getElementById('userScope'),
+  royScope: document.getElementById('royScope'),
+  clock: document.getElementById('clock'),
+  date: document.getElementById('date'),
+  countdown: document.getElementById('countdown')
+};
+
+const config = {
+  duration: 3600,
+  maxRecordingTime: 60000
+};
+
+let countdownInterval;
+
+function updateDateTime() {
+  const now = new Date();
+  if (elements.clock) elements.clock.textContent = now.toTimeString().split(' ')[0];
+  if (elements.date) elements.date.textContent = now.toISOString().split('T')[0];
+}
+
+function startCountdown() {
+  let remaining = config.duration;
+  if (elements.countdown) elements.countdown.textContent = '60:00';
+  clearInterval(countdownInterval);
+  countdownInterval = setInterval(() => {
+    if (remaining <= 0) {
+      clearInterval(countdownInterval);
+      if (state === 'recording') stopRecording();
+      if (elements.countdown) elements.countdown.textContent = '00:00';
+    } else {
+      const minutes = String(Math.floor(remaining / 60)).padStart(2, '0');
+      const seconds = String(remaining % 60).padStart(2, '0');
+      if (elements.countdown) elements.countdown.textContent = `${minutes}:${seconds}`;
+      remaining--;
+    }
+  }, 1000);
+}
+
+function initialize() {
+  const missingElements = Object.keys(elements).filter(key => !elements[key]);
+  if (missingElements.length > 0) {
+    console.error('Missing DOM elements:', missingElements);
+    displayMessage('System', 'Error: Some page elements are missing. Please check the console.');
+    return;
+  }
+  setInterval(updateDateTime, 1000);
+  updateDateTime();
+  startCountdown();
+  displayMessage('Therapist', "Hello, I'm your CBT chatbot. What's on your mind today?");
+  speakCBT("Hello, I'm your CBT chatbot. What's on your mind today?");
+}
+
+function displayMessage(role, text) {
+  if (!elements.chat) {
+    console.error('Chat element not found');
+    return;
+  }
+  const message = document.createElement('div');
+  message.innerHTML = `<strong>${role}:</strong> ${text}`;
+  message.style.color = role === 'Therapist' ? 'yellow' : 'white';
+  elements.chat.appendChild(message);
+  elements.chat.scrollTop = elements.chat.scrollHeight;
+  logHistory.push({ role, text });
+}
+
+elements.recordButton.addEventListener('click', async () => {
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    displayMessage('System', 'Microphone access not supported in this browser.');
+    console.error('MediaDevices API not supported');
+    return;
+  }
+  if (state === 'idle') {
+    await startRecording();
+  } else if (state === 'recording') {
+    stopRecording();
+  }
+});
+
+elements.saveButton.addEventListener('click', () => {
+  const blob = new Blob([logHistory.map(m => `${m.role}: ${m.text}`).join("\n")], { type: 'text/plain' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'chat_log.txt';
+  a.click();
+  URL.revokeObjectURL(url);
+});
+
+async function startRecording() {
+  if (state !== 'idle') return;
+  state = 'recording';
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    mediaRecorder = new MediaRecorder(stream);
+    audioChunks = [];
+
+    // Initialize speech recognition
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      console.warn('SpeechRecognition API not supported');
+      displayMessage('System', 'Speech transcription not supported in this browser.');
+    } else {
+      recognition = new SpeechRecognition();
+      recognition.lang = 'en-US';
+      recognition.interimResults = false;
+      recognition.maxAlternatives = 1;
+      recognition.start();
+    }
+
+    audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    sourceNode = audioContext.createMediaStreamSource(stream);
+    const analyser = audioContext.createAnalyser();
+    sourceNode.connect(analyser);
+    drawWaveform(elements.userScope, analyser);
+
+    mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
+    mediaRecorder.onstop = async () => {
+      state = 'processing';
+      if (recognition) recognition.stop();
+      cleanupStream();
+      try {
+        const userText = await new Promise((resolve) => {
+          if (!recognition) return resolve('');
+          recognition.onresult = (event) => {
+            const transcript = event.results[0][0].transcript;
+            resolve(transcript);
+          };
+          recognition.onerror = () => resolve('');
+          recognition.onend = () => resolve('');
+        });
+        if (userText) {
+          displayMessage('User', userText);
+        } else {
+          displayMessage('System', 'No transcription available.');
+        }
+        const responseText = "Thanks for sharing. I'm here to listen.";
+        displayMessage('Therapist', responseText);
+        await speakCBT(responseText);
+      } catch (error) {
+        console.error('Processing error:', error);
+        displayMessage('System', `Error: ${error.message}`);
+      } finally {
+        state = 'idle';
+        updateRecordButton();
+      }
+    };
+
+    mediaRecorder.start();
+    updateRecordButton();
+    setTimeout(() => {
+      if (state === 'recording') stopRecording();
+    }, config.maxRecordingTime);
+  } catch (error) {
+    console.error('Recording error:', error);
+    displayMessage('System', `Recording error: ${error.message}. Please ensure microphone access is allowed.`);
+    state = 'idle';
+    updateRecordButton();
+  }
+}
+
+function stopRecording() {
+  if (state === 'recording' && mediaRecorder) {
+    mediaRecorder.stop();
+  }
+}
+
+function cleanupStream() {
+  if (stream) stream.getTracks().forEach(track => track.stop());
+  if (sourceNode) sourceNode.disconnect();
+  if (audioContext) audioContext.close();
+  stream = null;
+  sourceNode = null;
+  audioContext = null;
+  if (recognition) recognition = null;
+}
+
+function updateRecordButton() {
+  if (!elements.recordButton) return;
+  elements.recordButton.textContent = state === 'recording' ? 'Stop' : 'Speak';
+  elements.recordButton.style.borderColor = state === 'recording' ? 'magenta' : '#0ff';
+  elements.recordButton.disabled = state === 'processing';
+  elements.recordButton.classList.toggle('recording', state === 'recording');
+}
+
+function drawWaveform(canvas, analyser) {
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  canvas.width = canvas.offsetWidth;
+  canvas.height = canvas.offsetHeight;
+  analyser.fftSize = 256;
+  const bufferLength = analyser.frequencyBinCount;
+  const dataArray = new Uint8Array(bufferLength);
+
+  function draw() {
+    if (state !== 'recording') return;
+    requestAnimationFrame(draw);
+    analyser.getByteTimeDomainData(dataArray);
+    ctx.fillStyle = '#000';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.lineWidth = 1;
+    ctx.strokeStyle = 'yellow';
+    ctx.beginPath();
+    const sliceWidth = canvas.width / bufferLength;
+    let x = 0;
+    for (let i = 0; i < bufferLength; i++) {
+      const v = dataArray[i] / 128.0;
+      const y = v * canvas.height / 2;
+      i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+      x += sliceWidth;
+    }
+    ctx.lineTo(canvas.width, canvas.height / 2);
+    ctx.stroke();
+  }
+  draw();
+}
+
+async function speakCBT(text) {
+  return new Promise((resolve, reject) => {
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = 'en-GB';
+    utterance.volume = 1;
+    utterance.rate = 0.9;
+    utterance.pitch = 0.8;
+
+    const voices = speechSynthesis.getVoices();
+    const britishVoice = voices.find(voice => voice.lang === 'en-GB' && voice.name.toLowerCase().includes('male')) || 
+                        voices.find(voice => voice.lang === 'en-GB');
+    if (britishVoice) {
+      utterance.voice = britishVoice;
+    } else {
+      console.warn('No British male voice found, using default en-GB voice');
+    }
+
+    if (voices.length === 0) {
+      speechSynthesis.onvoiceschanged = () => {
+        const voices = speechSynthesis.getVoices();
+        const britishVoice = voices.find(voice => voice.lang === 'en-GB' && voice.name.toLowerCase().includes('male')) || 
+                            voices.find(voice => voice.lang === 'en-GB');
+        if (britishVoice) {
+          utterance.voice = britishVoice;
+        }
+        speechSynthesis.cancel();
+        speechSynthesis.speak(utterance);
+      };
+    } else {
+      speechSynthesis.cancel();
+      speechSynthesis.speak(utterance);
+    }
+
+    utterance.onend = resolve;
+    utterance.onerror = e => reject(new Error(e.message));
+  });
+}
+
+window.addEventListener('unload', cleanupStream);
+document.addEventListener('DOMContentLoaded', initialize);
