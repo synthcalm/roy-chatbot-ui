@@ -1,32 +1,29 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Roy - SynthCalm</title>
-  <link rel="stylesheet" href="style.css" />
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ROY Interface</title>
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <div id="scope-header">
-    <div id="date"></div>
-    <div id="clock"></div>
-    <div id="countdown"></div>
+  <div id="datetime-row">
+    <div id="date">2025-04-19</div>
+    <div id="clock">11:11:11</div>
+    <div id="countdown">60:00</div>
   </div>
 
-  <div id="scope-container">
-    <canvas id="userScope"></canvas>
-    <canvas id="royScope"></canvas>
-  </div>
+  <canvas id="userScope"></canvas>
+  <canvas id="royScope"></canvas>
 
   <div id="controls">
     <button id="recordButton">Speak</button>
     <button id="saveButton">Save Log</button>
-    <button onclick="window.location.href='/'">SynthCalm Home</button>
+    <button onclick="location.href='/'">SynthCalm Home</button>
   </div>
 
   <div id="chat"></div>
 
-  <audio id="royAudio" src="roy-voice.mp3"></audio>
   <script src="script.js"></script>
 </body>
 </html>
