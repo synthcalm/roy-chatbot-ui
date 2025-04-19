@@ -49,6 +49,11 @@ button:hover {
   color: black;
 }
 
+button.recording {
+  background-color: cyan;
+  color: black;
+}
+
 #messages {
   max-width: 800px;
   width: 90vw;
