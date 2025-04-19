@@ -1,4 +1,4 @@
-// script.js (Roy now adapted with Whisper backend, typing animation, 70% naturalized speech, CBT reflection, and real-time waveform)
+// script.js (patched to fix double MediaElementSource connection for Roy waveform)
 
 window.addEventListener('DOMContentLoaded', () => {
   const micBtn = document.getElementById('mic-toggle');
@@ -115,7 +115,15 @@ window.addEventListener('DOMContentLoaded', () => {
       if (data.audio) {
         royAudio.src = `data:audio/mp3;base64,${data.audio}`;
         royAudio.play().catch(err => console.warn('Autoplay error:', err));
-        drawWaveformRoy(royAudio);
+        if (!royAudio._sourceConnected) {
+          const ac = new (window.AudioContext || window.webkitAudioContext)();
+          const analyser = ac.createAnalyser();
+          const source = ac.createMediaElementSource(royAudio);
+          source.connect(analyser);
+          analyser.connect(ac.destination);
+          royAudio._sourceConnected = true;
+          drawWaveformRoy(royAudio, analyser);
+        }
       }
     } catch (err) {
       console.error('Roy response failed:', err);
@@ -188,15 +196,8 @@ window.addEventListener('DOMContentLoaded', () => {
     draw();
   }
 
-  function drawWaveformRoy(audio) {
-    const ac = new (window.AudioContext || window.webkitAudioContext)();
-    const analyser = ac.createAnalyser();
-    const source = ac.createMediaElementSource(audio);
-    source.connect(analyser);
-    analyser.connect(ac.destination);
-    analyser.fftSize = 2048;
+  function drawWaveformRoy(audio, analyser) {
     const buffer = new Uint8Array(analyser.frequencyBinCount);
-
     function draw() {
       requestAnimationFrame(draw);
       analyser.getByteTimeDomainData(buffer);
@@ -230,7 +231,6 @@ window.addEventListener('DOMContentLoaded', () => {
       royCtx.lineTo(royCanvas.width, royCanvas.height / 2);
       royCtx.stroke();
     }
-
     draw();
   }
 
