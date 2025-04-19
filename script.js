@@ -1,4 +1,4 @@
-// script.js (extended with Roy's knowledgebase + natural 70% spontaneous speech patterns)
+// script.js (Roy now adapted with Whisper backend, typing animation, 70% naturalized speech, CBT reflection, and real-time waveform)
 
 window.addEventListener('DOMContentLoaded', () => {
   const micBtn = document.getElementById('mic-toggle');
