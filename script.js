@@ -11,7 +11,7 @@ window.addEventListener('DOMContentLoaded', () => {
   document.body.appendChild(royAudio);
 
   let isRecording = false;
-  let mediaRecorder, audioContext, analyser, stream, ws;
+  let mediaRecorder, audioContext, analyser, stream;
   let sessionStart = Date.now();
 
   function updateClock() {
@@ -49,40 +49,43 @@ window.addEventListener('DOMContentLoaded', () => {
       source.connect(analyser);
       drawWaveform(userCtx, userCanvas, analyser, 'yellow');
 
-      ws = new WebSocket("wss://api.assemblyai.com/v2/realtime/ws?sample_rate=16000", ['assemblyai-realtime']);
+      const recordedChunks = [];
 
-      ws.onopen = () => {
-        ws.send(JSON.stringify({ auth_token: "c204c69052074ce98287a515e68da0c4" }));
-      };
+      mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm;codecs=opus' });
 
-      const mediaStream = new MediaStream();
-      const audioTrack = stream.getAudioTracks()[0];
-      mediaStream.addTrack(audioTrack);
-
-      mediaRecorder = new MediaRecorder(mediaStream, { mimeType: 'audio/webm;codecs=opus' });
-
-      mediaRecorder.ondataavailable = e => {
-        if (e.data.size > 0 && ws.readyState === WebSocket.OPEN) {
-          ws.send(e.data);
+      mediaRecorder.ondataavailable = async (e) => {
+        if (e.data.size > 0) {
+          recordedChunks.push(e.data);
         }
       };
 
-      mediaRecorder.start(250);
+      mediaRecorder.onstop = async () => {
+        const blob = new Blob(recordedChunks, { type: 'audio/webm' });
+        const formData = new FormData();
+        formData.append('audio', blob);
 
-      ws.onmessage = async e => {
-        const msg = JSON.parse(e.data);
-        if (msg.text && msg.message_type === 'FinalTranscript') {
-          appendMessage('You', msg.text);
-          await fetchRoyResponse(msg.text);
+        appendMessage('Roy', '<span class="dots">...</span>');
+
+        try {
+          const res = await fetch('https://roy-chatbo-backend.onrender.com/api/transcribe', {
+            method: 'POST',
+            body: formData
+          });
+
+          const data = await res.json();
+          if (data.text) {
+            appendMessage('You', data.text);
+            await fetchRoyResponse(data.text);
+          } else {
+            appendMessage('Roy', 'No speech detected.');
+          }
+        } catch (err) {
+          console.error('Transcription error:', err);
+          appendMessage('Roy', 'Transcription failed.');
         }
       };
 
-      ws.onerror = err => {
-        console.error('WebSocket error:', err);
-        stopRecording();
-      };
-
-      ws.onclose = () => stopRecording();
+      mediaRecorder.start();
 
     } catch (err) {
       appendMessage('Roy', 'Microphone access error.');
@@ -94,11 +97,6 @@ window.addEventListener('DOMContentLoaded', () => {
   function stopRecording() {
     if (mediaRecorder && mediaRecorder.state !== 'inactive') mediaRecorder.stop();
     if (stream) stream.getTracks().forEach(track => track.stop());
-    if (ws && ws.readyState === WebSocket.OPEN) {
-      ws.send(JSON.stringify({ terminate_session: true }));
-      ws.close();
-    }
-
     micBtn.textContent = 'Speak';
     micBtn.classList.remove('recording');
     micBtn.style.borderColor = '#0ff';
