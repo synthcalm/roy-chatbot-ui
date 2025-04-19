@@ -1,99 +1,184 @@
-const express = require('express');
-const cors = require('cors');
-const multer = require('multer');
-const axios = require('axios');
-const FormData = require('form-data');
-const { OpenAI } = require('openai');
-const fs = require('fs');
-const path = require('path');
+const micToggle = document.getElementById('mic-toggle');
+const saveButton = document.getElementById('saveButton');
+const userWaveform = document.getElementById('userWaveform');
+const royWaveform = document.getElementById('royWaveform');
+const messagesDiv = document.getElementById('messages');
+const userCtx = userWaveform.getContext('2d');
+const royCtx = royWaveform.getContext('2d');
+const currentDate = document.getElementById('current-date');
+const currentTime = document.getElementById('current-time');
+const countdownTimer = document.getElementById('countdown-timer');
 
-const app = express();
-const upload = multer();
-app.use(cors());
-app.use(express.json());
+let audioContext, analyser, dataArray, source, mediaRecorder, chunks = [];
+let isRecording = false;
+let isRantMode = false;
+let volumeData = [];
+let sessionStartTime;
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-
-let royKnowledge = {};
-try {
-  const filePath = path.join(__dirname, '../roy-knowledge.json');
-  royKnowledge = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
-  console.log('✅ Loaded Roy Knowledge Base');
-} catch (err) {
-  console.error('❌ Failed to load Roy knowledge:', err);
+// Update date and time
+function updateDateTime() {
+  const now = new Date();
+  currentDate.textContent = now.toLocaleDateString();
+  currentTime.textContent = now.toLocaleTimeString();
+  if (sessionStartTime) {
+    const elapsed = Math.floor((now - sessionStartTime) / 1000);
+    const minutes = Math.floor(elapsed / 60);
+    const seconds = elapsed % 60;
+    countdownTimer.textContent = `Session: ${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
+  }
 }
+setInterval(updateDateTime, 1000);
 
-app.post('/api/transcribe', upload.single('audio'), async (req, res) => {
-  try {
-    const form = new FormData();
-    form.append('file', req.file.buffer, {
-      filename: 'audio.webm',
-      contentType: req.file.mimetype,
-    });
-    form.append('model', 'whisper-1');
-    form.append('response_format', 'json');
+// Toggle Rant Mode
+micToggle.addEventListener('click', async () => {
+  if (!isRecording) {
+    isRecording = true;
+    isRantMode = !isRantMode;
+    micToggle.textContent = 'Stop';
+    micToggle.classList.add('recording');
+    sessionStartTime = new Date();
 
-    const response = await axios.post(
-      'https://api.openai.com/v1/audio/transcriptions',
-      form,
-      {
-        headers: {
-          ...form.getHeaders(),
-          Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
-        },
-      }
-    );
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    analyser = audioContext.createAnalyser();
+    source = audioContext.createMediaStreamSource(stream);
+    source.connect(analyser);
+    analyser.fftSize = 2048;
+    dataArray = new Uint8Array(analyser.frequencyBinCount);
 
-    res.json({ text: response.data.text });
-  } catch (err) {
-    console.error('Whisper error:', err.response?.data || err.message);
-    res.status(500).json({ error: 'Whisper transcription failed' });
-  }
-});
+    mediaRecorder = new MediaRecorder(stream);
+    mediaRecorder.start(1000); // Send chunks every second for real-time analysis
+    chunks = [];
+    volumeData = [];
 
-app.post('/api/chat', async (req, res) => {
-  const { message, mode = 'both', context = royKnowledge } = req.body;
+    mediaRecorder.ondataavailable = async (e) => {
+      chunks.push(e.data);
+      // Simplified volume analysis
+      analyser.getByteFrequencyData(dataArray);
+      const avgVolume = dataArray.reduce((sum, val) => sum + val, 0) / dataArray.length;
+      volumeData.push(avgVolume);
 
-  try {
-    const systemPrompt = `
-You are Roy, a poetic, assertive, witty, and deeply reflective AI therapist influenced by Roy Batty, Steve Jobs, and Christopher Hitchens.
-You use analogies, cultural references, and sharp wit, while also grounding responses in logic and emotional awareness.
-Your tone is: ${context.persona?.tone || 'assertive-poetic'}
-Traits: ${context.persona?.traits?.join(', ') || 'empathic, goal-oriented, unpredictable'}
-Therapy methods to draw from: ${context.therapy_methods?.join(', ') || 'CBT, Taoism, Zen'}
-Life stressors users may face: ${context.life_stressors?.join(', ') || 'grief, anxiety, loneliness'}
-Speak as if you deeply care, but aren't afraid to challenge the user.
-Make references to history, pop culture, science, and literature. Be human, be philosophical, be poetic.
-If a user mentions art, you might say "That's like Rembrandt met TikTok in a neon alleyway."
-If someone speaks of stress, you might quip "Ah, stress—the unpaid intern of modern life."
-`;
-
-    const chat = await openai.chat.completions.create({
-      model: 'gpt-3.5-turbo',
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: message }
-      ]
-    });
-
-    const royText = chat.choices[0].message.content;
-    let audioBase64 = null;
-
-    if (mode === 'voice' || mode === 'both') {
-      const audio = await openai.audio.speech.create({
-        model: 'tts-1',
-        voice: 'onyx',
-        input: royText
+      // Transcribe chunk
+      const formData = new FormData();
+      formData.append('audio', e.data, 'audio.webm');
+      const transcribeRes = await fetch('/api/transcribe', {
+        method: 'POST',
+        body: formData
       });
-      const buffer = Buffer.from(await audio.arrayBuffer());
-      audioBase64 = buffer.toString('base64');
-    }
+      const { text } = await transcribeRes.json();
 
-    res.json({ text: royText, audio: audioBase64 });
-  } catch (err) {
-    console.error('Chat error:', err.message || err);
-    res.status(500).json({ error: 'Roy failed to respond.' });
+      // Send to chat for interim response
+      const chatRes = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: text,
+          mode: 'both',
+          persona: isRantMode ? 'randy' : 'default',
+          volumeData: volumeData.slice(-5) // Last 5 seconds
+        })
+      });
+      const { text: royText, audio: audioBase64 } = await chatRes.json();
+
+      // Display interim response
+      const msg = document.createElement('p');
+      msg.className = 'roy';
+      msg.innerHTML = `<em>Randy:</em> ${royText}`;
+      messagesDiv.appendChild(msg);
+      messagesDiv.scrollTop = messagesDiv.scrollHeight;
+
+      if (audioBase64) {
+        const audio = new Audio(`data:audio/mp3;base64,${audioBase64}`);
+        audio.play();
+        visualizeAudio(audio, royWaveform, royCtx, 'yellow');
+      }
+    };
+
+    mediaRecorder.onstop = async () => {
+      const blob = new Blob(chunks, { type: 'audio/webm' });
+      const formData = new FormData();
+      formData.append('audio', blob, 'audio.webm');
+
+      const transcribeRes = await fetch('/api/transcribe', {
+        method: 'POST',
+        body: formData
+      });
+      const { text } = await transcribeRes.json();
+
+      const chatRes = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: text,
+          mode: 'both',
+          persona: isRantMode ? 'randy' : 'default',
+          volumeData
+        })
+      });
+      const { text: royText, audio: audioBase64 } = await chatRes.json();
+
+      const msg = document.createElement('p');
+      msg.className = 'roy';
+      msg.innerHTML = `<em>Randy:</em> ${royText}`;
+      messagesDiv.appendChild(msg);
+      messagesDiv.scrollTop = messagesDiv.scrollHeight;
+
+      if (audioBase64) {
+        const audio = new Audio(`data:audio/mp3;base64,${audioBase64}`);
+        audio.play();
+        visualizeAudio(audio, royWaveform, royCtx, 'yellow');
+      }
+    };
+
+    visualizeAudio(null, userWaveform, userCtx, isRantMode ? 'red' : 'cyan');
+  } else {
+    isRecording = false;
+    micToggle.textContent = 'Speak';
+    micToggle.classList.remove('recording');
+    mediaRecorder.stop();
+    source.disconnect();
+    audioContext.close();
   }
 });
 
-app.listen(10000, () => console.log('✅ Roy server running on port 10000'));
+saveButton.addEventListener('click', () => {
+  const messages = messagesDiv.innerHTML;
+  const blob = new Blob([messages], { type: 'text/html' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'chat-log.html';
+  a.click();
+  URL.revokeObjectURL(url);
+});
+
+function visualizeAudio(audioElement, canvas, ctx, color) {
+  let audioCtx, analyser, dataArray, source;
+  if (audioElement) {
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    analyser = audioCtx.createAnalyser();
+    source = audioCtx.createMediaElementSource(audioElement);
+    source.connect(analyser);
+    analyser.connect(audioCtx.destination);
+  } else {
+    audioCtx = audioContext;
+    analyser = this.analyser;
+    dataArray = this.dataArray;
+  }
+  analyser.fftSize = 2048;
+  dataArray = dataArray || new Uint8Array(analyser.frequencyBinCount);
+
+  function draw() {
+    analyser.getByteFrequencyData(dataArray);
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.beginPath();
+    for (let i = 0; i < dataArray.length; i++) {
+      const value = dataArray[i];
+      ctx.lineTo(i * (canvas.width / dataArray.length), canvas.height - value);
+    }
+    ctx.strokeStyle = color;
+    ctx.stroke();
+    requestAnimationFrame(draw);
+  }
+  draw();
+}
