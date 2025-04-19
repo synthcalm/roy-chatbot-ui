@@ -12,13 +12,13 @@ window.addEventListener('DOMContentLoaded', () => {
 
   let isRecording = false;
   let mediaRecorder, audioContext, analyser, stream;
+  let recordedChunks = [];
   let sessionStart = Date.now();
-  let royAc = null, royAnalyser = null, roySource = null;
 
   function updateClock() {
     const now = new Date();
     document.getElementById('current-date').textContent = now.toISOString().split('T')[0];
-    document.getElementById('current-time').textContent = now.toLocaleTimeString('en-US', { hour: 'numeric', minute: 'numeric', hour12: true });
+    document.getElementById('current-time').textContent = now.toLocaleTimeString('en-US');
     const elapsed = Math.floor((Date.now() - sessionStart) / 1000);
     const remaining = Math.max(0, 3600 - elapsed);
     document.getElementById('countdown-timer').textContent = `${String(Math.floor(remaining / 60)).padStart(2, '0')}:${String(remaining % 60).padStart(2, '0')}`;
@@ -50,14 +50,14 @@ window.addEventListener('DOMContentLoaded', () => {
       drawWaveform(userCtx, userCanvas, analyser, 'yellow');
 
       mediaRecorder = new MediaRecorder(stream);
-      const chunks = [];
+      recordedChunks = [];
 
       mediaRecorder.ondataavailable = (e) => {
-        if (e.data.size > 0) chunks.push(e.data);
+        if (e.data.size > 0) recordedChunks.push(e.data);
       };
 
       mediaRecorder.onstop = async () => {
-        const blob = new Blob(chunks, { type: 'audio/webm' });
+        const blob = new Blob(recordedChunks, { type: 'audio/webm' });
         const formData = new FormData();
         formData.append('audio', blob);
 
@@ -74,8 +74,8 @@ window.addEventListener('DOMContentLoaded', () => {
             appendMessage('Roy', 'Sorry, I didn’t catch that.');
           }
         } catch (err) {
-          console.error('Transcription error:', err);
           appendMessage('Roy', 'Transcription failed.');
+          console.error('Transcription error:', err);
         }
       };
 
@@ -90,7 +90,6 @@ window.addEventListener('DOMContentLoaded', () => {
   function stopRecording() {
     if (mediaRecorder && mediaRecorder.state !== 'inactive') mediaRecorder.stop();
     if (stream) stream.getTracks().forEach(track => track.stop());
-
     micBtn.textContent = 'Speak';
     micBtn.classList.remove('recording');
     isRecording = false;
@@ -101,14 +100,13 @@ window.addEventListener('DOMContentLoaded', () => {
       const res = await fetch('https://roy-chatbo-backend.onrender.com/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: text, mode: "both" })
+        body: JSON.stringify({ message: text, mode: 'both' })
       });
-
       const data = await res.json();
       if (data.text) appendMessage('Roy', data.text);
       if (data.audio) {
         royAudio.src = `data:audio/mp3;base64,${data.audio}`;
-        royAudio.play().catch(e => console.warn('Autoplay error:', e));
+        royAudio.play().catch(err => console.warn('Autoplay error:', err));
         drawWaveformRoy(royAudio);
       }
     } catch (err) {
@@ -125,7 +123,6 @@ window.addEventListener('DOMContentLoaded', () => {
       analyser.getByteTimeDomainData(buffer);
       ctx.fillStyle = '#000';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
-
       ctx.strokeStyle = '#333';
       ctx.lineWidth = 0.5;
       for (let i = 0; i <= canvas.width; i += 20) {
@@ -140,7 +137,6 @@ window.addEventListener('DOMContentLoaded', () => {
         ctx.lineTo(canvas.width, j);
         ctx.stroke();
       }
-
       ctx.strokeStyle = color;
       ctx.beginPath();
       const slice = canvas.width / buffer.length;
@@ -150,30 +146,24 @@ window.addEventListener('DOMContentLoaded', () => {
         i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
         x += slice;
       }
-      ctx.lineTo(canvas.width, canvas.height / 2);
       ctx.stroke();
     }
     draw();
   }
 
   function drawWaveformRoy(audio) {
-    if (!royAc) {
-      royAc = new (window.AudioContext || window.webkitAudioContext)();
-      royAnalyser = royAc.createAnalyser();
-      royAnalyser.fftSize = 2048;
-      roySource = royAc.createMediaElementSource(audio);
-      roySource.connect(royAnalyser);
-      royAnalyser.connect(royAc.destination);
-    }
-
-    const buffer = new Uint8Array(royAnalyser.frequencyBinCount);
-
+    const ac = new (window.AudioContext || window.webkitAudioContext)();
+    const analyser = ac.createAnalyser();
+    const source = ac.createMediaElementSource(audio);
+    source.connect(analyser);
+    analyser.connect(ac.destination);
+    analyser.fftSize = 2048;
+    const buffer = new Uint8Array(analyser.frequencyBinCount);
     function draw() {
       requestAnimationFrame(draw);
-      royAnalyser.getByteTimeDomainData(buffer);
+      analyser.getByteTimeDomainData(buffer);
       royCtx.fillStyle = '#000';
       royCtx.fillRect(0, 0, royCanvas.width, royCanvas.height);
-
       royCtx.strokeStyle = '#333';
       royCtx.lineWidth = 0.5;
       for (let i = 0; i <= royCanvas.width; i += 20) {
@@ -188,7 +178,6 @@ window.addEventListener('DOMContentLoaded', () => {
         royCtx.lineTo(royCanvas.width, j);
         royCtx.stroke();
       }
-
       royCtx.strokeStyle = 'magenta';
       royCtx.beginPath();
       const slice = royCanvas.width / buffer.length;
@@ -198,10 +187,8 @@ window.addEventListener('DOMContentLoaded', () => {
         i === 0 ? royCtx.moveTo(x, y) : royCtx.lineTo(x, y);
         x += slice;
       }
-      royCtx.lineTo(royCanvas.width, royCanvas.height / 2);
       royCtx.stroke();
     }
-
     draw();
   }
 
@@ -212,7 +199,6 @@ window.addEventListener('DOMContentLoaded', () => {
     p.innerHTML = `<strong style="color: ${color}">${sender}:</strong> <span style="color: ${color}">${text}</span>`;
     messagesEl.appendChild(p);
     messagesEl.scrollTop = messagesEl.scrollHeight;
-    return p;
   }
 
   appendMessage('Roy', "Welcome. I'm Roy. Speak when ready.");
