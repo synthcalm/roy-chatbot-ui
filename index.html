@@ -1,216 +1,31 @@
-window.addEventListener('DOMContentLoaded', () => {
-  const micBtn = document.getElementById('mic-toggle');
-  const messagesEl = document.getElementById('messages');
-  const userCanvas = document.getElementById('userWaveform');
-  const royCanvas = document.getElementById('royWaveform');
-  const userCtx = userCanvas.getContext('2d');
-  const royCtx = royCanvas.getContext('2d');
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Roy | SynthCalm</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="info-bar">
+    <span id="current-date"></span>
+    <span id="current-time"></span>
+    <span id="countdown-timer"></span>
+  </div>
 
-  const royAudio = new Audio();
-  royAudio.setAttribute('playsinline', 'true');
-  document.body.appendChild(royAudio);
+  <canvas id="userWaveform" width="800" height="100"></canvas>
+  <canvas id="royWaveform" width="800" height="100"></canvas>
 
-  let isRecording = false;
-  let mediaRecorder, audioContext, analyser, stream;
-  let sessionStart = Date.now();
+  <div id="controls">
+    <button id="mic-toggle">Speak</button>
+    <button id="saveButton">Save Log</button>
+    <a href="https://synthcalm.com" target="_blank">
+      <button id="homeButton">SynthCalm Home</button>
+    </a>
+  </div>
 
-  function updateClock() {
-    const now = new Date();
-    document.getElementById('current-date').textContent = now.toISOString().split('T')[0];
-    document.getElementById('current-time').textContent = now.toLocaleTimeString();
-    const elapsed = Math.floor((Date.now() - sessionStart) / 1000);
-    const remaining = Math.max(0, 3600 - elapsed);
-    document.getElementById('countdown-timer').textContent = `${String(Math.floor(remaining / 60)).padStart(2, '0')}:${String(remaining % 60).padStart(2, '0')}`;
-  }
+  <div id="messages"></div>
 
-  setInterval(updateClock, 1000);
-  updateClock();
-
-  micBtn.addEventListener('click', () => {
-    isRecording ? stopRecording() : startRecording();
-  });
-
-  async function startRecording() {
-    isRecording = true;
-    micBtn.textContent = 'Stop';
-    micBtn.classList.add('recording');
-
-    try {
-      if (!audioContext) {
-        audioContext = new (window.AudioContext || window.webkitAudioContext)();
-        await audioContext.resume();
-      }
-
-      stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const source = audioContext.createMediaStreamSource(stream);
-      analyser = audioContext.createAnalyser();
-      analyser.fftSize = 2048;
-      source.connect(analyser);
-      drawWaveform(userCtx, userCanvas, analyser, 'yellow');
-
-      mediaRecorder = new MediaRecorder(stream);
-      const chunks = [];
-
-      mediaRecorder.ondataavailable = (e) => {
-        if (e.data.size > 0) chunks.push(e.data);
-      };
-
-      mediaRecorder.onstop = async () => {
-        const blob = new Blob(chunks, { type: 'audio/webm' });
-        const formData = new FormData();
-        formData.append('audio', blob);
-
-        appendMessage('Roy', '<em>Roy is reflecting...</em>');
-
-        try {
-          const res = await fetch('https://roy-chatbo-backend.onrender.com/api/transcribe', {
-            method: 'POST',
-            body: formData
-          });
-          const data = await res.json();
-          if (data.text) {
-            appendMessage('You', data.text);
-            await fetchRoyResponse(data.text);
-          } else {
-            appendMessage('Roy', 'Sorry, I didn’t catch that.');
-          }
-        } catch (err) {
-          console.error('Transcription error:', err);
-          appendMessage('Roy', 'Transcription failed.');
-        }
-      };
-
-      mediaRecorder.start();
-    } catch (err) {
-      appendMessage('Roy', 'Microphone access error.');
-      console.error('Mic error:', err);
-      stopRecording();
-    }
-  }
-
-  function stopRecording() {
-    if (mediaRecorder && mediaRecorder.state !== 'inactive') mediaRecorder.stop();
-    if (stream) stream.getTracks().forEach(track => track.stop());
-
-    micBtn.textContent = 'Speak';
-    micBtn.classList.remove('recording');
-    isRecording = false;
-  }
-
-  async function fetchRoyResponse(text) {
-    try {
-      const res = await fetch('https://roy-chatbo-backend.onrender.com/api/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: text, mode: "both" })
-      });
-
-      const data = await res.json();
-      if (data.text) appendMessage('Roy', data.text);
-      if (data.audio) {
-        royAudio.src = `data:audio/mp3;base64,${data.audio}`;
-        royAudio.play().catch(e => console.warn('Autoplay error:', e));
-        drawWaveformRoy(royAudio);
-      }
-    } catch (err) {
-      console.error('Roy response error:', err);
-      appendMessage('Roy', 'Error generating response.');
-    }
-  }
-
-  function drawWaveform(ctx, canvas, analyser, color) {
-    const buffer = new Uint8Array(analyser.frequencyBinCount);
-    function draw() {
-      if (!isRecording) return;
-      requestAnimationFrame(draw);
-      analyser.getByteTimeDomainData(buffer);
-      ctx.fillStyle = '#000';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-      // Draw grid
-      ctx.strokeStyle = '#333';
-      ctx.lineWidth = 0.5;
-      for (let i = 0; i <= canvas.width; i += 20) {
-        ctx.beginPath();
-        ctx.moveTo(i, 0);
-        ctx.lineTo(i, canvas.height);
-        ctx.stroke();
-      }
-      for (let j = 0; j <= canvas.height; j += 20) {
-        ctx.beginPath();
-        ctx.moveTo(0, j);
-        ctx.lineTo(canvas.width, j);
-        ctx.stroke();
-      }
-
-      ctx.strokeStyle = color;
-      ctx.beginPath();
-      const slice = canvas.width / buffer.length;
-      let x = 0;
-      for (let i = 0; i < buffer.length; i++) {
-        const y = (buffer[i] / 128.0) * canvas.height / 2;
-        i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
-        x += slice;
-      }
-      ctx.lineTo(canvas.width, canvas.height / 2);
-      ctx.stroke();
-    }
-    draw();
-  }
-
-  function drawWaveformRoy(audio) {
-    const ac = new (window.AudioContext || window.webkitAudioContext)();
-    const analyser = ac.createAnalyser();
-    const source = ac.createMediaElementSource(audio);
-    source.connect(analyser);
-    analyser.connect(ac.destination);
-    analyser.fftSize = 2048;
-    const buffer = new Uint8Array(analyser.frequencyBinCount);
-    function draw() {
-      requestAnimationFrame(draw);
-      analyser.getByteTimeDomainData(buffer);
-      royCtx.fillStyle = '#000';
-      royCtx.fillRect(0, 0, royCanvas.width, royCanvas.height);
-
-      // Draw grid
-      royCtx.strokeStyle = '#333';
-      royCtx.lineWidth = 0.5;
-      for (let i = 0; i <= royCanvas.width; i += 20) {
-        royCtx.beginPath();
-        royCtx.moveTo(i, 0);
-        royCtx.lineTo(i, royCanvas.height);
-        royCtx.stroke();
-      }
-      for (let j = 0; j <= royCanvas.height; j += 20) {
-        royCtx.beginPath();
-        royCtx.moveTo(0, j);
-        royCtx.lineTo(royCanvas.width, j);
-        royCtx.stroke();
-      }
-
-      royCtx.strokeStyle = 'magenta';
-      royCtx.beginPath();
-      const slice = royCanvas.width / buffer.length;
-      let x = 0;
-      for (let i = 0; i < buffer.length; i++) {
-        const y = (buffer[i] / 128.0) * royCanvas.height / 2;
-        i === 0 ? royCtx.moveTo(x, y) : royCtx.lineTo(x, y);
-        x += slice;
-      }
-      royCtx.lineTo(royCanvas.width, royCanvas.height / 2);
-      royCtx.stroke();
-    }
-    draw();
-  }
-
-  function appendMessage(sender, text) {
-    const p = document.createElement('p');
-    p.className = sender.toLowerCase();
-    const color = sender === 'Roy' ? 'yellow' : 'white';
-    p.innerHTML = `<strong style="color: ${color}">${sender}:</strong> <span style="color: ${color}">${text}</span>`;
-    messagesEl.appendChild(p);
-    messagesEl.scrollTop = messagesEl.scrollHeight;
-  }
-
-  appendMessage('Roy', "Welcome. I'm Roy. Speak when ready.");
-});
+  <script src="script.js"></script>
+</body>
+</html>
