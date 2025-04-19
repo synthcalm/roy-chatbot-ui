@@ -66,9 +66,26 @@ button:hover {
   color: black;
 }
 
+button.active-roy {
+  background: yellow;
+  color: black;
+  border: 1px solid yellow;
+}
+
+button.active-randy {
+  background: red;
+  color: black;
+  border: 1px solid red;
+}
+
 button.recording {
-  border: 1px solid magenta;
-  color: magenta;
+  background: white;
+  color: red;
+  border: 1px solid white;
+}
+
+button.ready-to-speak {
+  animation: pulsate 1.5s infinite;
 }
 
 #messages {
@@ -93,4 +110,10 @@ p.roy em {
   33%  { content: '..'; }
   66%  { content: '...'; }
   100% { content: '.'; }
+}
+
+@keyframes pulsate {
+  0% { border-color: cyan; color: cyan; }
+  50% { border-color: #0ff80; color: #0ff80; }
+  100% { border-color: cyan; color: cyan; }
 }
