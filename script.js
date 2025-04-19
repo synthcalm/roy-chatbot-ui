@@ -1,184 +1,99 @@
-window.addEventListener('DOMContentLoaded', async () => {
-  const micBtn = document.getElementById('mic-toggle');
-  const messagesEl = document.getElementById('messages');
-  const userCanvas = document.getElementById('userWaveform');
-  const royCanvas = document.getElementById('royWaveform');
-  const userCtx = userCanvas.getContext('2d');
-  const royCtx = royCanvas.getContext('2d');
-  const royAudio = new Audio();
-  royAudio.setAttribute('playsinline', 'true');
-  document.body.appendChild(royAudio);
+const express = require('express');
+const cors = require('cors');
+const multer = require('multer');
+const axios = require('axios');
+const FormData = require('form-data');
+const { OpenAI } = require('openai');
+const fs = require('fs');
+const path = require('path');
 
-  let royKnowledge = {};
+const app = express();
+const upload = multer();
+app.use(cors());
+app.use(express.json());
+
+const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+
+let royKnowledge = {};
+try {
+  const filePath = path.join(__dirname, '../roy-knowledge.json');
+  royKnowledge = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
+  console.log('✅ Loaded Roy Knowledge Base');
+} catch (err) {
+  console.error('❌ Failed to load Roy knowledge:', err);
+}
+
+app.post('/api/transcribe', upload.single('audio'), async (req, res) => {
   try {
-    const response = await fetch('roy-knowledge.json');
-    royKnowledge = await response.json();
-    console.log('Roy Knowledge:', royKnowledge);
+    const form = new FormData();
+    form.append('file', req.file.buffer, {
+      filename: 'audio.webm',
+      contentType: req.file.mimetype,
+    });
+    form.append('model', 'whisper-1');
+    form.append('response_format', 'json');
+
+    const response = await axios.post(
+      'https://api.openai.com/v1/audio/transcriptions',
+      form,
+      {
+        headers: {
+          ...form.getHeaders(),
+          Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+        },
+      }
+    );
+
+    res.json({ text: response.data.text });
   } catch (err) {
-    console.warn('Failed to load Roy knowledge base.', err);
+    console.error('Whisper error:', err.response?.data || err.message);
+    res.status(500).json({ error: 'Whisper transcription failed' });
   }
-
-  let isRecording = false;
-  let mediaRecorder, audioContext, analyser, stream, chunks = [];
-  let sessionStart = Date.now();
-
-  function updateClock() {
-    const now = new Date();
-    document.getElementById('current-date').textContent = now.toISOString().split('T')[0];
-    document.getElementById('current-time').textContent = now.toLocaleTimeString();
-    const elapsed = Math.floor((Date.now() - sessionStart) / 1000);
-    const remaining = Math.max(0, 3600 - elapsed);
-    document.getElementById('countdown-timer').textContent = `${String(Math.floor(remaining / 60)).padStart(2, '0')}:${String(remaining % 60).padStart(2, '0')}`;
-  }
-  setInterval(updateClock, 1000);
-  updateClock();
-
-  micBtn.addEventListener('click', () => {
-    isRecording ? stopRecording() : startRecording();
-  });
-
-  async function startRecording() {
-    isRecording = true;
-    micBtn.textContent = 'Stop';
-    micBtn.classList.add('recording');
-
-    try {
-      if (!audioContext) {
-        audioContext = new (window.AudioContext || window.webkitAudioContext)();
-        await audioContext.resume();
-      }
-
-      stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const source = audioContext.createMediaStreamSource(stream);
-      analyser = audioContext.createAnalyser();
-      analyser.fftSize = 2048;
-      source.connect(analyser);
-      drawWaveform(userCtx, userCanvas, analyser, 'yellow');
-
-      chunks = [];
-      mediaRecorder = new MediaRecorder(stream);
-      mediaRecorder.ondataavailable = e => chunks.push(e.data);
-
-      mediaRecorder.onstop = async () => {
-        const blob = new Blob(chunks, { type: 'audio/webm' });
-        const formData = new FormData();
-        formData.append('audio', blob);
-
-        const typingMsg = appendMessage('Roy', '<em class="dots">typing...</em>');
-
-        try {
-          // Step 1: Transcribe the audio
-          const transcribeRes = await fetch('https://roy-chatbo-backend.onrender.com/api/transcribe', {
-            method: 'POST',
-            body: formData
-          });
-          const { text: transcript } = await transcribeRes.json();
-          appendMessage('You', transcript);
-
-          // Step 2: Send to chat API with Roy's knowledge
-          const chatRes = await fetch('https://roy-chatbo-backend.onrender.com/api/chat', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ message: transcript, mode: 'both', context: royKnowledge })
-          });
-
-          const data = await chatRes.json();
-          typingMsg.remove();
-
-          if (data.text) appendMessage('Roy', data.text);
-
-          if (data.audio) {
-            royAudio.src = `data:audio/mp3;base64,${data.audio}`;
-            royAudio.play().catch(e => console.warn('Autoplay error:', e));
-            drawWaveformRoy(royAudio);
-          }
-
-        } catch (err) {
-          typingMsg.remove();
-          console.error('Roy response failed:', err);
-          appendMessage('Roy', 'Error generating response.');
-        }
-      };
-
-      mediaRecorder.start();
-
-    } catch (err) {
-      appendMessage('Roy', 'Microphone access error.');
-      console.error('Mic error:', err);
-      stopRecording();
-    }
-  }
-
-  function stopRecording() {
-    if (mediaRecorder && mediaRecorder.state !== 'inactive') mediaRecorder.stop();
-    if (stream) stream.getTracks().forEach(track => track.stop());
-    micBtn.textContent = 'Speak';
-    micBtn.classList.remove('recording');
-    isRecording = false;
-  }
-
-  function drawWaveform(ctx, canvas, analyser, color) {
-    const buffer = new Uint8Array(analyser.frequencyBinCount);
-    function draw() {
-      if (!isRecording) return;
-      requestAnimationFrame(draw);
-      analyser.getByteTimeDomainData(buffer);
-      ctx.fillStyle = '#000';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-      ctx.strokeStyle = color;
-      ctx.beginPath();
-      const slice = canvas.width / buffer.length;
-      let x = 0;
-      for (let i = 0; i < buffer.length; i++) {
-        const y = (buffer[i] / 128.0) * canvas.height / 2;
-        i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
-        x += slice;
-      }
-      ctx.stroke();
-    }
-    draw();
-  }
-
-  function drawWaveformRoy(audio) {
-    try {
-      const ac = new (window.AudioContext || window.webkitAudioContext)();
-      const analyser = ac.createAnalyser();
-      const source = ac.createMediaElementSource(audio);
-      source.connect(analyser);
-      analyser.connect(ac.destination);
-      analyser.fftSize = 2048;
-      const buffer = new Uint8Array(analyser.frequencyBinCount);
-      function draw() {
-        requestAnimationFrame(draw);
-        analyser.getByteTimeDomainData(buffer);
-        royCtx.fillStyle = '#000';
-        royCtx.fillRect(0, 0, royCanvas.width, royCanvas.height);
-        royCtx.strokeStyle = 'magenta';
-        royCtx.beginPath();
-        const slice = royCanvas.width / buffer.length;
-        let x = 0;
-        for (let i = 0; i < buffer.length; i++) {
-          const y = (buffer[i] / 128.0) * royCanvas.height / 2;
-          i === 0 ? royCtx.moveTo(x, y) : royCtx.lineTo(x, y);
-          x += slice;
-        }
-        royCtx.stroke();
-      }
-      draw();
-    } catch (e) {
-      console.warn('drawWaveformRoy failed:', e);
-    }
-  }
-
-  function appendMessage(sender, text) {
-    const p = document.createElement('p');
-    p.className = sender.toLowerCase();
-    const color = sender === 'Roy' ? 'yellow' : 'white';
-    p.innerHTML = `<strong style="color: ${color}">${sender}:</strong> <span style="color: ${color}">${text}</span>`;
-    messagesEl.appendChild(p);
-    messagesEl.scrollTop = messagesEl.scrollHeight;
-    return p;
-  }
-
-  appendMessage('Roy', "Welcome. I'm Roy. Speak when ready.");
 });
+
+app.post('/api/chat', async (req, res) => {
+  const { message, mode = 'both', context = royKnowledge } = req.body;
+
+  try {
+    const systemPrompt = `
+You are Roy, a poetic, assertive, witty, and deeply reflective AI therapist influenced by Roy Batty, Steve Jobs, and Christopher Hitchens.
+You use analogies, cultural references, and sharp wit, while also grounding responses in logic and emotional awareness.
+Your tone is: ${context.persona?.tone || 'assertive-poetic'}
+Traits: ${context.persona?.traits?.join(', ') || 'empathic, goal-oriented, unpredictable'}
+Therapy methods to draw from: ${context.therapy_methods?.join(', ') || 'CBT, Taoism, Zen'}
+Life stressors users may face: ${context.life_stressors?.join(', ') || 'grief, anxiety, loneliness'}
+Speak as if you deeply care, but aren't afraid to challenge the user.
+Make references to history, pop culture, science, and literature. Be human, be philosophical, be poetic.
+If a user mentions art, you might say "That's like Rembrandt met TikTok in a neon alleyway."
+If someone speaks of stress, you might quip "Ah, stress—the unpaid intern of modern life."
+`;
+
+    const chat = await openai.chat.completions.create({
+      model: 'gpt-3.5-turbo',
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: message }
+      ]
+    });
+
+    const royText = chat.choices[0].message.content;
+    let audioBase64 = null;
+
+    if (mode === 'voice' || mode === 'both') {
+      const audio = await openai.audio.speech.create({
+        model: 'tts-1',
+        voice: 'onyx',
+        input: royText
+      });
+      const buffer = Buffer.from(await audio.arrayBuffer());
+      audioBase64 = buffer.toString('base64');
+    }
+
+    res.json({ text: royText, audio: audioBase64 });
+  } catch (err) {
+    console.error('Chat error:', err.message || err);
+    res.status(500).json({ error: 'Roy failed to respond.' });
+  }
+});
+
+app.listen(10000, () => console.log('✅ Roy server running on port 10000'));
