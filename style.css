@@ -1,4 +1,4 @@
-/* SynthCalm Roy | UI Styles - MIA-style UI baseline */
+/* SynthCalm Roy | Finalized UI Styles - Locked Layout */
 
 body {
   margin: 0;
@@ -20,8 +20,9 @@ canvas {
   max-width: 90vw;
   width: 800px;
   height: 100px;
-  background-image: linear-gradient(to right, rgba(255,255,0,0.2) 1px, transparent 1px),
-                    linear-gradient(to bottom, rgba(255,255,0,0.2) 1px, transparent 1px);
+  background-image: 
+    linear-gradient(to right, rgba(255,255,0,0.2) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255,255,0,0.2) 1px, transparent 1px);
   background-size: 20px 20px;
 }
 
