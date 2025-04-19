@@ -5,15 +5,13 @@ window.addEventListener('DOMContentLoaded', () => {
   const royCanvas = document.getElementById('royWaveform');
   const userCtx = userCanvas.getContext('2d');
   const royCtx = royCanvas.getContext('2d');
+
   const royAudio = new Audio();
   royAudio.setAttribute('playsinline', 'true');
   document.body.appendChild(royAudio);
 
+  let audioContext, analyser, stream, ws;
   let isRecording = false;
-  let audioContext = null;
-  let analyser = null;
-  let stream = null;
-  let ws = null;
   const sessionStart = Date.now();
 
   function updateClock() {
@@ -24,7 +22,6 @@ window.addEventListener('DOMContentLoaded', () => {
     const remaining = Math.max(0, 3600 - elapsed);
     document.getElementById('countdown-timer').textContent = `${String(Math.floor(remaining / 60)).padStart(2, '0')}:${String(remaining % 60).padStart(2, '0')}`;
   }
-
   setInterval(updateClock, 1000);
   updateClock();
 
@@ -33,11 +30,16 @@ window.addEventListener('DOMContentLoaded', () => {
   });
 
   async function startRecording() {
+    micBtn.textContent = 'Stop';
+    micBtn.classList.add('recording');
+    isRecording = true;
+
     try {
       if (!audioContext) {
         audioContext = new (window.AudioContext || window.webkitAudioContext)();
         await audioContext.resume();
       }
+
       stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const source = audioContext.createMediaStreamSource(stream);
       analyser = audioContext.createAnalyser();
@@ -48,9 +50,14 @@ window.addEventListener('DOMContentLoaded', () => {
       ws = new WebSocket("wss://api.assemblyai.com/v2/realtime/ws?sample_rate=16000", ['assemblyai-realtime']);
       ws.onopen = () => {
         ws.send(JSON.stringify({ auth_token: "c204c69052074ce98287a515e68da0c4" }));
-        micBtn.textContent = 'Stop';
-        micBtn.classList.add('recording');
-        isRecording = true;
+      };
+
+      ws.onmessage = async e => {
+        const msg = JSON.parse(e.data);
+        if (msg.text && msg.message_type === 'FinalTranscript') {
+          appendMessage('You', msg.text);
+          await fetchRoyResponse(msg.text);
+        }
       };
 
       const mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm;codecs=opus' });
@@ -61,14 +68,6 @@ window.addEventListener('DOMContentLoaded', () => {
       };
       mediaRecorder.start(250);
 
-      ws.onmessage = async e => {
-        const msg = JSON.parse(e.data);
-        if (msg.text && msg.message_type === 'FinalTranscript') {
-          appendMessage('You', msg.text);
-          await fetchRoyResponse(msg.text);
-        }
-      };
-
       ws.onerror = err => {
         console.error('WebSocket error:', err);
         stopRecording();
@@ -77,7 +76,7 @@ window.addEventListener('DOMContentLoaded', () => {
       ws.onclose = () => stopRecording();
 
     } catch (err) {
-      appendMessage('Roy', 'Microphone access error.');
+      appendMessage('Roy', 'Mic access error.');
       console.error('Mic error:', err);
       stopRecording();
     }
@@ -100,7 +99,7 @@ window.addEventListener('DOMContentLoaded', () => {
       const res = await fetch('https://roy-chatbo-backend.onrender.com/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: text, mode: "both" })
+        body: JSON.stringify({ message: text, mode: 'both' })
       });
       const data = await res.json();
       if (data.text) appendMessage('Roy', data.text);
@@ -123,6 +122,7 @@ window.addEventListener('DOMContentLoaded', () => {
       analyser.getByteTimeDomainData(buffer);
       ctx.fillStyle = '#000';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
+
       ctx.strokeStyle = '#333';
       ctx.lineWidth = 0.5;
       for (let i = 0; i <= canvas.width; i += 20) {
@@ -131,6 +131,7 @@ window.addEventListener('DOMContentLoaded', () => {
       for (let j = 0; j <= canvas.height; j += 20) {
         ctx.beginPath(); ctx.moveTo(0, j); ctx.lineTo(canvas.width, j); ctx.stroke();
       }
+
       ctx.strokeStyle = color;
       ctx.beginPath();
       const slice = canvas.width / buffer.length;
@@ -140,6 +141,7 @@ window.addEventListener('DOMContentLoaded', () => {
         i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
         x += slice;
       }
+      ctx.lineTo(canvas.width, canvas.height / 2);
       ctx.stroke();
     }
     draw();
@@ -158,6 +160,7 @@ window.addEventListener('DOMContentLoaded', () => {
       analyser.getByteTimeDomainData(buffer);
       royCtx.fillStyle = '#000';
       royCtx.fillRect(0, 0, royCanvas.width, royCanvas.height);
+
       royCtx.strokeStyle = '#333';
       royCtx.lineWidth = 0.5;
       for (let i = 0; i <= royCanvas.width; i += 20) {
@@ -166,6 +169,7 @@ window.addEventListener('DOMContentLoaded', () => {
       for (let j = 0; j <= royCanvas.height; j += 20) {
         royCtx.beginPath(); royCtx.moveTo(0, j); royCtx.lineTo(royCanvas.width, j); royCtx.stroke();
       }
+
       royCtx.strokeStyle = 'magenta';
       royCtx.beginPath();
       const slice = royCanvas.width / buffer.length;
@@ -175,6 +179,7 @@ window.addEventListener('DOMContentLoaded', () => {
         i === 0 ? royCtx.moveTo(x, y) : royCtx.lineTo(x, y);
         x += slice;
       }
+      royCtx.lineTo(royCanvas.width, royCanvas.height / 2);
       royCtx.stroke();
     }
     draw();
