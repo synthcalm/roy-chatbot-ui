@@ -1,4 +1,4 @@
-window.addEventListener('DOMContentLoaded', () => {
+window.addEventListener('DOMContentLoaded', async () => {
   const micBtn = document.getElementById('mic-toggle');
   const messagesEl = document.getElementById('messages');
   const userCanvas = document.getElementById('userWaveform');
@@ -9,11 +9,19 @@ window.addEventListener('DOMContentLoaded', () => {
   royAudio.setAttribute('playsinline', 'true');
   document.body.appendChild(royAudio);
 
+  let royKnowledge = {};
+  try {
+    const response = await fetch('roy-knowledge.json');
+    royKnowledge = await response.json();
+    console.log('Roy Knowledge:', royKnowledge);
+  } catch (err) {
+    console.warn('Failed to load Roy knowledge base.', err);
+  }
+
   let isRecording = false;
   let mediaRecorder, audioContext, analyser, stream, ws;
   let sessionStart = Date.now();
 
-  // Clock + Timer UI
   function updateClock() {
     const now = new Date();
     document.getElementById('current-date').textContent = now.toISOString().split('T')[0];
@@ -101,7 +109,7 @@ window.addEventListener('DOMContentLoaded', () => {
       const res = await fetch('https://roy-chatbo-backend.onrender.com/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: text, mode: 'both' })
+        body: JSON.stringify({ message: text, mode: 'both', knowledge: royKnowledge })
       });
 
       const data = await res.json();
