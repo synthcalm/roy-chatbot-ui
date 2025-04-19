@@ -2,28 +2,26 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Roy Chatbot</title>
+  <title>Roy - SynthCalm</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <div class="interface">
-    <div class="status-bar">
-      <div id="current-date"></div>
-      <div id="current-time"></div>
-      <div id="countdown-timer"></div>
-    </div>
-
-    <canvas id="userWaveform"></canvas>
-    <canvas id="royWaveform"></canvas>
-
-    <div class="controls">
-      <button id="mic-toggle">Speak</button>
-      <button id="saveButton">Save Log</button>
-    </div>
-
-    <div id="messages" class="chat-box"></div>
+  <div id="clock-wrapper">
+    <span id="current-date"></span>
+    <span id="current-time"></span>
+    <span id="countdown-timer"></span>
   </div>
+
+  <canvas id="userWaveform"></canvas>
+  <canvas id="royWaveform"></canvas>
+
+  <div id="controls">
+    <button id="mic-toggle">Speak</button>
+    <button id="save-log">Save Log</button>
+  </div>
+
+  <hr class="divider">
+  <div id="messages"></div>
 
   <script src="script.js"></script>
 </body>
