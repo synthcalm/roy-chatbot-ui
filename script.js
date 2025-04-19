@@ -50,17 +50,24 @@ window.addEventListener('DOMContentLoaded', () => {
       drawWaveform(userCtx, userCanvas, analyser, 'yellow');
 
       ws = new WebSocket("wss://api.assemblyai.com/v2/realtime/ws?sample_rate=16000", ['assemblyai-realtime']);
+
       ws.onopen = () => {
         ws.send(JSON.stringify({ auth_token: "c204c69052074ce98287a515e68da0c4" }));
-
-        mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm;codecs=opus' });
-        mediaRecorder.ondataavailable = e => {
-          if (e.data.size > 0 && ws.readyState === WebSocket.OPEN) {
-            ws.send(e.data);
-          }
-        };
-        mediaRecorder.start(250);
       };
+
+      const mediaStream = new MediaStream();
+      const audioTrack = stream.getAudioTracks()[0];
+      mediaStream.addTrack(audioTrack);
+
+      mediaRecorder = new MediaRecorder(mediaStream, { mimeType: 'audio/webm;codecs=opus' });
+
+      mediaRecorder.ondataavailable = e => {
+        if (e.data.size > 0 && ws.readyState === WebSocket.OPEN) {
+          ws.send(e.data);
+        }
+      };
+
+      mediaRecorder.start(250);
 
       ws.onmessage = async e => {
         const msg = JSON.parse(e.data);
