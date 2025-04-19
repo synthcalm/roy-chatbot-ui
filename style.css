@@ -1,94 +1,83 @@
 body {
-  margin: 0;
-  padding: 0;
-  background: black;
-  color: white;
   font-family: 'Courier New', monospace;
+  margin: 0;
+  background: #000;
+  color: #0ff;
   display: flex;
   flex-direction: column;
   align-items: center;
+  justify-content: flex-start;
+  min-height: 100vh;
+  padding: 20px;
 }
 
 .info-bar {
+  width: 100%;
+  max-width: 800px;
   display: flex;
   justify-content: space-between;
-  width: 90%;
-  max-width: 800px;
-  padding: 10px 0;
   font-size: 14px;
-}
-
-#current-date,
-#current-time,
-#countdown-timer {
+  margin-bottom: 10px;
   color: #0ff;
-  padding: 0 10px;
 }
 
 canvas {
-  width: 90%;
+  width: 100%;
   max-width: 800px;
   height: 100px;
-  background: black;
-  border: none;
-  display: block;
-  margin: 10px 0;
-  background-image: linear-gradient(to right, rgba(255,255,0,0.15) 1px, transparent 1px),
-                    linear-gradient(to bottom, rgba(255,255,0,0.15) 1px, transparent 1px);
+  background-color: #000;
+  border: 1px solid #0ff;
+  background-image:
+    linear-gradient(to right, rgba(255, 255, 0, 0.3) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 0, 0.3) 1px, transparent 1px);
   background-size: 20px 20px;
+  margin-bottom: 10px;
 }
 
 #controls {
   display: flex;
-  justify-content: center;
   gap: 10px;
-  margin: 10px 0;
+  margin-bottom: 20px;
 }
 
-button {
+#mic-toggle,
+#saveButton,
+#homeButton {
   font-family: 'Courier New', monospace;
-  font-size: 14px;
+  font-size: 16px;
   padding: 10px 20px;
-  color: cyan;
+  border: 1px solid #0ff;
   background: black;
-  border: 1px solid cyan;
+  color: #0ff;
   cursor: pointer;
-  text-transform: uppercase;
+  transition: all 0.2s ease-in-out;
 }
 
-button.recording {
+#mic-toggle.recording {
   border-color: magenta;
-  color: magenta;
 }
 
 #messages {
-  width: 90%;
+  width: 100%;
   max-width: 800px;
-  margin: 20px 0;
-  font-size: 16px;
+  padding: 10px;
+  border-top: 1px dashed #0ff;
+  color: #fff;
   overflow-y: auto;
-  max-height: 300px;
 }
 
-p.roy {
-  color: yellow;
-  margin: 5px 0;
-}
-
-p.you {
-  color: white;
-  margin: 5px 0;
+#messages p {
+  margin: 0;
+  margin-bottom: 8px;
 }
 
 .dots {
   display: inline-block;
-  width: 20px;
-  text-align: center;
-  animation: blink 1s infinite;
+  animation: blink 1s infinite steps(1);
 }
 
 @keyframes blink {
-  0% { opacity: 0.2; }
-  50% { opacity: 1; }
-  100% { opacity: 0.2; }
+  0% { opacity: 1; }
+  50% { opacity: 0; }
+  100% { opacity: 1; }
 }
