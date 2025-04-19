@@ -7,23 +7,24 @@
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
+  <div id="scope-header">
+    <div id="date"></div>
+    <div id="clock"></div>
+    <div id="countdown"></div>
+  </div>
+
   <div id="scope-container">
-    <div id="scope-header">
-      <div id="date"></div>
-      <div id="clock"></div>
-      <div id="countdown"></div>
-    </div>
     <canvas id="userScope"></canvas>
     <canvas id="royScope"></canvas>
   </div>
-
-  <div id="chat"></div>
 
   <div id="controls">
     <button id="recordButton">Speak</button>
     <button id="saveButton">Save Log</button>
     <button onclick="window.location.href='/'">SynthCalm Home</button>
   </div>
+
+  <div id="chat"></div>
 
   <audio id="royAudio" src="roy-voice.mp3"></audio>
   <script src="script.js"></script>
