@@ -64,18 +64,27 @@ window.addEventListener('DOMContentLoaded', async () => {
         const formData = new FormData();
         formData.append('audio', blob);
 
-        const typingMsg = appendMessage('Roy', '<em class="dots">typing</em>');
+        const typingMsg = appendMessage('Roy', '<em class="dots">typing...</em>');
 
         try {
-          const res = await fetch('https://roy-chatbo-backend.onrender.com/api/chat', {
+          // Step 1: Transcribe the audio
+          const transcribeRes = await fetch('https://roy-chatbo-backend.onrender.com/api/transcribe', {
             method: 'POST',
             body: formData
           });
+          const { text: transcript } = await transcribeRes.json();
+          appendMessage('You', transcript);
 
-          const data = await res.json();
+          // Step 2: Send to chat API
+          const chatRes = await fetch('https://roy-chatbo-backend.onrender.com/api/chat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ message: transcript, mode: 'both' })
+          });
+
+          const data = await chatRes.json();
           typingMsg.remove();
 
-          if (data.transcript) appendMessage('You', data.transcript);
           if (data.text) appendMessage('Roy', data.text);
 
           if (data.audio) {
@@ -83,6 +92,7 @@ window.addEventListener('DOMContentLoaded', async () => {
             royAudio.play().catch(e => console.warn('Autoplay error:', e));
             drawWaveformRoy(royAudio);
           }
+
         } catch (err) {
           typingMsg.remove();
           console.error('Roy response failed:', err);
