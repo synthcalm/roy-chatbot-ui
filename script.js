@@ -5,7 +5,6 @@ window.addEventListener('DOMContentLoaded', () => {
   const royCanvas = document.getElementById('royWaveform');
   const userCtx = userCanvas.getContext('2d');
   const royCtx = royCanvas.getContext('2d');
-
   const royAudio = new Audio();
   royAudio.setAttribute('playsinline', 'true');
   document.body.appendChild(royAudio);
@@ -14,6 +13,7 @@ window.addEventListener('DOMContentLoaded', () => {
   let mediaRecorder, audioContext, analyser, stream, ws;
   let sessionStart = Date.now();
 
+  // Clock + Timer UI
   function updateClock() {
     const now = new Date();
     document.getElementById('current-date').textContent = now.toISOString().split('T')[0];
@@ -22,7 +22,6 @@ window.addEventListener('DOMContentLoaded', () => {
     const remaining = Math.max(0, 3600 - elapsed);
     document.getElementById('countdown-timer').textContent = `${String(Math.floor(remaining / 60)).padStart(2, '0')}:${String(remaining % 60).padStart(2, '0')}`;
   }
-
   setInterval(updateClock, 1000);
   updateClock();
 
