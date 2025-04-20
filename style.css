@@ -1,142 +1,119 @@
-html, body {
+body {
+  margin: 0;
   background-color: #000;
   color: #0ff;
   font-family: 'Courier New', monospace;
-  margin: 0;
-  padding: 0;
-  height: 100%;
 }
 
-body {
-  display: flex;
-  flex-direction: column;
-  min-height: 100vh;
+.container {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 20px;
 }
 
 .info-bar {
   display: flex;
   justify-content: space-between;
-  padding: 8px 16px;
   font-size: 14px;
-  color: #0ff;
-  max-width: 800px;
-  margin: 0 auto;
+  margin-bottom: 10px;
 }
 
-#current-date, #current-time {
-  text-align: left;
-}
-
-#current-time::before {
-  content: "   "; /* Three spaces between date and time */
-}
-
-#countdown-timer {
-  text-align: right;
-}
-
-canvas {
-  display: block;
-  margin: 10px auto;
-  border: 1px solid #0ff;
-  background-color: #000;
-  background-image:
-    linear-gradient(to right, rgba(255, 255, 0, 0.2) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(255, 255, 0, 0.2) 1px, transparent 1px);
-  background-size: 20px 20px;
-  max-width: 800px;
-  width: 90%;
-  height: 100px;
-}
-
-#userWaveform.rant-mode {
-  border: 1px solid red;
-}
-
-#controls {
+.button-group {
   display: flex;
-  justify-content: center;
-  gap: 12px;
-  flex-wrap: wrap;
-  margin: 16px auto;
-  max-width: 800px;
-  width: 100%;
+  justify-content: space-between;
+  margin-bottom: 20px;
 }
 
 button {
   font-family: 'Courier New', monospace;
-  font-size: 14px;
-  background: black;
-  color: cyan;
-  border: 1px solid cyan;
+  font-size: 16px;
+  background-color: black;
+  color: #0ff;
+  border: 1px solid #0ff;
   padding: 6px 12px;
   cursor: pointer;
 }
 
 button:hover {
-  background: cyan;
+  background-color: #0ff;
   color: black;
 }
 
-button.active-roy {
-  background: yellow;
-  color: black;
-  border: 1px solid yellow;
-}
-
-button.active-randy {
-  background: red;
-  color: black;
-  border: 1px solid red;
-}
-
-button.recording {
-  background: white;
+#speak-toggle {
+  animation: blinker 1s linear infinite;
+  border-color: red;
   color: red;
-  border: 1px solid white;
 }
 
-button.ready-to-speak {
-  animation: pulsate 1.5s infinite;
+@keyframes blinker {
+  50% { opacity: 0.5; }
 }
 
-#messages {
-  max-width: 800px;
-  margin: 20px auto;
+canvas {
+  display: block;
+  width: 100%;
+  height: 100px;
+  background-color: black;
+  border: 1px solid #0ff;
+  background-image: 
+    linear-gradient(to right, rgba(255, 255, 0, 0.3) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 0, 0.3) 1px, transparent 1px);
+  background-size: 20px 20px;
+  margin-bottom: 10px;
+}
+
+#waveform-user canvas {
+  border-color: yellow;
+}
+
+#waveform-roy canvas {
+  border-color: magenta;
+}
+
+.chat-log {
+  border: 1px solid #0ff;
   padding: 10px;
-  font-family: 'Courier New', monospace;
+  height: 200px;
+  overflow-y: auto;
+  background-color: #000;
+  color: #0ff;
+  font-size: 14px;
 }
 
-p.roy {
+.chat-log p {
+  margin: 6px 0;
+}
+
+.chat-log .user {
   color: yellow;
 }
 
-p.roy.randy {
-  color: pink;
+.chat-log .roy {
+  color: magenta;
 }
 
-p.user {
-  color: white;
+.chat-log .randy {
+  color: orange;
 }
 
-p.roy em {
-  font-style: italic;
+.divider {
+  margin: 20px 0 10px 0;
+  border: none;
+  border-top: 1px dashed #0ff;
 }
 
-.dots::after {
-  content: '...';
-  animation: dots 1.5s infinite;
+.log-label {
+  color: #0ff;
+  font-size: 16px;
+  margin-bottom: 6px;
 }
 
-@keyframes dots {
-  0%   { content: '.'; }
-  33%  { content: '..'; }
-  66%  { content: '...'; }
-  100% { content: '.'; }
+.dots {
+  animation: blinkDots 1s steps(5, end) infinite;
 }
 
-@keyframes pulsate {
-  0% { border-color: cyan; color: cyan; }
-  50% { border-color: #0ff80; color: #0ff80; }
-  100% { border-color: cyan; color: cyan; }
+@keyframes blinkDots {
+  0%, 20% { color: #0ff; }
+  50% { color: #222; }
+  100% { color: #0ff; }
 }
