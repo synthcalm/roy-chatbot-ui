@@ -49,12 +49,6 @@ function resetButtons() {
   speakToggle.style.animation = 'none';
 }
 
-function activateSpeakButton() {
-  speakToggle.className = 'btn speak-ready';
-  speakToggle.textContent = 'Speak';
-  speakToggle.style.animation = 'none';
-}
-
 function updateSpeakButtonRecordingState() {
   speakToggle.className = 'btn speak-active';
   speakToggle.textContent = 'STOP';
@@ -108,7 +102,6 @@ async function startRecording() {
           method: 'POST',
           body: formData
         });
-        if (!transcribeRes.ok) throw new Error(`Transcription failed with status ${transcribeRes.status}`);
         const { text } = await transcribeRes.json();
         if (!text || !text.trim()) return;
         const userMsg = document.createElement('p');
@@ -168,7 +161,7 @@ function sendToRoy(text) {
       const quoteChance = Math.random();
       const royMsg = document.createElement('p');
       royMsg.className = 'roy';
-      royMsg.textContent = quoteChance > 0.75 ? `Roy: "${replyText}"` : `Roy: ${replyText}`;
+      royMsg.textContent = quoteChance > 0.85 ? `Roy: \"${replyText}\"` : `Roy: ${replyText}`;
       messagesDiv.appendChild(royMsg);
       messagesDiv.scrollTop = messagesDiv.scrollHeight;
       if (audio) playRoyAudio(audio);
