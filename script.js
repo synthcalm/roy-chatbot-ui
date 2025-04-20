@@ -75,56 +75,61 @@ function drawUserScope() {
 }
 
 async function startRecording() {
-  stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-  audioContext = new (window.AudioContext || window.webkitAudioContext)();
-  analyser = audioContext.createAnalyser();
-  source = audioContext.createMediaStreamSource(stream);
-  source.connect(analyser);
-  analyser.fftSize = 2048;
-  dataArray = new Uint8Array(analyser.frequencyBinCount);
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    analyser = audioContext.createAnalyser();
+    source = audioContext.createMediaStreamSource(stream);
+    source.connect(analyser);
+    analyser.fftSize = 2048;
+    dataArray = new Uint8Array(analyser.frequencyBinCount);
 
-  const mimeType = isiOS() ? 'audio/mp4' : 'audio/webm';
-  mediaRecorder = new MediaRecorder(stream, { mimeType });
-  mediaRecorder.start();
-  chunks = [];
-  volumeData = [];
+    const mimeType = isiOS() ? 'audio/mp4' : 'audio/webm';
+    mediaRecorder = new MediaRecorder(stream, { mimeType });
+    mediaRecorder.start();
+    chunks = [];
+    volumeData = [];
 
-  mediaRecorder.ondataavailable = (e) => {
-    chunks.push(e.data);
-    analyser.getByteFrequencyData(dataArray);
-    const avgVolume = dataArray.reduce((a, b) => a + b, 0) / dataArray.length;
-    volumeData.push(avgVolume);
-  };
+    mediaRecorder.ondataavailable = (e) => {
+      chunks.push(e.data);
+      analyser.getByteFrequencyData(dataArray);
+      const avgVolume = dataArray.reduce((a, b) => a + b, 0) / dataArray.length;
+      volumeData.push(avgVolume);
+    };
 
-  mediaRecorder.onstop = async () => {
-    const format = isiOS() ? 'audio.mp4' : 'audio.webm';
-    const blob = new Blob(chunks, { type: mimeType });
-    const formData = new FormData();
-    formData.append('audio', blob, format);
+    mediaRecorder.onstop = async () => {
+      const format = isiOS() ? 'audio.mp4' : 'audio.webm';
+      const blob = new Blob(chunks, { type: mimeType });
+      const formData = new FormData();
+      formData.append('audio', blob, format);
 
-    try {
-      const transcribeRes = await fetch('/api/transcribe', {
-        method: 'POST',
-        body: formData
-      });
-      const { text } = await transcribeRes.json();
-      if (!text || !text.trim()) return;
-      const userMsg = document.createElement('p');
-      userMsg.className = 'user';
-      userMsg.textContent = `You: ${text}`;
-      messagesDiv.appendChild(userMsg);
-      messagesDiv.scrollTop = messagesDiv.scrollHeight;
-      addThinkingDots();
-      sendToRoy(text);
-    } catch (e) {
-      console.error('Transcription failed:', e);
-    }
-  };
+      try {
+        const transcribeRes = await fetch('/api/transcribe', {
+          method: 'POST',
+          body: formData
+        });
+        if (!transcribeRes.ok) throw new Error(`Transcription failed with status ${transcribeRes.status}`);
+        const { text } = await transcribeRes.json();
+        if (!text || !text.trim()) return;
+        const userMsg = document.createElement('p');
+        userMsg.className = 'user';
+        userMsg.textContent = `You: ${text}`;
+        messagesDiv.appendChild(userMsg);
+        messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        addThinkingDots();
+        sendToRoy(text);
+      } catch (e) {
+        console.error('Transcription failed:', e);
+      }
+    };
 
-  sessionStartTime = new Date();
-  isRecording = true;
-  updateSpeakButtonRecordingState();
-  drawUserScope();
+    sessionStartTime = new Date();
+    isRecording = true;
+    updateSpeakButtonRecordingState();
+    drawUserScope();
+  } catch (err) {
+    console.error('Recording failed to start:', err);
+  }
 }
 
 function stopRecording() {
@@ -167,7 +172,8 @@ function sendToRoy(text) {
       messagesDiv.appendChild(royMsg);
       messagesDiv.scrollTop = messagesDiv.scrollHeight;
       if (audio) playRoyAudio(audio);
-    });
+    })
+    .catch(e => console.error('Chat failed:', e));
 }
 
 function playRoyAudio(base64) {
