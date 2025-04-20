@@ -50,30 +50,35 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   setInterval(updateDateTime, 1000);
 
+  function resetButtons() {
+    royToggle.style.background = 'cyan';
+    royToggle.style.color = 'black';
+    randyToggle.style.background = 'cyan';
+    randyToggle.style.color = 'black';
+  }
+
   function clearMessagesAndShowGreeting(mode) {
     messagesDiv.innerHTML = '';
     const msg = document.createElement('p');
     msg.className = 'roy';
+    resetButtons();
     if (mode === 'randy') {
       msg.classList.add('randy');
       msg.innerHTML = `<em>Randy:</em> Unleash the chaos—what’s burning you up?`;
       randyToggle.style.background = 'orange';
       randyToggle.style.color = 'black';
-      royToggle.style.background = 'black';
-      royToggle.style.color = 'cyan';
     } else {
       msg.innerHTML = `<em>Roy:</em> Greetings, my friend—like a weary traveler, you’ve arrived. What weighs on your soul today?`;
       royToggle.style.background = 'lime';
       royToggle.style.color = 'black';
-      randyToggle.style.background = 'black';
-      randyToggle.style.color = 'cyan';
     }
     messagesDiv.appendChild(msg);
     messagesDiv.scrollTop = messagesDiv.scrollHeight;
     speakToggle.classList.add('ready-to-speak');
-    speakToggle.style.background = 'red';
-    speakToggle.style.color = 'black';
+    speakToggle.style.background = 'black';
+    speakToggle.style.color = 'red';
     speakToggle.style.borderColor = 'red';
+    speakToggle.style.animation = 'blinker 1s linear infinite';
     speakToggle.textContent = 'Speak';
   }
 
@@ -94,9 +99,19 @@ document.addEventListener('DOMContentLoaded', () => {
   speakToggle.addEventListener('click', async () => {
     if (!isModeSelected) return;
     if (!isRecording) {
+      speakToggle.textContent = 'Stop';
+      speakToggle.style.background = 'red';
+      speakToggle.style.color = 'black';
+      speakToggle.style.borderColor = 'red';
+      speakToggle.style.animation = 'none';
       await startRecording();
     } else {
       stopRecording();
+      speakToggle.textContent = 'Speak';
+      speakToggle.style.background = 'black';
+      speakToggle.style.color = 'red';
+      speakToggle.style.borderColor = 'red';
+      speakToggle.style.animation = 'blinker 1s linear infinite';
     }
   });
 
