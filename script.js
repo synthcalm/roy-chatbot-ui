@@ -10,6 +10,13 @@ const currentDate = document.getElementById('current-date');
 const currentTime = document.getElementById('current-time');
 const countdownTimer = document.getElementById('countdown-timer');
 
+// Initialize UI elements to ensure they are visible
+royWaveform.style.backgroundColor = '#000';
+userWaveform.style.backgroundColor = '#000';
+messagesDiv.style.minHeight = '200px';
+messagesDiv.style.backgroundColor = '#333';
+messagesDiv.style.color = '#fff';
+
 let audioContext, analyser, dataArray, source, mediaRecorder, stream;
 let isRecording = false;
 let isRantMode = false;
@@ -152,6 +159,42 @@ async function startRecording() {
       volumeData.push(avgVolume);
     };
 
+    // Moved mediaRecorder.onstop inside startRecording to ensure mediaRecorder is defined
+    mediaRecorder.onstop = async () => {
+      const blob = new Blob(chunks, { type: 'audio/webm' });
+      const formData = new FormData();
+      formData.append('audio', blob, 'audio.webm');
+
+      try {
+        const res = await fetch('https://roy-chatbo-backend.onrender.com/api/transcribe', {
+          method: 'POST',
+          body: formData
+        });
+        if (!res.ok) throw new Error('Transcription failed');
+        const { text } = await res.json();
+
+        const userMsg = document.createElement('p');
+        userMsg.className = 'user message';
+        userMsg.textContent = `You: ${text}`;
+        messagesDiv.innerHTML = '';
+        messagesDiv.appendChild(userMsg);
+        messagesDiv.scrollTop = messagesDiv.scrollHeight;
+
+        sendToRoy(text);
+      } catch (err) {
+        console.error('Backend transcription error:', err);
+        if (finalTranscript) {
+          const userMsg = document.createElement('p');
+          userMsg.className = 'user message';
+          userMsg.textContent = `You: ${finalTranscript}`;
+          messagesDiv.innerHTML = '';
+          messagesDiv.appendChild(userMsg);
+          messagesDiv.scrollTop = messagesDiv.scrollHeight;
+          sendToRoy(finalTranscript);
+        }
+      }
+    };
+
     if (SpeechRecognition) {
       finalTranscript = '';
       interimTranscript = '';
@@ -166,6 +209,10 @@ async function startRecording() {
   } catch (err) {
     console.error('Error starting recording:', err);
     stopRecording();
+    const msg = document.createElement('p');
+    msg.className = 'system message';
+    msg.textContent = 'Error: Could not access microphone. Please check permissions.';
+    messagesDiv.appendChild(msg);
   }
 }
 
@@ -196,41 +243,6 @@ function resetSpeakButton() {
     speakToggle.textContent = 'Speak';
   }
 }
-
-mediaRecorder.onstop = async () => {
-  const blob = new Blob(chunks, { type: 'audio/webm' });
-  const formData = new FormData();
-  formData.append('audio', blob, 'audio.webm');
-
-  try {
-    const res = await fetch('https://roy-chatbo-backend.onrender.com/api/transcribe', {
-      method: 'POST',
-      body: formData
-    });
-    if (!res.ok) throw new Error('Transcription failed');
-    const { text } = await res.json();
-
-    const userMsg = document.createElement('p');
-    userMsg.className = 'user message';
-    userMsg.textContent = `You: ${text}`;
-    messagesDiv.innerHTML = '';
-    messagesDiv.appendChild(userMsg);
-    messagesDiv.scrollTop = messagesDiv.scrollHeight;
-
-    sendToRoy(text);
-  } catch (err) {
-    console.error('Backend transcription error:', err);
-    if (finalTranscript) {
-      const userMsg = document.createElement('p');
-      userMsg.className = 'user message';
-      userMsg.textContent = `You: ${finalTranscript}`;
-      messagesDiv.innerHTML = '';
-      messagesDiv.appendChild(userMsg);
-      messagesDiv.scrollTop = messagesDiv.scrollHeight;
-      sendToRoy(finalTranscript);
-    }
-  }
-};
 
 function sendToRoy(text) {
   const chatPayload = {
