@@ -7,18 +7,20 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <div style="text-align: center;">
-    <canvas id="scope1"></canvas>
-    <canvas id="scope2"></canvas>
+  <div class="container">
+    <div class="scope-row">
+      <canvas id="userWaveform"></canvas>
+      <canvas id="royWaveform"></canvas>
+    </div>
 
-    <div id="messages"></div>
+    <div id="messages" class="messages"></div>
 
-    <div>
-      <button id="royBtn">Roy</button>
-      <button id="randyBtn">Randy</button>
-      <button id="speakBtn">Speak</button>
-      <button id="saveBtn">Save</button>
-      <button onclick="location.href='https://synthcalm.com'">SynthCalm Home</button>
+    <div class="button-row">
+      <button id="royBtn" class="btn">Roy</button>
+      <button id="randyBtn" class="btn">Randy</button>
+      <button id="speakBtn" class="btn">Speak</button>
+      <button id="saveBtn" class="btn">Save</button>
+      <button id="homeBtn" class="btn">SynthCalm Home</button>
     </div>
   </div>
 
