@@ -1,4 +1,4 @@
-// Final version of script.js with save button functionality and auto-scroll
+// Final version of script.js with save button functionality, auto-scroll, and restored UI layout
 
 const royToggle = document.getElementById('roy-toggle');
 const randyToggle = document.getElementById('randy-toggle');
@@ -105,6 +105,7 @@ async function startRecording() {
     userMsg.className = 'user';
     userMsg.textContent = `You: ${text}`;
     messagesDiv.appendChild(userMsg);
+    messagesDiv.scrollTop = messagesDiv.scrollHeight;
     addThinkingDots();
     sendToRoy(text);
   };
@@ -133,6 +134,7 @@ function addThinkingDots() {
   thinking.id = 'thinking';
   thinking.innerHTML = `<em>${isRantMode ? 'Randy' : 'Roy'}:</em> <span class="dots">...</span>`;
   messagesDiv.appendChild(thinking);
+  messagesDiv.scrollTop = messagesDiv.scrollHeight;
 }
 
 function sendToRoy(text) {
@@ -157,6 +159,7 @@ function sendToRoy(text) {
       msg.className = 'roy';
       msg.innerHTML = `<em>${isRantMode ? 'Randy' : 'Roy'}:</em> ${replyText}`;
       messagesDiv.appendChild(msg);
+      messagesDiv.scrollTop = messagesDiv.scrollHeight;
 
       if (audioBase64) playRoyAudio(audioBase64);
     });
