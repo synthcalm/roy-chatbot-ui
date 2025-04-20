@@ -1,4 +1,4 @@
-// Final version of script.js with save button functionality, auto-scroll, and restored UI layout
+// Final version of script.js with save button functionality, auto-scroll, and refined UI logic
 
 const royToggle = document.getElementById('roy-toggle');
 const randyToggle = document.getElementById('randy-toggle');
@@ -47,13 +47,13 @@ function resetButtons() {
 }
 
 function activateSpeakButton() {
-  speakToggle.className = 'btn speak-ready';
+  speakToggle.classList.add('speak-ready');
   speakToggle.textContent = 'Speak';
   speakToggle.style.animation = 'none';
 }
 
 function updateSpeakButtonRecordingState() {
-  speakToggle.className = 'btn speak-active';
+  speakToggle.classList.add('speak-active');
   speakToggle.textContent = 'STOP';
   speakToggle.style.animation = 'blinker 1s linear infinite';
 }
