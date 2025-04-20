@@ -1,4 +1,4 @@
-/* Updated style.css with active button states and default font colors */
+/* Updated style.css with strict button logic and font colors */
 
 body {
   background: #000;
@@ -47,21 +47,21 @@ canvas {
 }
 
 .active-roy {
-  background-color: cyan;
+  background-color: #0f0;
   color: black;
-  border: 1px solid cyan;
+  border: 1px solid #0f0;
 }
 
 .active-randy {
-  background-color: magenta;
+  background-color: #ffbf00;
   color: black;
-  border: 1px solid magenta;
+  border: 1px solid #ffbf00;
 }
 
 .speak-ready {
   background: transparent;
-  color: #0f0;
-  border: 1px solid #0f0;
+  color: red;
+  border: 1px solid red;
 }
 
 .speak-active {
