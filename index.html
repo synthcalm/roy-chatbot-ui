@@ -8,33 +8,33 @@
 </head>
 <body>
   <div class="container">
-
-    <!-- Info Bar -->
-    <div class="info-bar">
-      <span id="current-date"></span>
-      <span id="countdown-timer"></span>
-      <span id="current-time"></span>
+    <div class="top-bar">
+      <div id="current-date"></div>
+      <div id="countdown-timer"></div>
+      <div id="current-time"></div>
     </div>
 
-    <!-- User Scope -->
-    <canvas id="userWaveform" width="600" height="100"></canvas>
+    <canvas id="userWaveform"></canvas>
+    <canvas id="royWaveform"></canvas>
 
-    <!-- Roy Scope -->
-    <canvas id="royWaveform" width="600" height="100"></canvas>
-
-    <!-- Control Buttons Below the Scopes -->
-    <div class="button-group">
+    <div class="controls">
       <button id="roy-toggle" class="btn">Roy</button>
       <button id="randy-toggle" class="btn">Randy</button>
       <button id="speak-toggle" class="btn">Speak</button>
       <button id="home-button" class="btn">SynthCalm Home</button>
     </div>
 
-    <!-- Chat Log Only -->
-    <div id="messages" class="chat-log"></div>
-
+    <div id="messages" class="chat-window"></div>
   </div>
 
   <script src="script.js"></script>
+  <script>
+    // Enable auto-scroll as messages are added
+    const messagesDiv = document.getElementById('messages');
+    const observer = new MutationObserver(() => {
+      messagesDiv.scrollTop = messagesDiv.scrollHeight;
+    });
+    observer.observe(messagesDiv, { childList: true });
+  </script>
 </body>
 </html>
