@@ -1,11 +1,11 @@
+// ✅ Roy Chatbot frontend logic revised to match MIA’s proven backend pattern using Whisper transcription
+
 const royToggle = document.getElementById('roy-toggle');
 const randyToggle = document.getElementById('randy-toggle');
 const speakToggle = document.getElementById('speak-toggle');
 const messagesDiv = document.getElementById('messages');
 const royWaveform = document.getElementById('royWaveform');
-const userWaveform = document.getElementById('userWaveform');
 const royCtx = royWaveform.getContext('2d');
-const userCtx = userWaveform.getContext('2d');
 const currentDate = document.getElementById('current-date');
 const currentTime = document.getElementById('current-time');
 const countdownTimer = document.getElementById('countdown-timer');
@@ -95,7 +95,6 @@ async function startRecording() {
   chunks = [];
   volumeData = [];
   updateSpeakButtonRecordingState();
-  drawUserWaveform(); // 👈 start drawing live
 }
 
 function stopRecording() {
@@ -105,19 +104,6 @@ function stopRecording() {
   stream.getTracks().forEach(track => track.stop());
   source.disconnect();
   audioContext.close();
-}
-
-function drawUserWaveform() {
-  if (!isRecording) return;
-  analyser.getByteFrequencyData(dataArray);
-  userCtx.clearRect(0, 0, userWaveform.width, userWaveform.height);
-  userCtx.beginPath();
-  for (let i = 0; i < dataArray.length; i++) {
-    userCtx.lineTo(i * (userWaveform.width / dataArray.length), userWaveform.height - dataArray[i]);
-  }
-  userCtx.strokeStyle = 'yellow';
-  userCtx.stroke();
-  requestAnimationFrame(drawUserWaveform);
 }
 
 function sendToRoy(text) {
@@ -147,23 +133,15 @@ function sendToRoy(text) {
 function playRoyAudio(base64) {
   const audio = new Audio(`data:audio/mp3;base64,${base64}`);
   audio.setAttribute('playsinline', '');
-  audio.play().catch(e => console.error("Audio play error:", e));
+  audio.play();
   visualizeAudio(audio);
 }
 
 function visualizeAudio(audio) {
-  const canvas = royWaveform;
   const ctx = royCtx;
+  const canvas = royWaveform;
   const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-  let source;
-
-  try {
-    source = audioCtx.createMediaElementSource(audio);
-  } catch (e) {
-    console.error("Roy audio source already used:", e);
-    return;
-  }
-
+  const source = audioCtx.createMediaElementSource(audio);
   const analyser = audioCtx.createAnalyser();
   source.connect(analyser);
   analyser.connect(audioCtx.destination);
@@ -181,7 +159,6 @@ function visualizeAudio(audio) {
     ctx.stroke();
     requestAnimationFrame(draw);
   }
-
   draw();
 }
 
@@ -205,10 +182,4 @@ speakToggle.addEventListener('click', () => {
   } else {
     stopRecording();
   }
-});
-
-// ✅ Trigger Roy greeting on load
-window.addEventListener('DOMContentLoaded', () => {
-  const greeting = isRantMode ? "Yo Randy. What's on your mind?" : "Hello Roy. You there?";
-  sendToRoy(greeting);
 });
