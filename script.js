@@ -1,4 +1,4 @@
-// ✅ Updated Roy Chatbot frontend logic for full iOS, Android, and desktop browser compatibility
+// ✅ Updated Roy Chatbot frontend logic with reliable audio playback on all platforms
 
 const royToggle = document.getElementById('roy-toggle');
 const randyToggle = document.getElementById('randy-toggle');
@@ -23,13 +23,17 @@ let volumeData = [];
 let sessionStartTime;
 let silenceTimeout;
 
-// 🔊 Force unlock for iOS audio context on first interaction
-document.body.addEventListener('touchstart', () => {
+function unlockAudioContext() {
   if (!audioContext || audioContext.state !== 'running') {
     audioContext = new (window.AudioContext || window.webkitAudioContext)();
     audioContext.resume();
   }
-}, { once: true });
+}
+
+// 🔓 iOS and Safari interaction unlock
+['click', 'touchstart'].forEach(evt => {
+  document.body.addEventListener(evt, unlockAudioContext, { once: true });
+});
 
 function updateDateTime() {
   const now = new Date();
@@ -62,49 +66,45 @@ function clearMessagesAndShowGreeting(mode) {
   speakToggle.textContent = 'Speak';
 }
 
-document.addEventListener('DOMContentLoaded', () => {
-  royToggle.addEventListener('click', () => {
-    if (isRecording) return;
-    isModeSelected = true;
-    isRantMode = false;
-    royToggle.classList.add('active-roy');
-    randyToggle.classList.remove('active-randy');
-    clearMessagesAndShowGreeting('roy');
-  });
+royToggle.addEventListener('click', () => {
+  if (isRecording) return;
+  isModeSelected = true;
+  isRantMode = false;
+  royToggle.classList.add('active-roy');
+  randyToggle.classList.remove('active-randy');
+  clearMessagesAndShowGreeting('roy');
+});
 
-  randyToggle.addEventListener('click', () => {
-    if (isRecording) return;
-    isModeSelected = true;
-    isRantMode = true;
-    randyToggle.classList.add('active-randy');
-    royToggle.classList.remove('active-roy');
-    clearMessagesAndShowGreeting('randy');
-  });
+randyToggle.addEventListener('click', () => {
+  if (isRecording) return;
+  isModeSelected = true;
+  isRantMode = true;
+  randyToggle.classList.add('active-randy');
+  royToggle.classList.remove('active-roy');
+  clearMessagesAndShowGreeting('randy');
+});
 
-  speakToggle.addEventListener('click', async () => {
-    if (!isModeSelected) return;
-    if (!isRecording) {
-      await startRecording();
-    } else {
-      stopRecording();
-    }
-  });
+speakToggle.addEventListener('click', async () => {
+  if (!isModeSelected) return;
+  if (!isRecording) {
+    await startRecording();
+  } else {
+    stopRecording();
+  }
+});
 
-  saveButton.addEventListener('click', () => {
-    const messages = messagesDiv.innerHTML;
-    const blob = new Blob([messages], { type: 'text/html' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'chat-log.html';
-    a.click();
-    URL.revokeObjectURL(url);
-  });
+saveButton.addEventListener('click', () => {
+  const messages = messagesDiv.innerHTML;
+  const blob = new Blob([messages], { type: 'text/html' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'chat-log.html';
+  a.click();
+  URL.revokeObjectURL(url);
 });
 
 async function startRecording() {
-  if (!isModeSelected) return;
-
   isRecording = true;
   speakToggle.textContent = 'STOP';
   speakToggle.classList.remove('ready-to-speak');
@@ -149,70 +149,68 @@ async function startRecording() {
   };
 
   mediaRecorder.onstop = async () => {
-    const mimeType = mediaRecorder.mimeType;
-    const extension = mimeType.includes('webm') ? 'webm' : 'mp4';
-    const blob = new Blob(chunks, { type: mimeType });
+    const extension = mediaRecorder.mimeType.includes('webm') ? 'webm' : 'mp4';
+    const blob = new Blob(chunks, { type: mediaRecorder.mimeType });
     const formData = new FormData();
     formData.append('audio', blob, `audio.${extension}`);
 
-    let transcribeRes;
-    try {
-      transcribeRes = await fetch(`${BACKEND_URL}/api/transcribe`, {
-        method: 'POST',
-        body: formData
-      });
-    } catch (err) {
-      console.error('Transcription error:', err);
-      return;
-    }
+    const res = await fetch(`${BACKEND_URL}/api/transcribe`, {
+      method: 'POST',
+      body: formData
+    });
 
-    const { text } = await transcribeRes.json();
+    const { text } = await res.json();
     const userMsg = document.createElement('p');
     userMsg.className = 'user';
-    userMsg.textContent = text && text !== 'undefined' ? `You: ${text}` : 'You: [could not transcribe audio]';
+    userMsg.textContent = `You: ${text || '[could not transcribe audio]'}`;
     messagesDiv.appendChild(userMsg);
-    messagesDiv.scrollTop = messagesDiv.scrollHeight;
 
-    if (!text || text === 'undefined') return;
+    const thinking = document.createElement('p');
+    thinking.className = 'roy';
+    if (isRantMode) thinking.classList.add('randy');
+    thinking.innerHTML = `<em>${isRantMode ? 'Randy' : 'Roy'}:</em> Thinking <span class="dots"></span>`;
+    messagesDiv.appendChild(thinking);
 
-    const thinkingMsg = document.createElement('p');
-    thinkingMsg.className = 'roy';
-    if (isRantMode) thinkingMsg.classList.add('randy');
-    thinkingMsg.innerHTML = `<em>${isRantMode ? 'Randy' : 'Roy'}:</em> Thinking <span class="dots"></span>`;
-    messagesDiv.appendChild(thinkingMsg);
-    messagesDiv.scrollTop = messagesDiv.scrollHeight;
-
-    const chatPayload = {
+    const payload = {
       message: text,
       mode: 'both',
       persona: isRantMode ? 'randy' : 'default',
       volumeData
     };
 
-    const chatRes = await fetch(`${BACKEND_URL}/api/chat`, {
+    const replyRes = await fetch(`${BACKEND_URL}/api/chat`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(chatPayload)
+      body: JSON.stringify(payload)
     });
 
-    const { text: replyText, audio: audioBase64 } = await chatRes.json();
-    thinkingMsg.remove();
+    const { text: reply, audio: audioBase64 } = await replyRes.json();
+    thinking.remove();
 
     const msg = document.createElement('p');
     msg.className = 'roy';
     if (isRantMode) msg.classList.add('randy');
-    msg.innerHTML = `<em>${isRantMode ? 'Randy' : 'Roy'}:</em> ${replyText}`;
+    msg.innerHTML = `<em>${isRantMode ? 'Randy' : 'Roy'}:</em> ${reply}`;
     messagesDiv.appendChild(msg);
-    messagesDiv.scrollTop = messagesDiv.scrollHeight;
 
     if (audioBase64) {
       const audio = new Audio(`data:audio/mp3;base64,${audioBase64}`);
-      audio.setAttribute('playsinline', ''); // iOS fix
+      audio.setAttribute('playsinline', '');
+      audio.setAttribute('autoplay', '');
       audio.load();
-      audio.addEventListener('canplaythrough', () => {
-        audio.play();
-        visualizeAudio(audio, royWaveform, royCtx, 'yellow');
-      });
+      audio.onloadeddata = () => {
+        audio.play().then(() => {
+          visualizeAudio(audio, royWaveform, royCtx, 'yellow');
+        }).catch(err => {
+          const resume = () => {
+            audio.play().then(() => visualizeAudio(audio, royWaveform, royCtx, 'yellow'));
+            document.body.removeEventListener('click', resume);
+            document.body.removeEventListener('touchstart', resume);
+          };
+          document.body.addEventListener('click', resume, { once: true });
+          document.body.addEventListener('touchstart', resume, { once: true });
+        });
+      };
     }
   };
 
@@ -226,8 +224,8 @@ function stopRecording() {
   speakToggle.classList.remove('recording');
   speakToggle.classList.add('ready-to-speak');
   mediaRecorder.stop();
-  source.disconnect();
-  audioContext.close();
+  if (source) source.disconnect();
+  if (audioContext && audioContext.state !== 'closed') audioContext.suspend();
   if (silenceTimeout) clearTimeout(silenceTimeout);
 }
 
@@ -243,7 +241,6 @@ function visualizeAudio(audioElement, canvas, ctx, color, externalAnalyser, exte
     analyser.fftSize = 2048;
     dataArray = new Uint8Array(analyser.frequencyBinCount);
   }
-
   function draw() {
     analyser.getByteFrequencyData(dataArray);
     ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -254,9 +251,7 @@ function visualizeAudio(audioElement, canvas, ctx, color, externalAnalyser, exte
     }
     ctx.strokeStyle = color;
     ctx.stroke();
-    if (isRecording || audioElement) {
-      requestAnimationFrame(draw);
-    }
+    if (isRecording || audioElement) requestAnimationFrame(draw);
   }
   draw();
 }
