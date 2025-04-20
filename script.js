@@ -1,4 +1,4 @@
-// Final version of script.js with button logic and visual updates for SynthCalm Roy UI
+// script.js - Logic for Roy Chatbot UI
 
 const royToggle = document.getElementById('roy-toggle');
 const randyToggle = document.getElementById('randy-toggle');
@@ -18,7 +18,6 @@ let isRecording = false;
 let isRantMode = false;
 let sessionStartTime = null;
 let chunks = [], volumeData = [];
-let isProcessing = false;
 
 function updateDateTime() {
   const now = new Date();
@@ -55,7 +54,6 @@ function activateSpeakButton() {
 function updateSpeakButtonRecordingState() {
   speakToggle.className = 'btn speak-active';
   speakToggle.textContent = 'STOP';
-  speakToggle.style.animation = 'blinker 1s linear infinite';
 }
 
 function drawUserScope() {
@@ -72,9 +70,6 @@ function drawUserScope() {
 }
 
 async function startRecording() {
-  chunks = [];
-  volumeData = [];
-
   stream = await navigator.mediaDevices.getUserMedia({ audio: true });
   audioContext = new (window.AudioContext || window.webkitAudioContext)();
   analyser = audioContext.createAnalyser();
@@ -83,8 +78,7 @@ async function startRecording() {
   analyser.fftSize = 2048;
   dataArray = new Uint8Array(analyser.frequencyBinCount);
 
-  const mimeType = MediaRecorder.isTypeSupported('audio/mpeg') ? 'audio/mpeg' : 'audio/webm';
-  mediaRecorder = new MediaRecorder(stream, { mimeType });
+  mediaRecorder = new MediaRecorder(stream);
   mediaRecorder.start();
 
   mediaRecorder.ondataavailable = (e) => {
@@ -95,14 +89,9 @@ async function startRecording() {
   };
 
   mediaRecorder.onstop = async () => {
-    const format = mediaRecorder.mimeType;
-    const extension = format === 'audio/mpeg' ? 'mp3' : 'webm';
-    const blob = new Blob(chunks, { type: format });
+    const blob = new Blob(chunks, { type: 'audio/webm' });
     const formData = new FormData();
-    formData.append('audio', blob, `audio.${extension}`);
-
-    chunks = [];
-    volumeData = [];
+    formData.append('audio', blob, 'audio.webm');
 
     const res = await fetch('https://roy-chatbo-backend.onrender.com/api/transcribe', {
       method: 'POST',
@@ -120,6 +109,8 @@ async function startRecording() {
 
   sessionStartTime = new Date();
   isRecording = true;
+  chunks = [];
+  volumeData = [];
   updateSpeakButtonRecordingState();
   drawUserScope();
 }
@@ -131,7 +122,7 @@ function stopRecording() {
   stream.getTracks().forEach(track => track.stop());
   source.disconnect();
   audioContext.close();
-  if (isRantMode) activateRandy(); else activateRoy();
+  isRantMode ? activateRandy() : activateRoy();
 }
 
 function addThinkingDots() {
@@ -145,12 +136,10 @@ function addThinkingDots() {
 function sendToRoy(text) {
   const chatPayload = {
     message: text,
-    mode: 'both',
     persona: isRantMode ? 'randy' : 'default',
-    tone: 'casual-direct',
     poeticLevel: 0.1,
-    disfluencyLevel: 0.75,
-    jobsStyleLevel: 0.15,
+    disfluencyLevel: 0.45,
+    jobsStyleLevel: 0.25,
     volumeData
   };
 
@@ -174,12 +163,9 @@ function sendToRoy(text) {
 }
 
 function playRoyAudio(base64) {
-  const audio = new Audio(`data:audio/mpeg;base64,${base64}`);
+  const audio = new Audio(`data:audio/mp3;base64,${base64}`);
   audio.setAttribute('playsinline', '');
-  audio.play().catch(e => {
-    console.warn("iOS playback error, trying again on user gesture", e);
-    speakToggle.addEventListener('click', () => audio.play(), { once: true });
-  });
+  audio.play().catch(e => console.error("Audio play error:", e));
   drawRoyScope(audio);
 }
 
@@ -209,7 +195,6 @@ function drawRoyScope(audio) {
     royCtx.stroke();
     requestAnimationFrame(draw);
   }
-
   draw();
 }
 
@@ -231,14 +216,10 @@ royToggle.addEventListener('click', activateRoy);
 randyToggle.addEventListener('click', activateRandy);
 
 speakToggle.addEventListener('click', () => {
-  if (isProcessing) return;
-  isProcessing = true;
-
   if (!isRecording) {
-    startRecording().finally(() => isProcessing = false);
+    startRecording();
   } else {
     stopRecording();
-    isProcessing = false;
   }
 });
 
@@ -247,6 +228,5 @@ homeButton.addEventListener('click', () => {
 });
 
 window.addEventListener('DOMContentLoaded', () => {
-  const greeting = isRantMode ? "Yo Randy. What's up?" : "Hello Roy. You there?";
-  sendToRoy(greeting);
+  activateRoy();
 });
