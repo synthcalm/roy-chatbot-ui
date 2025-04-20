@@ -18,6 +18,7 @@ let isRecording = false;
 let isRantMode = false;
 let sessionStartTime = null;
 let chunks = [], volumeData = [];
+let isProcessing = false;
 
 function updateDateTime() {
   const now = new Date();
@@ -71,6 +72,9 @@ function drawUserScope() {
 }
 
 async function startRecording() {
+  chunks = [];
+  volumeData = [];
+
   stream = await navigator.mediaDevices.getUserMedia({ audio: true });
   audioContext = new (window.AudioContext || window.webkitAudioContext)();
   analyser = audioContext.createAnalyser();
@@ -97,6 +101,9 @@ async function startRecording() {
     const formData = new FormData();
     formData.append('audio', blob, `audio.${extension}`);
 
+    chunks = [];
+    volumeData = [];
+
     const res = await fetch('https://roy-chatbo-backend.onrender.com/api/transcribe', {
       method: 'POST',
       body: formData
@@ -113,8 +120,6 @@ async function startRecording() {
 
   sessionStartTime = new Date();
   isRecording = true;
-  chunks = [];
-  volumeData = [];
   updateSpeakButtonRecordingState();
   drawUserScope();
 }
@@ -222,10 +227,14 @@ royToggle.addEventListener('click', activateRoy);
 randyToggle.addEventListener('click', activateRandy);
 
 speakToggle.addEventListener('click', () => {
+  if (isProcessing) return;
+  isProcessing = true;
+
   if (!isRecording) {
-    startRecording();
+    startRecording().finally(() => isProcessing = false);
   } else {
     stopRecording();
+    isProcessing = false;
   }
 });
 
