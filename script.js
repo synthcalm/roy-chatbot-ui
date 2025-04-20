@@ -147,6 +147,10 @@ function sendToRoy(text) {
     message: text,
     mode: 'both',
     persona: isRantMode ? 'randy' : 'default',
+    tone: 'casual-direct',
+    poeticLevel: 0.1,
+    disfluencyLevel: 0.75,
+    jobsStyleLevel: 0.15,
     volumeData
   };
 
