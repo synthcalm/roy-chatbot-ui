@@ -52,7 +52,6 @@ function clearMessagesAndShowGreeting(mode) {
   }
   messagesDiv.appendChild(msg);
   messagesDiv.scrollTop = messagesDiv.scrollHeight;
-  speakToggle.classList.add('ready-to-speak');
 }
 
 // Select Roy mode
@@ -62,6 +61,7 @@ royToggle.addEventListener('click', () => {
   isRantMode = false;
   royToggle.classList.add('active-roy');
   randyToggle.classList.remove('active-randy');
+  speakToggle.classList.add('ready-to-speak');
   speakToggle.textContent = 'Speak';
   clearMessagesAndShowGreeting('roy');
 });
@@ -73,6 +73,7 @@ randyToggle.addEventListener('click', () => {
   isRantMode = true;
   randyToggle.classList.add('active-randy');
   royToggle.classList.remove('active-roy');
+  speakToggle.classList.add('ready-to-speak');
   speakToggle.textContent = 'Speak';
   clearMessagesAndShowGreeting('randy');
 });
@@ -86,13 +87,6 @@ async function startRecording() {
   speakToggle.classList.remove('ready-to-speak');
   speakToggle.classList.add('recording');
   sessionStartTime = new Date();
-
-  // Update favicon to show microphone icon
-  let link = document.querySelector("link[rel*='icon']") || document.createElement('link');
-  link.type = 'image/x-icon';
-  link.rel = 'shortcut icon';
-  link.href = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="red"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm-1-9c0-.55.45-1 1-1s1 .45 1 1v6c0 .55-.45 1-1 1s-1-.45-1-1V5zm5.5 6c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.47 6 6.93V21h2v-2.07c3.39-.46 6-3.4 6-6.93h-1.5z"/></svg>';
-  document.getElementsByTagName('head')[0].appendChild(link);
 
   const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
   audioContext = new (window.AudioContext || window.webkitAudioContext)();
@@ -237,13 +231,6 @@ function stopRecording() {
   mediaRecorder.stop();
   source.disconnect();
   audioContext.close();
-
-  // Reset favicon when recording stops
-  let link = document.querySelector("link[rel*='icon']") || document.createElement('link');
-  link.type = 'image/x-icon';
-  link.rel = 'shortcut icon';
-  link.href = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="gray"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm-1-9c0-.55.45-1 1-1s1 .45 1 1v6c0 .55-.45 1-1 1s-1-.45-1-1V5zm5.5 6c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.47 6 6.93V21h2v-2.07c3.39-.46 6-3.4 6-6.93h-1.5z"/></svg>';
-  document.getElementsByTagName('head')[0].appendChild(link);
 }
 
 // Speak button toggle
