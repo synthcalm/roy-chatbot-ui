@@ -50,14 +50,13 @@ function resetButtons() {
 }
 
 function activateSpeakButton() {
-  speakToggle.classList.add('speak-ready');
+  speakToggle.className = 'btn speak-ready';
   speakToggle.textContent = 'Speak';
   speakToggle.style.animation = 'none';
 }
 
 function updateSpeakButtonRecordingState() {
-  speakToggle.classList.remove('speak-ready');
-  speakToggle.classList.add('speak-active');
+  speakToggle.className = 'btn speak-active';
   speakToggle.textContent = 'STOP';
   speakToggle.style.animation = 'blinker 1s linear infinite';
 }
@@ -204,14 +203,20 @@ function activateRoy() {
   resetButtons();
   royToggle.classList.add('active-roy');
   isRantMode = false;
-  activateSpeakButton();
+  speakToggle.classList.remove('btn');
+  speakToggle.classList.add('speak-standby');
+  speakToggle.textContent = 'Speak';
+  speakToggle.style.animation = 'none';
 }
 
 function activateRandy() {
   resetButtons();
   randyToggle.classList.add('active-randy');
   isRantMode = true;
-  activateSpeakButton();
+  speakToggle.classList.remove('btn');
+  speakToggle.classList.add('speak-standby');
+  speakToggle.textContent = 'Speak';
+  speakToggle.style.animation = 'none';
 }
 
 function saveConversation() {
