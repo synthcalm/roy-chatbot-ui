@@ -10,8 +10,8 @@
   <div class="container">
     <div class="info-bar">
       <span id="current-date"></span>
-      <span id="countdown-timer" style="float: right;"></span>
-      <div id="current-time" style="text-align: center;"></div>
+      <span id="countdown-timer"></span>
+      <span id="current-time"></span>
     </div>
 
     <div class="button-group">
@@ -20,19 +20,19 @@
       <button id="speak-toggle">Speak</button>
     </div>
 
-    <!-- ✅ USER waveform -->
     <div class="waveform-wrapper">
       <label>User Voice</label>
       <canvas id="userWaveform" width="600" height="100"></canvas>
     </div>
 
-    <!-- ✅ ROY waveform -->
     <div class="waveform-wrapper">
       <label>Roy's Voice</label>
       <canvas id="royWaveform" width="600" height="100"></canvas>
     </div>
 
-    <!-- ✅ Chat messages -->
+    <hr class="divider"/>
+
+    <h2 class="log-label">Mood History</h2>
     <div id="messages" class="chat-log"></div>
   </div>
 
