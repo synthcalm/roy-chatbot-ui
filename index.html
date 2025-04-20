@@ -2,26 +2,23 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Roy Chatbot</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <div class="container">
-    <div class="scope-row">
-      <canvas id="userWaveform"></canvas>
-      <canvas id="royWaveform"></canvas>
+  <div id="main">
+    <div id="controls">
+      <button id="royBtn">Roy</button>
+      <button id="randyBtn">Randy</button>
+      <button id="speakBtn">Speak</button>
+      <button id="saveBtn">Save</button>
+      <button id="homeBtn">Synthcalm Home</button>
     </div>
 
-    <div id="messages" class="messages"></div>
+    <canvas id="userWaveform" width="600" height="80"></canvas>
+    <canvas id="royWaveform" width="600" height="80"></canvas>
 
-    <div class="button-row">
-      <button id="royBtn" class="btn">Roy</button>
-      <button id="randyBtn" class="btn">Randy</button>
-      <button id="speakBtn" class="btn">Speak</button>
-      <button id="saveBtn" class="btn">Save</button>
-      <button id="homeBtn" class="btn">SynthCalm Home</button>
-    </div>
+    <div id="messages"></div>
   </div>
 
   <script src="script.js"></script>
