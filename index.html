@@ -9,25 +9,20 @@
 <body>
   <div class="header-bar">
     <span id="date"></span>
-    <span id="session-timer"></span>
-    <span id="clock"></span>
+    <span id="time"></span>
   </div>
-
   <div class="scopes">
-    <canvas id="userScope" width="600" height="100"></canvas>
-    <canvas id="royScope" width="600" height="100"></canvas>
+    <canvas id="scope1" width="600" height="100"></canvas>
+    <canvas id="scope2" width="600" height="100"></canvas>
   </div>
-
-  <div class="chat" id="chat"></div>
-
+  <div class="chat" id="messages"></div>
   <div class="buttons">
-    <button id="royBtn" class="btn">Roy</button>
-    <button id="randyBtn" class="btn">Randy</button>
-    <button id="speakBtn" class="btn speak-standby">Speak</button>
-    <button id="saveBtn" class="btn">Save</button>
-    <button onclick="window.location.href='https://synthcalm.com'" class="btn">SynthCalm Home</button>
+    <button class="btn" id="royBtn">Roy</button>
+    <button class="btn" id="randyBtn">Randy</button>
+    <button class="btn speak-standby" id="speakBtn">Speak</button>
+    <button class="btn" id="saveBtn">Save</button>
+    <button class="btn" id="homeBtn" onclick="location.href='https://synthcalm.com/'">SynthCalm Home</button>
   </div>
-
   <script src="script.js"></script>
 </body>
 </html>
