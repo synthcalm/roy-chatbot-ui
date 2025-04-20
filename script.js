@@ -98,7 +98,7 @@ async function startRecording() {
   analyser.fftSize = 2048;
   dataArray = new Uint8Array(analyser.frequencyBinCount);
 
-  mediaRecorder = new MediaRecorder(stream);
+  mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm;codecs=opus' });
   mediaRecorder.start(1000);
 
   if (isRantMode) {
@@ -125,9 +125,9 @@ async function startRecording() {
   };
 
   mediaRecorder.onstop = async () => {
-    const blob = new Blob(chunks, { type: 'audio/webm' });
+    const blob = new Blob(chunks, { type: 'audio/webm;codecs=opus' });
     const formData = new FormData();
-    formData.append('audio', blob, 'audio.webm');
+    formData.append('audio', blob, 'recording.webm');
 
     let transcribeRes;
     try {
@@ -141,6 +141,8 @@ async function startRecording() {
     }
 
     const { text } = await transcribeRes.json();
+    if (!text || text === 'undefined') return;
+
     const userMsg = document.createElement('p');
     userMsg.className = 'user';
     userMsg.textContent = `You: ${text}`;
