@@ -6,90 +6,126 @@
   animation: blinker 1s linear infinite;
 }
 
-/* Existing styles from earlier messages */
 body {
-    margin: 0;
-    font-family: Arial, sans-serif;
-    background-color: #808080;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    min-height: 100vh;
+  margin: 0;
+  font-family: Arial, sans-serif;
+  background-color: #808080;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  flex-direction: column;
 }
 
-#chat-container {
-    width: 80%;
-    max-width: 600px;
-    border: 1px solid #ccc;
-    border-radius: 10px;
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
+.info-bar {
+  width: 100%;
+  max-width: 800px;
+  display: flex;
+  justify-content: space-between;
+  padding: 10px;
+  background-color: #222;
+  color: #fff;
+  font-size: 14px;
+}
+
+canvas {
+  width: 100%;
+  max-width: 800px;
+  height: 100px;
+  background-color: #000;
+  margin: 5px 0;
+}
+
+#controls {
+  display: flex;
+  gap: 10px;
+  padding: 10px;
+}
+
+#controls button {
+  padding: 10px 20px;
+  font-size: 16px;
+  cursor: pointer;
+  border: 2px solid;
+  border-radius: 5px;
+}
+
+#roy-toggle {
+  background-color: cyan;
+  color: black;
+  border-color: cyan;
+}
+
+#randy-toggle {
+  background-color: cyan;
+  color: black;
+  border-color: cyan;
+}
+
+#speak-toggle {
+  background-color: grey;
+  color: white;
+  border-color: grey;
+}
+
+#saveButton {
+  background-color: #444;
+  color: white;
+  border-color: #444;
+}
+
+#controls a button {
+  background-color: #444;
+  color: white;
+  border-color: #444;
 }
 
 #messages {
-    flex: 1;
-    padding: 15px;
-    overflow-y: auto;
-    border-bottom: 1px solid #ddd;
+  width: 100%;
+  max-width: 800px;
+  min-height: 200px;
+  padding: 15px;
+  background-color: #333;
+  color: #fff;
+  overflow-y: auto;
+  border: 1px solid #444;
+  border-radius: 5px;
 }
 
 .message {
-    margin-bottom: 10px;
-    word-wrap: break-word;
-    padding: 10px;
-    border-radius: 5px;
-    max-width: 80%;
-    background-color: #000000;
+  margin-bottom: 10px;
+  word-wrap: break-word;
+  padding: 10px;
+  border-radius: 5px;
+  max-width: 80%;
+  background-color: #000;
 }
 
 .message.user {
-    text-align: right;
-    color: #ffffff;
-    align-self: flex-end;
+  text-align: right;
+  color: #ffffff;
+  align-self: flex-end;
+  margin-left: auto;
 }
 
 .message.bot {
-    text-align: left;
-    color: #00ff00;
-    align-self: flex-start;
+  text-align: left;
+  color: #00ff00;
+  align-self: flex-start;
 }
 
-#input-area {
-    display: flex;
-    padding: 10px;
-    background-color: #fafafa;
-    border-top: 1px solid #ddd;
-}
-
-#user-input {
-    flex: 1;
-    padding: 10px;
-    border: 1px solid #ccc;
-    border-radius: 5px;
-    font-size: 16px;
-    background-color: #000000;
-    color: #ffffff;
-}
-
-#send-button {
-    margin-left: 10px;
-    padding: 10px 15px;
-    background-color: #ff0000;
-    color: white;
-    border: none;
-    border-radius: 5px;
-    cursor: pointer;
-    font-size: 16px;
-}
-
-#send-button:hover {
-    background-color: #cc0000;
+.message.system {
+  text-align: center;
+  color: #ff5555;
 }
 
 @media (max-width: 768px) {
-    #chat-container {
-        width: 95%;
-    }
+  .info-bar, canvas, #messages {
+    width: 95%;
+  }
+
+  #controls {
+    flex-wrap: wrap;
+    justify-content: center;
+  }
 }
