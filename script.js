@@ -20,6 +20,10 @@ let isRantMode = false;
 let sessionStartTime = null;
 let chunks = [], volumeData = [];
 
+function isiOS() {
+  return /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+}
+
 function updateDateTime() {
   const now = new Date();
   const year = now.getFullYear().toString().slice(2);
@@ -55,6 +59,7 @@ function updateSpeakButtonRecordingState() {
   speakToggle.classList.remove('speak-ready');
   speakToggle.classList.add('speak-active');
   speakToggle.textContent = 'STOP';
+  speakToggle.style.animation = 'blinker 1s linear infinite';
 }
 
 function drawUserScope() {
@@ -79,7 +84,8 @@ async function startRecording() {
   analyser.fftSize = 2048;
   dataArray = new Uint8Array(analyser.frequencyBinCount);
 
-  mediaRecorder = new MediaRecorder(stream);
+  const mimeType = isiOS() ? 'audio/mp4' : 'audio/webm';
+  mediaRecorder = new MediaRecorder(stream, { mimeType });
   mediaRecorder.start();
   chunks = [];
   volumeData = [];
@@ -92,22 +98,28 @@ async function startRecording() {
   };
 
   mediaRecorder.onstop = async () => {
-    const blob = new Blob(chunks, { type: 'audio/webm' });
+    const format = isiOS() ? 'audio.mp4' : 'audio.webm';
+    const blob = new Blob(chunks, { type: mimeType });
     const formData = new FormData();
-    formData.append('audio', blob, 'audio.webm');
+    formData.append('audio', blob, format);
 
-    const transcribeRes = await fetch('/api/transcribe', {
-      method: 'POST',
-      body: formData
-    });
-    const { text } = await transcribeRes.json();
-    const userMsg = document.createElement('p');
-    userMsg.className = 'user';
-    userMsg.textContent = `You: ${text}`;
-    messagesDiv.appendChild(userMsg);
-    messagesDiv.scrollTop = messagesDiv.scrollHeight;
-    addThinkingDots();
-    sendToRoy(text);
+    try {
+      const transcribeRes = await fetch('/api/transcribe', {
+        method: 'POST',
+        body: formData
+      });
+      const { text } = await transcribeRes.json();
+      if (!text || !text.trim()) return;
+      const userMsg = document.createElement('p');
+      userMsg.className = 'user';
+      userMsg.textContent = `You: ${text}`;
+      messagesDiv.appendChild(userMsg);
+      messagesDiv.scrollTop = messagesDiv.scrollHeight;
+      addThinkingDots();
+      sendToRoy(text);
+    } catch (e) {
+      console.error('Transcription failed:', e);
+    }
   };
 
   sessionStartTime = new Date();
@@ -149,14 +161,12 @@ function sendToRoy(text) {
     .then(r => r.json())
     .then(({ text: replyText, audio }) => {
       document.getElementById('thinking')?.remove();
-
       const quoteChance = Math.random();
       const royMsg = document.createElement('p');
       royMsg.className = 'roy';
       royMsg.textContent = quoteChance > 0.75 ? `Roy: "${replyText}"` : `Roy: ${replyText}`;
       messagesDiv.appendChild(royMsg);
       messagesDiv.scrollTop = messagesDiv.scrollHeight;
-
       if (audio) playRoyAudio(audio);
     });
 }
