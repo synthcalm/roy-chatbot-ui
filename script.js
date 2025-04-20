@@ -1,4 +1,4 @@
-// ✅ script.js - Restored version with full functionality
+// ✅ script.js - Restored version with full functionality + API endpoints fixed for Render backend
 
 const royBtn = document.getElementById('royBtn');
 const randyBtn = document.getElementById('randyBtn');
@@ -76,14 +76,14 @@ speakBtn.addEventListener('click', async () => {
     formData.append('audio', audioBlob);
 
     try {
-      const transcribeRes = await fetch('/api/transcribe', {
+      const transcribeRes = await fetch('https://roy-chatbo-backend.onrender.com/api/transcribe', {
         method: 'POST',
         body: formData
       });
       const { text } = await transcribeRes.json();
       addMessage('You: ' + text, 'user');
 
-      const chatRes = await fetch('/api/chat', {
+      const chatRes = await fetch('https://roy-chatbo-backend.onrender.com/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message: text, persona: selectedPersona })
