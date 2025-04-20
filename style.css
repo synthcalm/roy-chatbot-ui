@@ -1,71 +1,97 @@
+/* Updated style.css with active button states and default font colors */
+
 body {
-  background-color: black;
-  color: cyan;
+  background: #000;
+  color: #0ff;
   font-family: 'Courier New', monospace;
   margin: 0;
-}
-
-.container {
-  padding: 20px;
-}
-
-.top-bar {
+  padding: 0;
   display: flex;
-  justify-content: space-between;
+  flex-direction: column;
+  align-items: center;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+#current-date, #current-time, #countdown-timer {
   font-size: 14px;
-  margin-bottom: 10px;
+  padding: 4px;
 }
 
 canvas {
   width: 100%;
-  height: 100px;
-  display: block;
-  border: none;
-  background-color: black;
-  background-image:
-    linear-gradient(to right, rgba(255, 255, 0, 0.2) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(255, 255, 0, 0.2) 1px, transparent 1px);
+  max-width: 800px;
+  height: 120px;
+  background-color: #000;
+  border: 1px solid #0ff;
+  background-image: linear-gradient(to right, rgba(255, 255, 0, 0.2) 1px, transparent 1px),
+                    linear-gradient(to bottom, rgba(255, 255, 0, 0.2) 1px, transparent 1px);
   background-size: 20px 20px;
 }
 
-.controls {
-  display: flex;
-  justify-content: space-between;
-  margin: 10px 0;
-}
-
 .btn {
-  background: none;
-  border: 1px solid cyan;
-  color: cyan;
-  padding: 4px 10px;
-  font-size: 14px;
+  font-family: 'Courier New', monospace;
+  font-size: 16px;
+  background: transparent;
+  color: #0ff;
+  border: 1px solid #0ff;
+  padding: 5px 10px;
+  margin: 6px;
   cursor: pointer;
+  transition: all 0.2s ease;
 }
 
 .btn:hover {
-  background-color: rgba(0, 255, 255, 0.1);
+  background: #0ff;
+  color: #000;
 }
 
-.btn.speak-ready {
-  border: 1px solid lime;
-  color: lime;
+.active-roy {
+  background-color: cyan;
+  color: black;
+  border: 1px solid cyan;
 }
 
-.btn.speak-active {
-  border: 1px solid red;
+.active-randy {
+  background-color: magenta;
+  color: black;
+  border: 1px solid magenta;
+}
+
+.speak-ready {
+  background: transparent;
+  color: #0f0;
+  border: 1px solid #0f0;
+}
+
+.speak-active {
+  background: transparent;
   color: red;
+  border: 1px solid red;
   animation: blinker 1s linear infinite;
 }
 
-.chat-window {
-  max-height: 300px;
-  overflow-y: auto;
-  font-size: 14px;
-  padding: 10px 0;
-  border: none;
+@keyframes blinker {
+  50% {
+    opacity: 0.3;
+  }
 }
 
-@keyframes blinker {
-  50% { opacity: 0.0; }
+#messages {
+  width: 100%;
+  max-width: 800px;
+  padding: 10px;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  line-height: 1.5;
+  margin-top: 10px;
+  flex-grow: 1;
+}
+
+.user {
+  color: cyan;
+}
+
+.roy {
+  color: yellow;
 }
