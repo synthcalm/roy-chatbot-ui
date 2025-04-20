@@ -1,3 +1,5 @@
+// Final version of script.js with button logic and visual updates for SynthCalm Roy UI
+
 const royToggle = document.getElementById('roy-toggle');
 const randyToggle = document.getElementById('randy-toggle');
 const speakToggle = document.getElementById('speak-toggle');
@@ -19,7 +21,9 @@ let chunks = [], volumeData = [];
 
 function updateDateTime() {
   const now = new Date();
-  currentDate.textContent = now.toLocaleDateString();
+  const year = now.getFullYear().toString().slice(2);
+  const formatted = `${year}/${(now.getMonth() + 1).toString().padStart(2, '0')}/${now.getDate().toString().padStart(2, '0')}`;
+  currentDate.textContent = formatted;
   currentTime.textContent = now.toLocaleTimeString();
 
   if (isRecording && sessionStartTime) {
@@ -34,22 +38,36 @@ function updateDateTime() {
 setInterval(updateDateTime, 1000);
 
 function resetButtons() {
-  royToggle.style.background = 'cyan';
-  royToggle.style.color = 'black';
-  randyToggle.style.background = 'cyan';
-  randyToggle.style.color = 'black';
+  royToggle.className = 'btn';
+  randyToggle.className = 'btn';
+  speakToggle.className = 'btn';
   speakToggle.textContent = 'Speak';
-  speakToggle.style.background = 'black';
-  speakToggle.style.color = 'red';
-  speakToggle.style.borderColor = 'red';
-  speakToggle.style.animation = 'blinker 1s linear infinite';
+  speakToggle.style.animation = 'none';
+}
+
+function activateSpeakButton() {
+  speakToggle.className = 'btn speak-ready';
+  speakToggle.textContent = 'Speak';
+  speakToggle.style.animation = 'none';
 }
 
 function updateSpeakButtonRecordingState() {
-  speakToggle.textContent = 'Stop';
-  speakToggle.style.background = 'red';
-  speakToggle.style.color = 'black';
-  speakToggle.style.animation = 'none';
+  speakToggle.className = 'btn speak-active';
+  speakToggle.textContent = 'STOP';
+  speakToggle.style.animation = 'blinker 1s linear infinite';
+}
+
+function drawUserScope() {
+  if (!isRecording) return;
+  analyser.getByteFrequencyData(dataArray);
+  userCtx.clearRect(0, 0, userCanvas.width, userCanvas.height);
+  userCtx.beginPath();
+  for (let i = 0; i < dataArray.length; i++) {
+    userCtx.lineTo(i * (userCanvas.width / dataArray.length), userCanvas.height - dataArray[i]);
+  }
+  userCtx.strokeStyle = 'yellow';
+  userCtx.stroke();
+  requestAnimationFrame(drawUserScope);
 }
 
 async function startRecording() {
@@ -82,12 +100,10 @@ async function startRecording() {
     });
 
     const { text } = await res.json();
-
     const userMsg = document.createElement('p');
     userMsg.className = 'user';
     userMsg.textContent = `You: ${text}`;
     messagesDiv.appendChild(userMsg);
-
     addThinkingDots();
     sendToRoy(text);
   };
@@ -107,19 +123,7 @@ function stopRecording() {
   stream.getTracks().forEach(track => track.stop());
   source.disconnect();
   audioContext.close();
-}
-
-function drawUserScope() {
-  if (!isRecording) return;
-  analyser.getByteFrequencyData(dataArray);
-  userCtx.clearRect(0, 0, userCanvas.width, userCanvas.height);
-  userCtx.beginPath();
-  for (let i = 0; i < dataArray.length; i++) {
-    userCtx.lineTo(i * (userCanvas.width / dataArray.length), userCanvas.height - dataArray[i]);
-  }
-  userCtx.strokeStyle = 'yellow';
-  userCtx.stroke();
-  requestAnimationFrame(drawUserScope);
+  if (isRantMode) activateRandy(); else activateRoy();
 }
 
 function addThinkingDots() {
@@ -150,7 +154,6 @@ function sendToRoy(text) {
 
       const msg = document.createElement('p');
       msg.className = 'roy';
-      if (isRantMode) msg.classList.add('randy');
       msg.innerHTML = `<em>${isRantMode ? 'Randy' : 'Roy'}:</em> ${replyText}`;
       messagesDiv.appendChild(msg);
 
@@ -168,14 +171,12 @@ function playRoyAudio(base64) {
 function drawRoyScope(audio) {
   const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
   let source;
-
   try {
     source = audioCtx.createMediaElementSource(audio);
   } catch (e) {
-    console.error("Roy audio source already used:", e);
+    console.error("Roy audio source error:", e);
     return;
   }
-
   const analyser = audioCtx.createAnalyser();
   source.connect(analyser);
   analyser.connect(audioCtx.destination);
@@ -197,19 +198,22 @@ function drawRoyScope(audio) {
   draw();
 }
 
-royToggle.addEventListener('click', () => {
+function activateRoy() {
+  resetButtons();
+  royToggle.classList.add('active-roy');
   isRantMode = false;
-  resetButtons();
-  royToggle.style.background = 'lime';
-  royToggle.style.color = 'black';
-});
+  activateSpeakButton();
+}
 
-randyToggle.addEventListener('click', () => {
-  isRantMode = true;
+function activateRandy() {
   resetButtons();
-  randyToggle.style.background = 'orange';
-  randyToggle.style.color = 'black';
-});
+  randyToggle.classList.add('active-randy');
+  isRantMode = true;
+  activateSpeakButton();
+}
+
+royToggle.addEventListener('click', activateRoy);
+randyToggle.addEventListener('click', activateRandy);
 
 speakToggle.addEventListener('click', () => {
   if (!isRecording) {
