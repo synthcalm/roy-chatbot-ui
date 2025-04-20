@@ -1,122 +1,83 @@
-// ✅ script.js - Restored version with full functionality
-
-const royBtn = document.getElementById('royBtn');
-const randyBtn = document.getElementById('randyBtn');
-const speakBtn = document.getElementById('speakBtn');
-const saveBtn = document.getElementById('saveBtn');
-const homeBtn = document.getElementById('homeBtn');
-const messagesDiv = document.getElementById('messages');
-const userCanvas = document.getElementById('userWaveform');
-const royCanvas = document.getElementById('royWaveform');
-const userCtx = userCanvas.getContext('2d');
-const royCtx = royCanvas.getContext('2d');
-
-let mediaRecorder, audioChunks = [], isRecording = false;
-let selectedPersona = null;
-
-function addMessage(text, sender) {
-  const msg = document.createElement('p');
-  msg.className = sender;
-  msg.textContent = text;
-  messagesDiv.appendChild(msg);
-  messagesDiv.scrollTop = messagesDiv.scrollHeight;
+body {
+  font-family: 'Courier New', monospace;
+  background-color: black;
+  color: cyan;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 
-function drawScope(canvasCtx, canvas, data, color) {
-  canvasCtx.clearRect(0, 0, canvas.width, canvas.height);
-  canvasCtx.beginPath();
-  for (let i = 0; i < data.length; i++) {
-    canvasCtx.lineTo(i * (canvas.width / data.length), canvas.height - data[i]);
-  }
-  canvasCtx.strokeStyle = color;
-  canvasCtx.stroke();
+#main {
+  max-width: 600px;
+  width: 100%;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 }
 
-function resetButtonColors() {
-  royBtn.style.backgroundColor = 'cyan';
-  randyBtn.style.backgroundColor = 'cyan';
-  speakBtn.style.backgroundColor = 'cyan';
+canvas {
+  width: 100%;
+  height: 80px;
+  background-color: black;
+  border: none;
 }
 
-royBtn.addEventListener('click', () => {
-  resetButtonColors();
-  selectedPersona = 'roy';
-  royBtn.style.backgroundColor = 'green';
-  speakBtn.style.backgroundColor = 'red';
-});
+button {
+  font-family: inherit;
+  font-size: 14px;
+  color: cyan;
+  background-color: cyan;
+  border: none;
+  padding: 6px 12px;
+  cursor: pointer;
+  transition: background 0.3s ease;
+  border: 1px solid cyan;
+  min-width: 80px;
+}
 
-randyBtn.addEventListener('click', () => {
-  resetButtonColors();
-  selectedPersona = 'randy';
-  randyBtn.style.backgroundColor = 'orange';
-  speakBtn.style.backgroundColor = 'red';
-});
+button.blinking {
+  animation: blinkRed 1s infinite;
+}
 
-speakBtn.addEventListener('click', async () => {
-  if (!selectedPersona) return alert('Please choose Roy or Randy.');
-  if (isRecording) return;
-  isRecording = true;
-  speakBtn.textContent = 'STOP';
-  speakBtn.classList.add('blinking');
+@keyframes blinkRed {
+  0% { background-color: red; }
+  50% { background-color: black; }
+  100% { background-color: red; }
+}
 
-  const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-  mediaRecorder = new MediaRecorder(stream);
-  audioChunks = [];
+#controls {
+  display: flex;
+  justify-content: space-between;
+  gap: 6px;
+}
 
-  mediaRecorder.ondataavailable = (e) => {
-    audioChunks.push(e.data);
-  };
+#messages {
+  max-height: 300px;
+  overflow-y: auto;
+  background-color: transparent;
+  border: none;
+  padding: 8px;
+  font-size: 14px;
+  line-height: 1.4;
+}
 
-  mediaRecorder.onstop = async () => {
-    speakBtn.textContent = 'Speak';
-    speakBtn.classList.remove('blinking');
-    isRecording = false;
-    const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
-    const formData = new FormData();
-    formData.append('audio', audioBlob);
+p.user {
+  color: white;
+  margin: 4px 0;
+}
 
-    try {
-      const transcribeRes = await fetch('/api/transcribe', {
-        method: 'POST',
-        body: formData
-      });
-      const { text } = await transcribeRes.json();
-      addMessage('You: ' + text, 'user');
+p.bot {
+  color: cyan;
+  margin: 4px 0;
+}
 
-      const chatRes = await fetch('/api/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: text, persona: selectedPersona })
-      });
-      const { text: reply, audio } = await chatRes.json();
-      addMessage(`${selectedPersona === 'randy' ? 'Randy' : 'Roy'}: ${reply}`, 'bot');
-
-      const audioEl = new Audio('data:audio/mp3;base64,' + audio);
-      audioEl.play();
-    } catch (e) {
-      console.error('Transcription failed:', e);
-    }
-  };
-
-  mediaRecorder.start();
-  setTimeout(() => {
-    mediaRecorder.stop();
-  }, 5000);
-});
-
-saveBtn.addEventListener('click', () => {
-  const blob = new Blob([messagesDiv.innerText], { type: 'text/plain' });
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = 'conversation.txt';
-  a.click();
-  resetButtonColors();
-});
-
-homeBtn.addEventListener('click', () => {
-  window.location.href = 'https://synthcalm.com';
-});
-
-window.onload = () => {
-  addMessage('Roy: Hey, I’m here whenever you need me.', 'bot');
-};
+#userWaveform, #royWaveform {
+  border: none;
+  background-image:
+    linear-gradient(to right, rgba(255, 255, 0, 0.2) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 0, 0.2) 1px, transparent 1px);
+  background-size: 20px 20px;
+}
