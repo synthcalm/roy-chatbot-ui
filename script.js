@@ -1,8 +1,9 @@
-// script.js - Logic for Roy Chatbot UI
+// script.js
 
 const royToggle = document.getElementById('roy-toggle');
 const randyToggle = document.getElementById('randy-toggle');
 const speakToggle = document.getElementById('speak-toggle');
+const saveButton = document.getElementById('save-button');
 const homeButton = document.getElementById('home-button');
 const messagesDiv = document.getElementById('messages');
 const userCanvas = document.getElementById('userWaveform');
@@ -38,9 +39,7 @@ function updateDateTime() {
 setInterval(updateDateTime, 1000);
 
 function resetButtons() {
-  royToggle.className = 'btn';
-  randyToggle.className = 'btn';
-  speakToggle.className = 'btn';
+  [royToggle, randyToggle, speakToggle].forEach(btn => btn.className = 'btn');
   speakToggle.textContent = 'Speak';
   speakToggle.style.animation = 'none';
 }
@@ -54,6 +53,7 @@ function activateSpeakButton() {
 function updateSpeakButtonRecordingState() {
   speakToggle.className = 'btn speak-active';
   speakToggle.textContent = 'STOP';
+  speakToggle.style.animation = 'blinker 1s linear infinite';
 }
 
 function drawUserScope() {
@@ -93,12 +93,9 @@ async function startRecording() {
     const formData = new FormData();
     formData.append('audio', blob, 'audio.webm');
 
-    const res = await fetch('https://roy-chatbo-backend.onrender.com/api/transcribe', {
-      method: 'POST',
-      body: formData
-    });
-
+    const res = await fetch('/api/transcribe', { method: 'POST', body: formData });
     const { text } = await res.json();
+
     const userMsg = document.createElement('p');
     userMsg.className = 'user';
     userMsg.textContent = `You: ${text}`;
@@ -134,25 +131,14 @@ function addThinkingDots() {
 }
 
 function sendToRoy(text) {
-  const chatPayload = {
-    message: text,
-    persona: isRantMode ? 'randy' : 'default',
-    poeticLevel: 0.1,
-    disfluencyLevel: 0.45,
-    jobsStyleLevel: 0.25,
-    volumeData
-  };
-
-  fetch('https://roy-chatbo-backend.onrender.com/api/chat', {
+  fetch('/api/chat', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(chatPayload)
+    body: JSON.stringify({ message: text, persona: isRantMode ? 'randy' : 'default', volumeData })
   })
     .then(res => res.json())
     .then(({ text: replyText, audio: audioBase64 }) => {
-      const thinkingEl = document.getElementById('thinking');
-      if (thinkingEl) thinkingEl.remove();
-
+      document.getElementById('thinking')?.remove();
       const msg = document.createElement('p');
       msg.className = 'roy';
       msg.innerHTML = `<em>${isRantMode ? 'Randy' : 'Roy'}:</em> ${replyText}`;
@@ -195,6 +181,7 @@ function drawRoyScope(audio) {
     royCtx.stroke();
     requestAnimationFrame(draw);
   }
+
   draw();
 }
 
@@ -216,17 +203,23 @@ royToggle.addEventListener('click', activateRoy);
 randyToggle.addEventListener('click', activateRandy);
 
 speakToggle.addEventListener('click', () => {
-  if (!isRecording) {
-    startRecording();
-  } else {
-    stopRecording();
-  }
+  !isRecording ? startRecording() : stopRecording();
 });
 
 homeButton.addEventListener('click', () => {
   window.location.href = "https://synthcalm.com";
 });
 
+saveButton.addEventListener('click', () => {
+  const text = [...messagesDiv.children].map(el => el.textContent).join('\n');
+  const blob = new Blob([text], { type: 'text/plain' });
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = 'roy_conversation.txt';
+  link.click();
+  resetButtons();
+});
+
 window.addEventListener('DOMContentLoaded', () => {
-  activateRoy();
+  sendToRoy("Hello Roy. You there?");
 });
