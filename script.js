@@ -1,107 +1,143 @@
+// script.js for Roy Chatbot - fixed and restored
+
 const royBtn = document.getElementById('royBtn');
 const randyBtn = document.getElementById('randyBtn');
 const speakBtn = document.getElementById('speakBtn');
 const saveBtn = document.getElementById('saveBtn');
 const messagesDiv = document.getElementById('messages');
-const synthHomeBtn = document.getElementById('homeBtn');
-const canvas1 = document.getElementById('scope1');
-const canvas2 = document.getElementById('scope2');
+const scope1 = document.getElementById('scope1');
+const scope2 = document.getElementById('scope2');
+const scopeCtx1 = scope1.getContext('2d');
+const scopeCtx2 = scope2.getContext('2d');
 
-let currentPersona = '';
-let isRecording = false;
+let mediaRecorder, audioChunks = [], currentPersona = null, isRecording = false;
 
-function setActivePersona(persona) {
-  currentPersona = persona;
-  royBtn.classList.remove('active-roy');
-  randyBtn.classList.remove('active-randy');
-  speakBtn.classList.remove('speak-standby', 'speak-blink', 'speak-ready');
-  speakBtn.classList.add('speak-ready');
-
-  if (persona === 'roy') {
-    royBtn.classList.add('active-roy');
-  } else if (persona === 'randy') {
-    randyBtn.classList.add('active-randy');
-  }
-}
-
-function resetButtons() {
-  currentPersona = '';
-  royBtn.classList.remove('active-roy');
-  randyBtn.classList.remove('active-randy');
-  speakBtn.classList.remove('speak-ready', 'speak-blink');
-  speakBtn.classList.add('speak-standby');
-}
-
-function appendMessage(sender, text) {
-  const message = document.createElement('div');
-  message.className = sender + '-message';
-  message.textContent = `${sender === 'user' ? 'You' : sender.charAt(0).toUpperCase() + sender.slice(1)}: ${text}`;
-  messagesDiv.appendChild(message);
+function addMessage(sender, text) {
+  const msg = document.createElement('p');
+  msg.className = sender;
+  msg.textContent = `${sender === 'user' ? 'You' : sender === 'roy' ? 'Roy' : 'Randy'}: ${text}`;
+  messagesDiv.appendChild(msg);
   messagesDiv.scrollTop = messagesDiv.scrollHeight;
 }
 
-function simulateWaveform(canvas) {
-  const ctx = canvas.getContext('2d');
-  let x = 0;
-  setInterval(() => {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    ctx.beginPath();
-    ctx.moveTo(0, canvas.height / 2);
-    for (let i = 0; i < canvas.width; i++) {
-      ctx.lineTo(i, canvas.height / 2 + 20 * Math.sin((i + x) * 0.05));
-    }
-    ctx.strokeStyle = 'yellow';
-    ctx.stroke();
-    x += 2;
-  }, 100);
+function drawScope(ctx) {
+  ctx.clearRect(0, 0, 600, 100);
+  ctx.beginPath();
+  for (let i = 0; i < 600; i++) {
+    const y = 50 + 30 * Math.sin(i * 0.05 + Date.now() * 0.005);
+    ctx.lineTo(i, y);
+  }
+  ctx.strokeStyle = 'cyan';
+  ctx.lineWidth = 1;
+  ctx.stroke();
+  if (isRecording) requestAnimationFrame(() => drawScope(ctx));
 }
 
-speakBtn.addEventListener('click', async () => {
-  if (!currentPersona) return;
+function startRecording() {
+  navigator.mediaDevices.getUserMedia({ audio: true })
+    .then(stream => {
+      mediaRecorder = new MediaRecorder(stream);
+      mediaRecorder.start();
+      audioChunks = [];
 
-  if (!isRecording) {
-    isRecording = true;
-    speakBtn.textContent = 'Stop';
-    speakBtn.classList.add('speak-blink');
+      mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
 
-    // Simulate recording and response
-    appendMessage('user', 'Hello?');
+      mediaRecorder.onstop = () => {
+        const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+        const formData = new FormData();
+        formData.append('audio', audioBlob, 'audio.webm');
 
-    const res = await fetch('https://roy-chatbo-backend.onrender.com/api/chat', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        message: 'Hello?',
-        persona: currentPersona
-      })
-    });
+        fetch('/api/transcribe', {
+          method: 'POST',
+          body: formData
+        })
+          .then(res => res.json())
+          .then(data => {
+            if (data.text) {
+              addMessage('user', data.text);
+              sendToChatbot(data.text);
+            }
+          })
+          .catch(err => console.error('Transcription failed:', err));
+      };
+    })
+    .catch(err => console.error('Mic access failed:', err));
+}
 
-    const data = await res.json();
-    if (data && data.text) {
-      appendMessage(currentPersona, data.text);
-    }
-
-    speakBtn.textContent = 'Speak';
-    speakBtn.classList.remove('speak-blink');
-    isRecording = false;
+function stopRecording() {
+  if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+    mediaRecorder.stop();
   }
-});
+  isRecording = false;
+}
 
-royBtn.addEventListener('click', () => setActivePersona('roy'));
-randyBtn.addEventListener('click', () => setActivePersona('randy'));
-saveBtn.addEventListener('click', () => {
-  const log = messagesDiv.textContent;
-  const blob = new Blob([log], { type: 'text/plain' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = 'conversation.txt';
-  a.click();
-  resetButtons();
-});
+function sendToChatbot(text) {
+  fetch('/api/chat', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ message: text, persona: currentPersona })
+  })
+    .then(res => res.json())
+    .then(data => {
+      if (data.text) {
+        addMessage(currentPersona, data.text);
+      }
+      if (data.audio) {
+        const audio = new Audio(`data:audio/mp3;base64,${data.audio}`);
+        audio.play();
+      }
+    })
+    .catch(err => console.error('Chat failed:', err));
+}
 
-// Initialize
-simulateWaveform(canvas1);
-simulateWaveform(canvas2);
-resetButtons();
-appendMessage('roy', 'Hey there. You showed up. That means something.');
+function resetButtonColors() {
+  royBtn.style.backgroundColor = 'cyan';
+  randyBtn.style.backgroundColor = 'cyan';
+  speakBtn.style.backgroundColor = 'cyan';
+  speakBtn.classList.remove('blinking');
+  speakBtn.textContent = 'Speak';
+}
+
+royBtn.onclick = () => {
+  resetButtonColors();
+  royBtn.style.backgroundColor = 'green';
+  speakBtn.style.backgroundColor = 'red';
+  currentPersona = 'roy';
+};
+
+randyBtn.onclick = () => {
+  resetButtonColors();
+  randyBtn.style.backgroundColor = 'orange';
+  speakBtn.style.backgroundColor = 'red';
+  currentPersona = 'randy';
+};
+
+speakBtn.onclick = () => {
+  if (isRecording) {
+    stopRecording();
+    speakBtn.classList.remove('blinking');
+    speakBtn.textContent = 'Speak';
+  } else {
+    isRecording = true;
+    drawScope(scopeCtx1);
+    drawScope(scopeCtx2);
+    startRecording();
+    speakBtn.classList.add('blinking');
+    speakBtn.textContent = 'STOP';
+  }
+};
+
+saveBtn.onclick = () => {
+  const allText = messagesDiv.textContent;
+  const blob = new Blob([allText], { type: 'text/plain' });
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = 'chatlog.txt';
+  link.click();
+  resetButtonColors();
+};
+
+window.onload = () => {
+  const greeting = 'Hey, I’m Roy. You ready to talk?';
+  addMessage('roy', greeting);
+};
