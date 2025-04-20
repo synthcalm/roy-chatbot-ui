@@ -1,33 +1,26 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Roy Chatbot</title>
-  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <div class="top-bar">
-    <div id="current-date"></div>
-    <div id="countdown-timer"></div>
-    <div id="current-time"></div>
+  <div class="container">
+    <div class="scopes">
+      <canvas id="userWaveform" width="400" height="100"></canvas>
+      <canvas id="royWaveform" width="400" height="100"></canvas>
+    </div>
+    <div class="button-bar">
+      <button id="roy-toggle" class="btn">Roy</button>
+      <button id="randy-toggle" class="btn">Randy</button>
+      <button id="speak-toggle" class="btn speak-standby">Speak</button>
+      <button id="save-button" class="btn">Save</button>
+      <button id="home-button" class="btn">SynthCalm Home</button>
+    </div>
+    <div id="messages" class="chat-box"></div>
   </div>
-
-  <div class="scopes">
-    <canvas id="userWaveform"></canvas>
-    <canvas id="royWaveform"></canvas>
-  </div>
-
-  <div id="messages"></div>
-
-  <div class="buttons">
-    <button id="roy-toggle" class="btn">Roy</button>
-    <button id="randy-toggle" class="btn">Randy</button>
-    <button id="speak-toggle" class="btn speak-ready">Speak</button>
-    <button id="save-button" class="btn">Save</button>
-    <button id="home-button" class="btn">SynthCalm Home</button>
-  </div>
-
   <script src="script.js"></script>
 </body>
 </html>
