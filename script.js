@@ -1,12 +1,4 @@
-// ✅ Roy Chatbot frontend logic upgraded to AssemblyAI real-time transcription with waveform and playback support
-
-import { AssemblyAI } from 'https://cdn.jsdelivr.net/npm/assemblyai@1.0.0/+esm';
-
-const API_KEY = 'your-assemblyai-api-key'; // Replace with actual key or import securely
-const ASSEMBLY_ENDPOINT = 'wss://api.assemblyai.com/v2/realtime/ws?sample_rate=16000';
-
-let audioContext, processor, sourceNode, stream;
-let socket, transcript = '', isRecording = false;
+// ✅ Roy Chatbot frontend logic revised to match MIA’s proven backend pattern using Whisper transcription
 
 const royToggle = document.getElementById('roy-toggle');
 const randyToggle = document.getElementById('randy-toggle');
@@ -14,76 +6,104 @@ const speakToggle = document.getElementById('speak-toggle');
 const messagesDiv = document.getElementById('messages');
 const royWaveform = document.getElementById('royWaveform');
 const royCtx = royWaveform.getContext('2d');
+const currentDate = document.getElementById('current-date');
+const currentTime = document.getElementById('current-time');
+const countdownTimer = document.getElementById('countdown-timer');
 
+let audioContext, analyser, dataArray, source, mediaRecorder, stream;
+let isRecording = false;
 let isRantMode = false;
+let sessionStartTime = null;
+let chunks = [], volumeData = [];
+
+function updateDateTime() {
+  const now = new Date();
+  currentDate.textContent = now.toLocaleDateString();
+  currentTime.textContent = now.toLocaleTimeString();
+
+  if (isRecording && sessionStartTime) {
+    const elapsed = Math.floor((now - sessionStartTime) / 1000);
+    const maxTime = isRantMode ? 1800 : 3600;
+    const remaining = maxTime - elapsed;
+    const min = Math.floor(remaining / 60);
+    const sec = remaining % 60;
+    countdownTimer.textContent = `Session: ${min}:${sec < 10 ? '0' : ''}${sec}`;
+  }
+}
+setInterval(updateDateTime, 1000);
 
 function resetButtons() {
   royToggle.style.background = 'cyan';
   royToggle.style.color = 'black';
   randyToggle.style.background = 'cyan';
   randyToggle.style.color = 'black';
-}
-
-function updateButtonStates() {
-  speakToggle.textContent = isRecording ? 'Stop' : 'Speak';
-  speakToggle.style.background = isRecording ? 'red' : 'black';
-  speakToggle.style.color = isRecording ? 'black' : 'red';
+  speakToggle.textContent = 'Speak';
+  speakToggle.style.background = 'black';
+  speakToggle.style.color = 'red';
   speakToggle.style.borderColor = 'red';
-  speakToggle.style.animation = isRecording ? 'none' : 'blinker 1s linear infinite';
+  speakToggle.style.animation = 'blinker 1s linear infinite';
 }
 
-function startRealtimeTranscription() {
-  socket = new WebSocket(`${ASSEMBLY_ENDPOINT}&token=${API_KEY}`);
-  socket.onmessage = (msg) => {
-    const res = JSON.parse(msg.data);
-    if (res.text) {
-      transcript += res.text + ' ';
-    }
-  };
+function updateSpeakButtonRecordingState() {
+  speakToggle.textContent = 'Stop';
+  speakToggle.style.background = 'red';
+  speakToggle.style.color = 'black';
+  speakToggle.style.animation = 'none';
 }
 
 async function startRecording() {
-  isRecording = true;
-  updateButtonStates();
-  transcript = '';
-
   stream = await navigator.mediaDevices.getUserMedia({ audio: true });
   audioContext = new (window.AudioContext || window.webkitAudioContext)();
-  const input = audioContext.createMediaStreamSource(stream);
-  processor = audioContext.createScriptProcessor(4096, 1, 1);
+  analyser = audioContext.createAnalyser();
+  source = audioContext.createMediaStreamSource(stream);
+  source.connect(analyser);
+  analyser.fftSize = 2048;
+  dataArray = new Uint8Array(analyser.frequencyBinCount);
 
-  input.connect(processor);
-  processor.connect(audioContext.destination);
+  mediaRecorder = new MediaRecorder(stream);
+  mediaRecorder.start();
 
-  const sampleRate = 16000;
-  const encoder = new TextEncoder();
-
-  startRealtimeTranscription();
-
-  processor.onaudioprocess = (e) => {
-    const raw = e.inputBuffer.getChannelData(0);
-    const int16 = convertFloat32ToInt16(raw);
-    if (socket && socket.readyState === WebSocket.OPEN) {
-      socket.send(int16);
-    }
+  mediaRecorder.ondataavailable = (e) => {
+    chunks.push(e.data);
+    analyser.getByteFrequencyData(dataArray);
+    const avgVolume = dataArray.reduce((sum, val) => sum + val, 0) / dataArray.length;
+    volumeData.push(avgVolume);
   };
+
+  mediaRecorder.onstop = async () => {
+    const blob = new Blob(chunks, { type: 'audio/webm' });
+    const formData = new FormData();
+    formData.append('audio', blob, 'audio.webm');
+
+    const res = await fetch('https://roy-chatbo-backend.onrender.com/api/transcribe', {
+      method: 'POST',
+      body: formData
+    });
+
+    const { text } = await res.json();
+
+    const userMsg = document.createElement('p');
+    userMsg.className = 'user';
+    userMsg.textContent = `You: ${text}`;
+    messagesDiv.appendChild(userMsg);
+
+    sendToRoy(text);
+  };
+
+  sessionStartTime = new Date();
+  isRecording = true;
+  chunks = [];
+  volumeData = [];
+  updateSpeakButtonRecordingState();
 }
 
 function stopRecording() {
   isRecording = false;
-  updateButtonStates();
-
-  processor.disconnect();
-  sourceNode?.disconnect();
+  resetButtons();
+  mediaRecorder.stop();
   stream.getTracks().forEach(track => track.stop());
-  socket?.close();
-
-  const userMsg = document.createElement('p');
-  userMsg.className = 'user';
-  userMsg.textContent = `You: ${transcript.trim()}`;
-  messagesDiv.appendChild(userMsg);
-
-  sendToRoy(transcript.trim());
+  source.disconnect();
+  audioContext.close();
 }
 
 function sendToRoy(text) {
@@ -91,7 +111,7 @@ function sendToRoy(text) {
     message: text,
     mode: 'both',
     persona: isRantMode ? 'randy' : 'default',
-    volumeData: []
+    volumeData
   };
 
   fetch('https://roy-chatbo-backend.onrender.com/api/chat', {
@@ -110,28 +130,11 @@ function sendToRoy(text) {
     });
 }
 
-function convertFloat32ToInt16(buffer) {
-  const l = buffer.length;
-  const buf = new Int16Array(l);
-  for (let i = 0; i < l; i++) {
-    buf[i] = Math.min(1, buffer[i]) * 0x7FFF;
-  }
-  return buf.buffer;
-}
-
 function playRoyAudio(base64) {
   const audio = new Audio(`data:audio/mp3;base64,${base64}`);
   audio.setAttribute('playsinline', '');
-  audio.load();
-  audio.onloadeddata = () => {
-    audio.play().then(() => visualizeAudio(audio)).catch(() => {
-      const resume = () => {
-        audio.play().then(() => visualizeAudio(audio));
-        document.body.removeEventListener('click', resume);
-      };
-      document.body.addEventListener('click', resume, { once: true });
-    });
-  };
+  audio.play();
+  visualizeAudio(audio);
 }
 
 function visualizeAudio(audio) {
