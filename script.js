@@ -1,143 +1,110 @@
-// script.js for Roy Chatbot - fixed and restored
+// script.js
 
+let currentPersona = 'roy';
+let mediaRecorder;
+let audioChunks = [];
+const messagesDiv = document.getElementById('messages');
 const royBtn = document.getElementById('royBtn');
 const randyBtn = document.getElementById('randyBtn');
 const speakBtn = document.getElementById('speakBtn');
 const saveBtn = document.getElementById('saveBtn');
-const messagesDiv = document.getElementById('messages');
-const scope1 = document.getElementById('scope1');
-const scope2 = document.getElementById('scope2');
-const scopeCtx1 = scope1.getContext('2d');
-const scopeCtx2 = scope2.getContext('2d');
 
-let mediaRecorder, audioChunks = [], currentPersona = null, isRecording = false;
+function setActivePersona(persona) {
+  currentPersona = persona;
+  royBtn.style.backgroundColor = persona === 'roy' ? 'green' : '';
+  randyBtn.style.backgroundColor = persona === 'randy' ? 'orange' : '';
+  speakBtn.style.backgroundColor = 'red';
+}
 
-function addMessage(sender, text) {
-  const msg = document.createElement('p');
-  msg.className = sender;
-  msg.textContent = `${sender === 'user' ? 'You' : sender === 'roy' ? 'Roy' : 'Randy'}: ${text}`;
-  messagesDiv.appendChild(msg);
+function resetButtonStyles() {
+  royBtn.style.backgroundColor = '';
+  randyBtn.style.backgroundColor = '';
+  speakBtn.style.backgroundColor = '';
+}
+
+function addMessage(role, text) {
+  const p = document.createElement('p');
+  p.innerHTML = `<strong>${role}:</strong> ${text}`;
+  p.style.color = role === 'Roy' ? 'yellow' : 'white';
+  messagesDiv.appendChild(p);
   messagesDiv.scrollTop = messagesDiv.scrollHeight;
 }
 
-function drawScope(ctx) {
-  ctx.clearRect(0, 0, 600, 100);
-  ctx.beginPath();
-  for (let i = 0; i < 600; i++) {
-    const y = 50 + 30 * Math.sin(i * 0.05 + Date.now() * 0.005);
-    ctx.lineTo(i, y);
+function downloadTranscript() {
+  let content = '';
+  document.querySelectorAll('#messages p').forEach(p => {
+    content += p.textContent + '\n';
+  });
+  const blob = new Blob([content], { type: 'text/plain' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'chatlog.txt';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  resetButtonStyles();
+}
+
+async function sendAudioToBackend(audioBlob) {
+  const formData = new FormData();
+  formData.append('audio', audioBlob, 'audio.webm');
+
+  const transcribeRes = await fetch('/api/transcribe', {
+    method: 'POST',
+    body: formData
+  });
+
+  if (!transcribeRes.ok) {
+    console.error('Transcription failed');
+    return;
   }
-  ctx.strokeStyle = 'cyan';
-  ctx.lineWidth = 1;
-  ctx.stroke();
-  if (isRecording) requestAnimationFrame(() => drawScope(ctx));
-}
 
-function startRecording() {
-  navigator.mediaDevices.getUserMedia({ audio: true })
-    .then(stream => {
-      mediaRecorder = new MediaRecorder(stream);
-      mediaRecorder.start();
-      audioChunks = [];
+  const { text } = await transcribeRes.json();
+  addMessage('You', text);
 
-      mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
-
-      mediaRecorder.onstop = () => {
-        const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
-        const formData = new FormData();
-        formData.append('audio', audioBlob, 'audio.webm');
-
-        fetch('/api/transcribe', {
-          method: 'POST',
-          body: formData
-        })
-          .then(res => res.json())
-          .then(data => {
-            if (data.text) {
-              addMessage('user', data.text);
-              sendToChatbot(data.text);
-            }
-          })
-          .catch(err => console.error('Transcription failed:', err));
-      };
-    })
-    .catch(err => console.error('Mic access failed:', err));
-}
-
-function stopRecording() {
-  if (mediaRecorder && mediaRecorder.state !== 'inactive') {
-    mediaRecorder.stop();
-  }
-  isRecording = false;
-}
-
-function sendToChatbot(text) {
-  fetch('/api/chat', {
+  const chatRes = await fetch('/api/chat', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ message: text, persona: currentPersona })
-  })
-    .then(res => res.json())
-    .then(data => {
-      if (data.text) {
-        addMessage(currentPersona, data.text);
-      }
-      if (data.audio) {
-        const audio = new Audio(`data:audio/mp3;base64,${data.audio}`);
-        audio.play();
-      }
-    })
-    .catch(err => console.error('Chat failed:', err));
+  });
+
+  const chatData = await chatRes.json();
+  addMessage('Roy', chatData.text);
+
+  const audio = new Audio(`data:audio/mp3;base64,${chatData.audio}`);
+  audio.play();
 }
 
-function resetButtonColors() {
-  royBtn.style.backgroundColor = 'cyan';
-  randyBtn.style.backgroundColor = 'cyan';
-  speakBtn.style.backgroundColor = 'cyan';
-  speakBtn.classList.remove('blinking');
-  speakBtn.textContent = 'Speak';
+async function startRecording() {
+  const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  mediaRecorder = new MediaRecorder(stream);
+
+  audioChunks = [];
+  mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
+
+  mediaRecorder.onstop = () => {
+    const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+    sendAudioToBackend(audioBlob);
+  };
+
+  mediaRecorder.start();
 }
 
-royBtn.onclick = () => {
-  resetButtonColors();
-  royBtn.style.backgroundColor = 'green';
-  speakBtn.style.backgroundColor = 'red';
-  currentPersona = 'roy';
-};
+royBtn.onclick = () => setActivePersona('roy');
+randyBtn.onclick = () => setActivePersona('randy');
+saveBtn.onclick = downloadTranscript;
 
-randyBtn.onclick = () => {
-  resetButtonColors();
-  randyBtn.style.backgroundColor = 'orange';
-  speakBtn.style.backgroundColor = 'red';
-  currentPersona = 'randy';
-};
-
+let isRecording = false;
 speakBtn.onclick = () => {
-  if (isRecording) {
-    stopRecording();
-    speakBtn.classList.remove('blinking');
-    speakBtn.textContent = 'Speak';
-  } else {
-    isRecording = true;
-    drawScope(scopeCtx1);
-    drawScope(scopeCtx2);
-    startRecording();
+  if (!isRecording) {
+    speakBtn.textContent = 'Stop';
     speakBtn.classList.add('blinking');
-    speakBtn.textContent = 'STOP';
+    startRecording();
+  } else {
+    speakBtn.textContent = 'Speak';
+    speakBtn.classList.remove('blinking');
+    mediaRecorder.stop();
   }
-};
-
-saveBtn.onclick = () => {
-  const allText = messagesDiv.textContent;
-  const blob = new Blob([allText], { type: 'text/plain' });
-  const link = document.createElement('a');
-  link.href = URL.createObjectURL(blob);
-  link.download = 'chatlog.txt';
-  link.click();
-  resetButtonColors();
-};
-
-window.onload = () => {
-  const greeting = 'Hey, I’m Roy. You ready to talk?';
-  addMessage('roy', greeting);
+  isRecording = !isRecording;
 };
