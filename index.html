@@ -1,32 +1,40 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Roy | SynthCalm</title>
-  <link rel="stylesheet" href="style.css">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Roy Chatbot</title>
+  <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <div class="info-bar">
-    <span id="current-date"></span>
-    <span id="current-time"></span>
-    <span id="countdown-timer"></span>
+  <div class="container">
+    <div class="info-bar">
+      <span id="current-date"></span>
+      <span id="countdown-timer" style="float: right;"></span>
+      <div id="current-time" style="text-align: center;"></div>
+    </div>
+
+    <div class="button-group">
+      <button id="roy-toggle">Roy</button>
+      <button id="randy-toggle">Randy</button>
+      <button id="speak-toggle">Speak</button>
+    </div>
+
+    <!-- ✅ USER waveform -->
+    <div class="waveform-wrapper">
+      <label>User Voice</label>
+      <canvas id="userWaveform" width="600" height="100"></canvas>
+    </div>
+
+    <!-- ✅ ROY waveform -->
+    <div class="waveform-wrapper">
+      <label>Roy's Voice</label>
+      <canvas id="royWaveform" width="600" height="100"></canvas>
+    </div>
+
+    <!-- ✅ Chat messages -->
+    <div id="messages" class="chat-log"></div>
   </div>
-
-  <canvas id="userWaveform" width="800" height="100"></canvas>
-  <canvas id="royWaveform" width="800" height="100"></canvas>
-
-  <div id="controls">
-    <button id="roy-toggle">Roy</button>
-    <button id="randy-toggle">Randy</button>
-    <button id="speak-toggle">Speak</button>
-    <button id="saveButton">Save Log</button>
-    <a href="https://synthcalm.com" target="_blank">
-      <button>SynthCalm Home</button>
-    </a>
-  </div>
-
-  <div id="messages"></div>
 
   <script src="script.js"></script>
 </body>
