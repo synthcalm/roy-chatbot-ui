@@ -1,4 +1,4 @@
-// ✅ script.js - SynthCalm Roy Chatbot Logic
+// ✅ script.js - SynthCalm Roy Chatbot Logic (iPhone-compatible + fixed Roy persona)
 
 const royToggle = document.getElementById('roy-toggle');
 const randyToggle = document.getElementById('randy-toggle');
@@ -27,20 +27,21 @@ function resetButtons() {
 function activateRoy() {
   resetButtons();
   royToggle.classList.add('active-roy');
-  speakToggle.classList.add('speak-standby');
+  speakToggle.classList.add('standby-red');
   isRantMode = false;
 }
 
 function activateRandy() {
   resetButtons();
   randyToggle.classList.add('active-randy');
-  speakToggle.classList.add('speak-standby');
+  speakToggle.classList.add('standby-red');
   isRantMode = true;
 }
 
 function updateSpeakButtonRecordingState() {
   speakToggle.className = 'btn speak-active';
   speakToggle.textContent = 'STOP';
+  speakToggle.style.animation = 'blinker 1s linear infinite';
 }
 
 function drawUserScope() {
@@ -57,50 +58,55 @@ function drawUserScope() {
 }
 
 async function startRecording() {
-  stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-  audioContext = new (window.AudioContext || window.webkitAudioContext)();
-  analyser = audioContext.createAnalyser();
-  source = audioContext.createMediaStreamSource(stream);
-  source.connect(analyser);
-  analyser.fftSize = 2048;
-  dataArray = new Uint8Array(analyser.frequencyBinCount);
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    analyser = audioContext.createAnalyser();
+    source = audioContext.createMediaStreamSource(stream);
+    source.connect(analyser);
+    analyser.fftSize = 2048;
+    dataArray = new Uint8Array(analyser.frequencyBinCount);
 
-  mediaRecorder = new MediaRecorder(stream);
-  mediaRecorder.start();
-  chunks = [];
-  volumeData = [];
+    mediaRecorder = new MediaRecorder(stream);
+    mediaRecorder.start();
+    chunks = [];
+    volumeData = [];
 
-  mediaRecorder.ondataavailable = (e) => {
-    chunks.push(e.data);
-    analyser.getByteFrequencyData(dataArray);
-    const avgVolume = dataArray.reduce((sum, val) => sum + val, 0) / dataArray.length;
-    volumeData.push(avgVolume);
-  };
+    mediaRecorder.ondataavailable = (e) => {
+      chunks.push(e.data);
+      analyser.getByteFrequencyData(dataArray);
+      const avgVolume = dataArray.reduce((sum, val) => sum + val, 0) / dataArray.length;
+      volumeData.push(avgVolume);
+    };
 
-  mediaRecorder.onstop = async () => {
-    const blob = new Blob(chunks, { type: 'audio/webm' });
-    const formData = new FormData();
-    formData.append('audio', blob, 'audio.webm');
+    mediaRecorder.onstop = async () => {
+      const blob = new Blob(chunks, { type: 'audio/webm' });
+      const formData = new FormData();
+      formData.append('audio', blob, 'audio.webm');
 
-    try {
-      const res = await fetch('/api/transcribe', { method: 'POST', body: formData });
-      const { text } = await res.json();
+      try {
+        const res = await fetch('/api/transcribe', { method: 'POST', body: formData });
+        const { text } = await res.json();
 
-      const userMsg = document.createElement('p');
-      userMsg.className = 'user';
-      userMsg.textContent = `You: ${text}`;
-      messagesDiv.appendChild(userMsg);
+        const userMsg = document.createElement('p');
+        userMsg.className = 'user';
+        userMsg.textContent = `You: ${text}`;
+        messagesDiv.appendChild(userMsg);
+        messagesDiv.scrollTop = messagesDiv.scrollHeight;
 
-      addThinkingDots();
-      sendToRoy(text);
-    } catch (err) {
-      console.error('Transcription failed:', err);
-    }
-  };
+        addThinkingDots();
+        sendToRoy(text);
+      } catch (err) {
+        console.error('Transcription failed:', err);
+      }
+    };
 
-  isRecording = true;
-  updateSpeakButtonRecordingState();
-  drawUserScope();
+    isRecording = true;
+    updateSpeakButtonRecordingState();
+    drawUserScope();
+  } catch (e) {
+    console.error('Mic access error:', e);
+  }
 }
 
 function stopRecording() {
@@ -117,6 +123,7 @@ function addThinkingDots() {
   p.innerHTML = `<em>${isRantMode ? 'Randy' : 'Roy'}:</em> <span class="dots"></span>`;
   p.id = 'thinking';
   messagesDiv.appendChild(p);
+  messagesDiv.scrollTop = messagesDiv.scrollHeight;
 }
 
 function sendToRoy(text) {
@@ -137,6 +144,7 @@ function sendToRoy(text) {
       msg.className = 'roy';
       msg.innerHTML = `<em>${isRantMode ? 'Randy' : 'Roy'}:</em> ${replyText}`;
       messagesDiv.appendChild(msg);
+      messagesDiv.scrollTop = messagesDiv.scrollHeight;
 
       if (audio) playRoyAudio(audio);
     })
@@ -194,5 +202,6 @@ window.addEventListener('DOMContentLoaded', () => {
     intro.className = 'roy';
     intro.textContent = "Roy: Hey there. You showed up. That means something.";
     messagesDiv.appendChild(intro);
+    messagesDiv.scrollTop = messagesDiv.scrollHeight;
   }, 500);
 });
