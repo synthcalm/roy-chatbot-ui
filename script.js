@@ -13,7 +13,7 @@ const currentDate = document.getElementById('current-date');
 const currentTime = document.getElementById('current-time');
 const countdownTimer = document.getElementById('countdown-timer');
 
-const BACKEND_URL = 'https://roy-chatbot-backend.onrender.com';
+const BACKEND_URL = 'https://roy-chatbo-backend.onrender.com';
 
 let audioContext, analyser, dataArray, source, mediaRecorder, chunks = [];
 let isRecording = false;
