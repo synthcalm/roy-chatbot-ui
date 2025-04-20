@@ -1,70 +1,65 @@
-/* ✅ style.css - SynthCalm Roy UI */
-
 body {
-  background-color: black;
-  color: white;
   font-family: 'Courier New', monospace;
   margin: 0;
-  padding: 0;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  flex-direction: column;
-  min-height: 100vh;
-  overflow-x: hidden;
-}
-
-.container {
-  width: 100%;
-  max-width: 600px;
-  padding: 20px 10px;
-  box-sizing: border-box;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-}
-
-#messages {
-  width: 100%;
-  height: 320px;
-  overflow-y: auto;
-  padding: 10px;
-  margin-bottom: 20px;
-  font-size: 14px;
-  line-height: 1.6;
+  background: black;
   color: white;
-  background: none;
-  border: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: start;
+  min-height: 100vh;
+}
+
+#waveforms {
+  display: flex;
+  justify-content: space-between;
+  width: 90%;
+  max-width: 600px;
+  margin: 10px 0;
 }
 
 canvas {
-  width: 100%;
-  height: 80px;
+  width: 48%;
+  height: 100px;
   background-color: black;
-  margin-bottom: 10px;
   border: none;
-  border-bottom: 1px solid cyan;
 }
 
-button {
+#messages {
+  width: 90%;
+  max-width: 600px;
+  margin: 10px;
+  overflow-y: auto;
+  height: 250px;
+  padding: 10px;
   background: none;
-  border: 1px solid cyan;
-  color: cyan;
-  font-family: inherit;
-  font-size: 14px;
-  padding: 5px 10px;
-  margin: 4px;
-  cursor: pointer;
-  transition: all 0.2s ease;
+  border: none;
 }
 
-button:hover {
-  background-color: #011;
+p.user {
+  color: white;
+  margin: 5px 0;
+}
+
+p.roy {
+  color: cyan;
+  margin: 5px 0;
 }
 
 .btn {
+  font-family: inherit;
   border: 1px solid cyan;
   color: cyan;
+  background: transparent;
+  padding: 8px 14px;
+  margin: 6px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .active-roy {
@@ -89,29 +84,14 @@ button:hover {
 }
 
 @keyframes blinker {
-  50% { opacity: 0.3; }
-}
-
-#footer-bar {
-  display: flex;
-  justify-content: space-between;
-  width: 100%;
-  font-size: 13px;
-  margin-top: 10px;
-  color: cyan;
-}
-
-.user {
-  color: white;
-}
-
-.roy {
-  color: cyan;
+  50% {
+    opacity: 0.2;
+  }
 }
 
 .dots::after {
   content: '...';
-  animation: blinkDots 1s steps(1, end) infinite;
+  animation: blinkDots 1.5s steps(3, end) infinite;
 }
 
 @keyframes blinkDots {
