@@ -1,105 +1,59 @@
 const royToggle = document.getElementById('roy-toggle');
 const randyToggle = document.getElementById('randy-toggle');
 const speakToggle = document.getElementById('speak-toggle');
-const saveButton = document.getElementById('saveButton');
-const userWaveform = document.getElementById('userWaveform');
-const royWaveform = document.getElementById('royWaveform');
+const homeButton = document.getElementById('home-button');
 const messagesDiv = document.getElementById('messages');
-const userCtx = userWaveform.getContext('2d');
-const royCtx = royWaveform.getContext('2d');
+const userCanvas = document.getElementById('userWaveform');
+const royCanvas = document.getElementById('royWaveform');
+const userCtx = userCanvas.getContext('2d');
+const royCtx = royCanvas.getContext('2d');
 const currentDate = document.getElementById('current-date');
 const currentTime = document.getElementById('current-time');
 const countdownTimer = document.getElementById('countdown-timer');
 
-const BACKEND_URL = 'https://roy-chatbot-backend.onrender.com';
-
-let audioContext, analyser, dataArray, source, mediaRecorder, chunks = [];
+let audioContext, analyser, dataArray, source, mediaRecorder, stream;
 let isRecording = false;
 let isRantMode = false;
-let isModeSelected = false;
-let volumeData = [];
-let sessionStartTime;
-let silenceTimeout;
+let sessionStartTime = null;
+let chunks = [], volumeData = [];
 
-// Update date and time display
 function updateDateTime() {
   const now = new Date();
   currentDate.textContent = now.toLocaleDateString();
   currentTime.textContent = now.toLocaleTimeString();
-  if (sessionStartTime) {
+
+  if (isRecording && sessionStartTime) {
     const elapsed = Math.floor((now - sessionStartTime) / 1000);
-    const maxTime = isRantMode ? 1800 : 3600; // 30 min for Randy, 60 min for Roy
+    const maxTime = isRantMode ? 1800 : 3600;
     const remaining = maxTime - elapsed;
-    if (remaining <= 0) {
-      stopRecording();
-      countdownTimer.textContent = `Session: ${maxTime / 60}:00`;
-    } else {
-      const minutes = Math.floor(remaining / 60);
-      const seconds = remaining % 60;
-      countdownTimer.textContent = `Session: ${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
-    }
+    const min = Math.floor(remaining / 60);
+    const sec = remaining % 60;
+    countdownTimer.textContent = `Session: ${min}:${sec < 10 ? '0' : ''}${sec}`;
   }
 }
 setInterval(updateDateTime, 1000);
 
-// Clear messages and show greeting for Roy or Randy
-function clearMessagesAndShowGreeting(mode) {
-  messagesDiv.innerHTML = '';
-  const msg = document.createElement('p');
-  msg.className = 'roy';
-  if (mode === 'randy') {
-    msg.classList.add('randy');
-    msg.innerHTML = `<em>Randy:</em> Unleash the chaos—what’s burning you up?`;
-  } else {
-    msg.innerHTML = `<em>Roy:</em> Greetings, my friend—like a weary traveler, you’ve arrived. What weighs on your soul today?`;
-  }
-  messagesDiv.appendChild(msg);
-  messagesDiv.scrollTop = messagesDiv.scrollHeight;
-  speakToggle.classList.add('ready-to-speak');
+function resetButtons() {
+  royToggle.style.background = 'cyan';
+  royToggle.style.color = 'black';
+  randyToggle.style.background = 'cyan';
+  randyToggle.style.color = 'black';
+  speakToggle.textContent = 'Speak';
+  speakToggle.style.background = 'black';
+  speakToggle.style.color = 'red';
+  speakToggle.style.borderColor = 'red';
+  speakToggle.style.animation = 'blinker 1s linear infinite';
 }
 
-// Select Roy mode
-royToggle.addEventListener('click', () => {
-  if (isRecording) return;
-  isModeSelected = true;
-  isRantMode = false;
-  royToggle.classList.add('active-roy');
-  randyToggle.classList.remove('active-randy');
-  speakToggle.textContent = 'Speak';
-  clearMessagesAndShowGreeting('roy');
-});
-
-// Select Randy mode
-randyToggle.addEventListener('click', () => {
-  if (isRecording) return;
-  isModeSelected = true;
-  isRantMode = true;
-  randyToggle.classList.add('active-randy');
-  royToggle.classList.remove('active-roy');
-  speakToggle.textContent = 'Speak';
-  clearMessagesAndShowGreeting('randy');
-});
-
-// Start recording
-async function startRecording() {
-  if (!isModeSelected) return;
-
-  isRecording = true;
+function updateSpeakButtonRecordingState() {
   speakToggle.textContent = 'Stop';
-  speakToggle.classList.remove('ready-to-speak');
-  speakToggle.classList.add('recording');
-  sessionStartTime = new Date();
-  chunks = [];
-  volumeData = [];
+  speakToggle.style.background = 'red';
+  speakToggle.style.color = 'black';
+  speakToggle.style.animation = 'none';
+}
 
-  // Show recording icon in browser tab
-  let link = document.querySelector("link[rel*='icon']") || document.createElement('link');
-  link.type = 'image/x-icon';
-  link.rel = 'shortcut icon';
-  link.href = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="red"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm-1-9c0-.55.45-1 1-1s1 .45 1 1v6c0 .55-.45 1-1 1s-1-.45-1-1V5zm5.5 6c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.47 6 6.93V21h2v-2.07c3.39-.46 6-3.4 6-6.93h-1.5z"/></svg>';
-  document.getElementsByTagName('head')[0].appendChild(link);
-
-  const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+async function startRecording() {
+  stream = await navigator.mediaDevices.getUserMedia({ audio: true });
   audioContext = new (window.AudioContext || window.webkitAudioContext)();
   analyser = audioContext.createAnalyser();
   source = audioContext.createMediaStreamSource(stream);
@@ -108,28 +62,9 @@ async function startRecording() {
   dataArray = new Uint8Array(analyser.frequencyBinCount);
 
   mediaRecorder = new MediaRecorder(stream);
-  mediaRecorder.start(1000);
+  mediaRecorder.start();
 
-  // Check for silence in Randy mode
-  if (isRantMode) {
-    const checkSilence = () => {
-      analyser.getByteFrequencyData(dataArray);
-      const avgVolume = dataArray.reduce((sum, val) => sum + val, 0) / dataArray.length;
-      if (avgVolume < 10 && isRecording) { // Silence threshold
-        const msg = document.createElement('p');
-        msg.className = 'roy randy';
-        msg.innerHTML = `<em>Randy:</em> I’m here—don’t hold back! Let the storm rage on!`;
-        messagesDiv.appendChild(msg);
-        messagesDiv.scrollTop = messagesDiv.scrollHeight;
-      }
-      if (isRecording) {
-        silenceTimeout = setTimeout(checkSilence, 5000);
-      }
-    };
-    silenceTimeout = setTimeout(checkSilence, 5000);
-  }
-
-  mediaRecorder.ondataavailable = async (e) => {
+  mediaRecorder.ondataavailable = (e) => {
     chunks.push(e.data);
     analyser.getByteFrequencyData(dataArray);
     const avgVolume = dataArray.reduce((sum, val) => sum + val, 0) / dataArray.length;
@@ -141,154 +76,154 @@ async function startRecording() {
     const formData = new FormData();
     formData.append('audio', blob, 'audio.webm');
 
-    let transcribeRes;
-    try {
-      transcribeRes = await fetch(`${BACKEND_URL}/api/transcribe`, {
-        method: 'POST',
-        body: formData
-      });
-      if (!transcribeRes.ok) throw new Error(`HTTP error! status: ${transcribeRes.status}`);
-    } catch (err) {
-      console.error('Transcription fetch error:', err);
-      const msg = document.createElement('p');
-      msg.className = 'roy';
-      if (isRantMode) msg.classList.add('randy');
-      msg.innerHTML = `<em>${isRantMode ? 'Randy' : 'Roy'}:</em> Hmm, I’m having trouble hearing you—check the backend connection and try again.`;
-      messagesDiv.appendChild(msg);
-      messagesDiv.scrollTop = messagesDiv.scrollHeight;
-      return;
-    }
+    const res = await fetch('https://roy-chatbo-backend.onrender.com/api/transcribe', {
+      method: 'POST',
+      body: formData
+    });
 
-    const { text } = await transcribeRes.json();
+    const { text } = await res.json();
+
     const userMsg = document.createElement('p');
     userMsg.className = 'user';
     userMsg.textContent = `You: ${text}`;
     messagesDiv.appendChild(userMsg);
-    messagesDiv.scrollTop = messagesDiv.scrollHeight;
 
-    const thinkingMsg = document.createElement('p');
-    thinkingMsg.className = 'roy';
-    if (isRantMode) thinkingMsg.classList.add('randy');
-    thinkingMsg.innerHTML = `<em>${isRantMode ? 'Randy' : 'Roy'}:</em> Thinking <span class="dots"></span>`;
-    messagesDiv.appendChild(thinkingMsg);
-    messagesDiv.scrollTop = messagesDiv.scrollHeight;
+    addThinkingDots();
+    sendToRoy(text);
+  };
 
-    const chatPayload = {
-      message: text,
-      mode: 'both',
-      persona: isRantMode ? 'randy' : 'default',
-      volumeData
-    };
-    let chatRes;
-    try {
-      chatRes = await fetch(`${BACKEND_URL}/api/chat`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(chatPayload)
-      });
-      if (!chatRes.ok) throw new Error(`HTTP error! status: ${chatRes.status}`);
-    } catch (err) {
-      console.error('Chat fetch error:', err);
-      thinkingMsg.remove();
+  sessionStartTime = new Date();
+  isRecording = true;
+  chunks = [];
+  volumeData = [];
+  updateSpeakButtonRecordingState();
+  drawUserScope();
+}
+
+function stopRecording() {
+  isRecording = false;
+  resetButtons();
+  mediaRecorder.stop();
+  stream.getTracks().forEach(track => track.stop());
+  source.disconnect();
+  audioContext.close();
+}
+
+function drawUserScope() {
+  if (!isRecording) return;
+  analyser.getByteFrequencyData(dataArray);
+  userCtx.clearRect(0, 0, userCanvas.width, userCanvas.height);
+  userCtx.beginPath();
+  for (let i = 0; i < dataArray.length; i++) {
+    userCtx.lineTo(i * (userCanvas.width / dataArray.length), userCanvas.height - dataArray[i]);
+  }
+  userCtx.strokeStyle = 'yellow';
+  userCtx.stroke();
+  requestAnimationFrame(drawUserScope);
+}
+
+function addThinkingDots() {
+  const thinking = document.createElement('p');
+  thinking.className = 'roy';
+  thinking.id = 'thinking';
+  thinking.innerHTML = `<em>${isRantMode ? 'Randy' : 'Roy'}:</em> <span class="dots">...</span>`;
+  messagesDiv.appendChild(thinking);
+}
+
+function sendToRoy(text) {
+  const chatPayload = {
+    message: text,
+    mode: 'both',
+    persona: isRantMode ? 'randy' : 'default',
+    volumeData
+  };
+
+  fetch('https://roy-chatbo-backend.onrender.com/api/chat', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(chatPayload)
+  })
+    .then(res => res.json())
+    .then(({ text: replyText, audio: audioBase64 }) => {
+      const thinkingEl = document.getElementById('thinking');
+      if (thinkingEl) thinkingEl.remove();
+
       const msg = document.createElement('p');
       msg.className = 'roy';
       if (isRantMode) msg.classList.add('randy');
-      msg.innerHTML = `<em>${isRantMode ? 'Randy' : 'Roy'}:</em> I couldn’t connect—please check the backend and try again.`;
+      msg.innerHTML = `<em>${isRantMode ? 'Randy' : 'Roy'}:</em> ${replyText}`;
       messagesDiv.appendChild(msg);
-      messagesDiv.scrollTop = messagesDiv.scrollHeight;
-      return;
-    }
 
-    const { text: royText, audio: audioBase64 } = await chatRes.json();
-    thinkingMsg.remove();
-    const msg = document.createElement('p');
-    msg.className = 'roy';
-    if (isRantMode) msg.classList.add('randy');
-    msg.innerHTML = `<em>${isRantMode ? 'Randy' : 'Roy'}:</em> ${royText}`;
-    messagesDiv.appendChild(msg);
-    messagesDiv.scrollTop = messagesDiv.scrollHeight;
-
-    if (audioBase64) {
-      const audio = new Audio(`data:audio/mp3;base64,${audioBase64}`);
-      audio.play();
-      visualizeAudio(audio, royWaveform, royCtx, 'yellow');
-    }
-  };
-
-  userWaveform.classList.toggle('rant-mode', isRantMode);
-  visualizeAudio(null, userWaveform, userCtx, isRantMode ? 'red' : 'cyan', analyser, dataArray);
+      if (audioBase64) playRoyAudio(audioBase64);
+    });
 }
 
-// Stop recording
-function stopRecording() {
-  isRecording = false;
-  speakToggle.textContent = 'Speak';
-  speakToggle.classList.remove('recording');
-  speakToggle.classList.add('ready-to-speak');
-  mediaRecorder.stop();
-  source.disconnect();
-  audioContext.close();
-  if (silenceTimeout) clearTimeout(silenceTimeout);
-
-  let link = document.querySelector("link[rel*='icon']") || document.createElement('link');
-  link.type = 'image/x-icon';
-  link.rel = 'shortcut icon';
-  link.href = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="gray"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm-1-9c0-.55.45-1 1-1s1 .45 1 1v6c0 .55-.45 1-1 1s-1-.45-1-1V5zm5.5 6c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.47 6 6.93V21h2v-2.07c3.39-.46 6-3.4 6-6.93h-1.5z"/></svg>';
-  document.getElementsByTagName('head')[0].appendChild(link);
+function playRoyAudio(base64) {
+  const audio = new Audio(`data:audio/mp3;base64,${base64}`);
+  audio.setAttribute('playsinline', '');
+  audio.play().catch(e => console.error("Audio play error:", e));
+  drawRoyScope(audio);
 }
 
-// Speak button toggle
-speakToggle.addEventListener('click', async () => {
-  if (!isModeSelected) return;
+function drawRoyScope(audio) {
+  const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  let source;
 
+  try {
+    source = audioCtx.createMediaElementSource(audio);
+  } catch (e) {
+    console.error("Roy audio source already used:", e);
+    return;
+  }
+
+  const analyser = audioCtx.createAnalyser();
+  source.connect(analyser);
+  analyser.connect(audioCtx.destination);
+  analyser.fftSize = 2048;
+  const dataArray = new Uint8Array(analyser.frequencyBinCount);
+
+  function draw() {
+    analyser.getByteFrequencyData(dataArray);
+    royCtx.clearRect(0, 0, royCanvas.width, royCanvas.height);
+    royCtx.beginPath();
+    for (let i = 0; i < dataArray.length; i++) {
+      royCtx.lineTo(i * (royCanvas.width / dataArray.length), royCanvas.height - dataArray[i]);
+    }
+    royCtx.strokeStyle = 'magenta';
+    royCtx.stroke();
+    requestAnimationFrame(draw);
+  }
+
+  draw();
+}
+
+royToggle.addEventListener('click', () => {
+  isRantMode = false;
+  resetButtons();
+  royToggle.style.background = 'lime';
+  royToggle.style.color = 'black';
+});
+
+randyToggle.addEventListener('click', () => {
+  isRantMode = true;
+  resetButtons();
+  randyToggle.style.background = 'orange';
+  randyToggle.style.color = 'black';
+});
+
+speakToggle.addEventListener('click', () => {
   if (!isRecording) {
-    await startRecording();
+    startRecording();
   } else {
     stopRecording();
   }
 });
 
-// Save log button
-saveButton.addEventListener('click', () => {
-  const messages = messagesDiv.innerHTML;
-  const blob = new Blob([messages], { type: 'text/html' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = 'chat-log.html';
-  a.click();
-  URL.revokeObjectURL(url);
+homeButton.addEventListener('click', () => {
+  window.location.href = "https://synthcalm.com";
 });
 
-// Visualize waveform
-function visualizeAudio(audioElement, canvas, ctx, color, externalAnalyser, externalDataArray) {
-  let audioCtx, analyser, dataArray, source;
-  if (audioElement) {
-    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    analyser = audioCtx.createAnalyser();
-    source = audioCtx.createMediaElementSource(audioElement);
-    source.connect(analyser);
-    analyser.connect(audioCtx.destination);
-    analyser.fftSize = 2048;
-    dataArray = new Uint8Array(analyser.frequencyBinCount);
-  } else {
-    analyser = externalAnalyser;
-    dataArray = externalDataArray;
-  }
-
-  function draw() {
-    analyser.getByteFrequencyData(dataArray);
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    ctx.beginPath();
-    for (let i = 0; i < dataArray.length; i++) {
-      const value = dataArray[i];
-      ctx.lineTo(i * (canvas.width / dataArray.length), canvas.height - value);
-    }
-    ctx.strokeStyle = color;
-    ctx.stroke();
-    if (isRecording || audioElement) {
-      requestAnimationFrame(draw);
-    }
-  }
-  draw();
-}
+window.addEventListener('DOMContentLoaded', () => {
+  const greeting = isRantMode ? "Yo Randy. What's up?" : "Hello Roy. You there?";
+  sendToRoy(greeting);
+});
