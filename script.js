@@ -23,6 +23,14 @@ let volumeData = [];
 let sessionStartTime;
 let silenceTimeout;
 
+// 🔊 Force unlock for iOS audio context on first interaction
+document.body.addEventListener('touchstart', () => {
+  if (!audioContext || audioContext.state !== 'running') {
+    audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    audioContext.resume();
+  }
+}, { once: true });
+
 function updateDateTime() {
   const now = new Date();
   currentDate.textContent = now.toLocaleDateString();
@@ -54,22 +62,44 @@ function clearMessagesAndShowGreeting(mode) {
   speakToggle.textContent = 'Speak';
 }
 
-royToggle.addEventListener('click', () => {
-  if (isRecording) return;
-  isModeSelected = true;
-  isRantMode = false;
-  royToggle.classList.add('active-roy');
-  randyToggle.classList.remove('active-randy');
-  clearMessagesAndShowGreeting('roy');
-});
+document.addEventListener('DOMContentLoaded', () => {
+  royToggle.addEventListener('click', () => {
+    if (isRecording) return;
+    isModeSelected = true;
+    isRantMode = false;
+    royToggle.classList.add('active-roy');
+    randyToggle.classList.remove('active-randy');
+    clearMessagesAndShowGreeting('roy');
+  });
 
-randyToggle.addEventListener('click', () => {
-  if (isRecording) return;
-  isModeSelected = true;
-  isRantMode = true;
-  randyToggle.classList.add('active-randy');
-  royToggle.classList.remove('active-roy');
-  clearMessagesAndShowGreeting('randy');
+  randyToggle.addEventListener('click', () => {
+    if (isRecording) return;
+    isModeSelected = true;
+    isRantMode = true;
+    randyToggle.classList.add('active-randy');
+    royToggle.classList.remove('active-roy');
+    clearMessagesAndShowGreeting('randy');
+  });
+
+  speakToggle.addEventListener('click', async () => {
+    if (!isModeSelected) return;
+    if (!isRecording) {
+      await startRecording();
+    } else {
+      stopRecording();
+    }
+  });
+
+  saveButton.addEventListener('click', () => {
+    const messages = messagesDiv.innerHTML;
+    const blob = new Blob([messages], { type: 'text/html' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'chat-log.html';
+    a.click();
+    URL.revokeObjectURL(url);
+  });
 });
 
 async function startRecording() {
@@ -177,6 +207,8 @@ async function startRecording() {
 
     if (audioBase64) {
       const audio = new Audio(`data:audio/mp3;base64,${audioBase64}`);
+      audio.setAttribute('playsinline', ''); // iOS fix
+      audio.load();
       audio.addEventListener('canplaythrough', () => {
         audio.play();
         visualizeAudio(audio, royWaveform, royCtx, 'yellow');
@@ -198,26 +230,6 @@ function stopRecording() {
   audioContext.close();
   if (silenceTimeout) clearTimeout(silenceTimeout);
 }
-
-speakToggle.addEventListener('click', async () => {
-  if (!isModeSelected) return;
-  if (!isRecording) {
-    await startRecording();
-  } else {
-    stopRecording();
-  }
-});
-
-saveButton.addEventListener('click', () => {
-  const messages = messagesDiv.innerHTML;
-  const blob = new Blob([messages], { type: 'text/html' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = 'chat-log.html';
-  a.click();
-  URL.revokeObjectURL(url);
-});
 
 function visualizeAudio(audioElement, canvas, ctx, color, externalAnalyser, externalDataArray) {
   let analyser = externalAnalyser;
