@@ -1,33 +1,31 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Roy Chatbot</title>
-  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <div id="app">
-    <div class="header-bar">
-      <span id="date"></span>
-      <span id="session-time"></span>
-      <span id="clock" class="clock"></span>
-    </div>
+  <div class="header-bar">
+    <span id="date"></span>
+    <span id="session-timer"></span>
+    <span id="clock"></span>
+  </div>
 
-    <div class="scopes">
-      <canvas id="userWaveform" width="600" height="80"></canvas>
-      <canvas id="royWaveform" width="600" height="80"></canvas>
-    </div>
+  <div class="scopes">
+    <canvas id="userScope" width="600" height="100"></canvas>
+    <canvas id="royScope" width="600" height="100"></canvas>
+  </div>
 
-    <div id="messages" class="chat"></div>
+  <div class="chat" id="chat"></div>
 
-    <div class="buttons">
-      <button id="roy-toggle" class="btn">Roy</button>
-      <button id="randy-toggle" class="btn">Randy</button>
-      <button id="speak-toggle" class="btn speak-standby">Speak</button>
-      <button id="save-button" class="btn">Save</button>
-      <button id="home-button" class="btn">SynthCalm Home</button>
-    </div>
+  <div class="buttons">
+    <button id="royBtn" class="btn">Roy</button>
+    <button id="randyBtn" class="btn">Randy</button>
+    <button id="speakBtn" class="btn speak-standby">Speak</button>
+    <button id="saveBtn" class="btn">Save</button>
+    <button onclick="window.location.href='https://synthcalm.com'" class="btn">SynthCalm Home</button>
   </div>
 
   <script src="script.js"></script>
