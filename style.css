@@ -1,129 +1,95 @@
-/* Reset & base styles */
+@keyframes blinker {
+  50% { opacity: 0; }
+}
+
+#speak-toggle.ready-to-speak {
+  animation: blinker 1s linear infinite;
+}
+
+/* Existing styles from earlier messages */
 body {
-  margin: 0;
-  padding: 0;
-  background-color: #000;
-  color: #0ff;
-  font-family: 'Courier New', monospace;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  min-height: 100vh;
-  box-sizing: border-box;
+    margin: 0;
+    font-family: Arial, sans-serif;
+    background-color: #808080;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
 }
 
-canvas {
-  border: 1px solid #0ff;
-  background-color: #000;
-  background-image:
-    linear-gradient(to right, rgba(255, 255, 0, 0.3) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(255, 255, 0, 0.3) 1px, transparent 1px);
-  background-size: 20px 20px;
-  width: 100%;
-  max-width: 800px;
-  height: 100px;
-  display: block;
-  margin-bottom: 10px;
+#chat-container {
+    width: 80%;
+    max-width: 600px;
+    border: 1px solid #ccc;
+    border-radius: 10px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
 }
 
-/* Responsive waveform container */
-.waveform-wrapper {
-  width: 100%;
-  padding: 0 10px;
-  box-sizing: border-box;
-}
-
-/* Controls */
-#controls {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 10px;
-  margin: 10px 0;
-}
-
-button {
-  background: transparent;
-  border: 2px solid #0ff;
-  color: #0ff;
-  padding: 10px 16px;
-  font-size: 1rem;
-  cursor: pointer;
-  font-family: inherit;
-  transition: 0.3s;
-  border-radius: 0;
-}
-
-button:hover {
-  background: #0ff;
-  color: #000;
-}
-
-#speak-toggle.recording {
-  background-color: magenta;
-  color: #fff;
-  border-color: magenta;
-}
-
-#roy-toggle.active-roy,
-#randy-toggle.active-randy {
-  background-color: cyan;
-  color: #000;
-}
-
-/* Info bar */
-.info-bar {
-  display: flex;
-  justify-content: space-between;
-  width: 100%;
-  max-width: 800px;
-  padding: 10px 15px;
-  box-sizing: border-box;
-  color: #0ff;
-  font-size: 0.9rem;
-}
-
-/* Messages */
 #messages {
-  width: 100%;
-  max-width: 800px;
-  padding: 20px;
-  box-sizing: border-box;
-  overflow-y: auto;
-  flex-grow: 1;
+    flex: 1;
+    padding: 15px;
+    overflow-y: auto;
+    border-bottom: 1px solid #ddd;
 }
 
-#messages p {
-  margin: 0 0 1rem;
+.message {
+    margin-bottom: 10px;
+    word-wrap: break-word;
+    padding: 10px;
+    border-radius: 5px;
+    max-width: 80%;
+    background-color: #000000;
 }
 
-#messages .user {
-  color: white;
+.message.user {
+    text-align: right;
+    color: #ffffff;
+    align-self: flex-end;
 }
 
-#messages .roy {
-  color: yellow;
+.message.bot {
+    text-align: left;
+    color: #00ff00;
+    align-self: flex-start;
 }
 
-#messages .randy {
-  color: red;
+#input-area {
+    display: flex;
+    padding: 10px;
+    background-color: #fafafa;
+    border-top: 1px solid #ddd;
 }
 
-/* Responsive fixes for mobile */
-@media screen and (max-width: 600px) {
-  #controls {
-    flex-direction: column;
-    align-items: center;
-  }
+#user-input {
+    flex: 1;
+    padding: 10px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    font-size: 16px;
+    background-color: #000000;
+    color: #ffffff;
+}
 
-  button {
-    width: 100%;
-    max-width: 250px;
-  }
+#send-button {
+    margin-left: 10px;
+    padding: 10px 15px;
+    background-color: #ff0000;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 16px;
+}
 
-  .info-bar {
-    flex-direction: column;
-    align-items: center;
-    gap: 5px;
-  }
+#send-button:hover {
+    background-color: #cc0000;
+}
+
+@media (max-width: 768px) {
+    #chat-container {
+        width: 95%;
+    }
 }
