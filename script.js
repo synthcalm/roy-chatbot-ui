@@ -165,9 +165,12 @@ function sendToRoy(text) {
 }
 
 function playRoyAudio(base64) {
-  const audio = new Audio(`data:audio/mp3;base64,${base64}`);
+  const audio = new Audio(`data:audio/mpeg;base64,${base64}`);
   audio.setAttribute('playsinline', '');
-  audio.play().catch(e => console.error("Audio play error:", e));
+  audio.play().catch(e => {
+    console.warn("iOS playback error, trying again on user gesture", e);
+    speakToggle.addEventListener('click', () => audio.play(), { once: true });
+  });
   drawRoyScope(audio);
 }
 
