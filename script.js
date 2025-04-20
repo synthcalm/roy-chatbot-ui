@@ -1,4 +1,4 @@
-// Final version of script.js with save button functionality, auto-scroll, and refined UI logic
+/* Final script.js with button logic, speech behavior, quote randomness, and font control */
 
 const royToggle = document.getElementById('roy-toggle');
 const randyToggle = document.getElementById('randy-toggle');
@@ -49,13 +49,11 @@ function resetButtons() {
 function activateSpeakButton() {
   speakToggle.classList.add('speak-ready');
   speakToggle.textContent = 'Speak';
-  speakToggle.style.animation = 'none';
 }
 
 function updateSpeakButtonRecordingState() {
-  speakToggle.classList.add('speak-active');
+  speakToggle.className = 'btn speak-active';
   speakToggle.textContent = 'STOP';
-  speakToggle.style.animation = 'blinker 1s linear infinite';
 }
 
 function drawUserScope() {
@@ -95,11 +93,10 @@ async function startRecording() {
     const formData = new FormData();
     formData.append('audio', blob, 'audio.webm');
 
-    const res = await fetch('https://roy-chatbo-backend.onrender.com/api/transcribe', {
+    const res = await fetch('/api/transcribe', {
       method: 'POST',
       body: formData
     });
-
     const { text } = await res.json();
     const userMsg = document.createElement('p');
     userMsg.className = 'user';
@@ -120,7 +117,6 @@ async function startRecording() {
 
 function stopRecording() {
   isRecording = false;
-  resetButtons();
   mediaRecorder.stop();
   stream.getTracks().forEach(track => track.stop());
   source.disconnect();
@@ -140,12 +136,11 @@ function addThinkingDots() {
 function sendToRoy(text) {
   const chatPayload = {
     message: text,
-    mode: 'both',
     persona: isRantMode ? 'randy' : 'default',
     volumeData
   };
 
-  fetch('https://roy-chatbo-backend.onrender.com/api/chat', {
+  fetch('/api/chat', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(chatPayload)
@@ -155,9 +150,12 @@ function sendToRoy(text) {
       const thinkingEl = document.getElementById('thinking');
       if (thinkingEl) thinkingEl.remove();
 
+      const quoted = Math.random() < 0.5;
+      const finalText = quoted ? `\"${replyText}\"` : replyText;
+
       const msg = document.createElement('p');
       msg.className = 'roy';
-      msg.innerHTML = `<em>${isRantMode ? 'Randy' : 'Roy'}:</em> ${replyText}`;
+      msg.innerHTML = `<em>${isRantMode ? 'Randy' : 'Roy'}:</em> ${finalText}`;
       messagesDiv.appendChild(msg);
       messagesDiv.scrollTop = messagesDiv.scrollHeight;
 
@@ -216,9 +214,18 @@ function activateRandy() {
   activateSpeakButton();
 }
 
+function saveConversation() {
+  const text = messagesDiv.innerText;
+  const blob = new Blob([text], { type: 'text/plain' });
+  const link = document.createElement('a');
+  link.download = `conversation-${Date.now()}.txt`;
+  link.href = URL.createObjectURL(blob);
+  link.click();
+  resetButtons();
+}
+
 royToggle.addEventListener('click', activateRoy);
 randyToggle.addEventListener('click', activateRandy);
-
 speakToggle.addEventListener('click', () => {
   if (!isRecording) {
     startRecording();
@@ -226,25 +233,9 @@ speakToggle.addEventListener('click', () => {
     stopRecording();
   }
 });
-
-homeButton.addEventListener('click', () => {
-  window.location.href = "https://synthcalm.com";
-});
-
-saveButton.addEventListener('click', () => {
-  const text = Array.from(messagesDiv.querySelectorAll('p')).map(p => p.textContent).join('\n');
-  const blob = new Blob([text], { type: 'text/plain' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = 'roy_conversation.txt';
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-});
+saveButton.addEventListener('click', saveConversation);
+homeButton.addEventListener('click', () => window.location.href = 'https://synthcalm.com');
 
 window.addEventListener('DOMContentLoaded', () => {
-  const greeting = isRantMode ? "Yo Randy. What's up?" : "Hello Roy. You there?";
-  sendToRoy(greeting);
+  sendToRoy("Hello Roy. You there?");
 });
