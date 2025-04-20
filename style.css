@@ -96,3 +96,5 @@ canvas {
 .roy {
   color: yellow;
 }
+
+/* Roy speech quote control: Only add quotes when Roy detects major change or insight in user's mood or life */
