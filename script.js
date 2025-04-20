@@ -1,4 +1,4 @@
-// ✅ Roy Chatbot frontend logic with iOS fix AND reliable button response
+// ✅ Roy Chatbot frontend logic with iOS fix, responsive buttons, and audio playback
 
 document.addEventListener('DOMContentLoaded', () => {
   const royToggle = document.getElementById('roy-toggle');
@@ -57,12 +57,23 @@ document.addEventListener('DOMContentLoaded', () => {
     if (mode === 'randy') {
       msg.classList.add('randy');
       msg.innerHTML = `<em>Randy:</em> Unleash the chaos—what’s burning you up?`;
+      randyToggle.style.background = 'orange';
+      randyToggle.style.color = 'black';
+      royToggle.style.background = 'black';
+      royToggle.style.color = 'cyan';
     } else {
       msg.innerHTML = `<em>Roy:</em> Greetings, my friend—like a weary traveler, you’ve arrived. What weighs on your soul today?`;
+      royToggle.style.background = 'lime';
+      royToggle.style.color = 'black';
+      randyToggle.style.background = 'black';
+      randyToggle.style.color = 'cyan';
     }
     messagesDiv.appendChild(msg);
     messagesDiv.scrollTop = messagesDiv.scrollHeight;
     speakToggle.classList.add('ready-to-speak');
+    speakToggle.style.background = 'red';
+    speakToggle.style.color = 'black';
+    speakToggle.style.borderColor = 'red';
     speakToggle.textContent = 'Speak';
   }
 
@@ -70,8 +81,6 @@ document.addEventListener('DOMContentLoaded', () => {
     if (isRecording) return;
     isModeSelected = true;
     isRantMode = false;
-    royToggle.classList.add('active-roy');
-    randyToggle.classList.remove('active-randy');
     clearMessagesAndShowGreeting('roy');
   });
 
@@ -79,8 +88,6 @@ document.addEventListener('DOMContentLoaded', () => {
     if (isRecording) return;
     isModeSelected = true;
     isRantMode = true;
-    randyToggle.classList.add('active-randy');
-    royToggle.classList.remove('active-roy');
     clearMessagesAndShowGreeting('randy');
   });
 
@@ -104,5 +111,48 @@ document.addEventListener('DOMContentLoaded', () => {
     URL.revokeObjectURL(url);
   });
 
-  // ⏺️ Audio logic continues below — keep as-is from prior working version...
+  function visualizeAudio(audioElement, canvas, ctx, color) {
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const analyser = audioCtx.createAnalyser();
+    const source = audioCtx.createMediaElementSource(audioElement);
+    source.connect(analyser);
+    analyser.connect(audioCtx.destination);
+    analyser.fftSize = 2048;
+    const dataArray = new Uint8Array(analyser.frequencyBinCount);
+
+    function draw() {
+      analyser.getByteFrequencyData(dataArray);
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.beginPath();
+      for (let i = 0; i < dataArray.length; i++) {
+        const value = dataArray[i];
+        ctx.lineTo(i * (canvas.width / dataArray.length), canvas.height - value);
+      }
+      ctx.strokeStyle = color;
+      ctx.stroke();
+      requestAnimationFrame(draw);
+    }
+
+    draw();
+  }
+
+  function playRoyAudio(base64) {
+    const audio = new Audio(`data:audio/mp3;base64,${base64}`);
+    audio.setAttribute('playsinline', '');
+    audio.setAttribute('autoplay', '');
+    audio.load();
+    audio.onloadeddata = () => {
+      audio.play().then(() => {
+        visualizeAudio(audio, royWaveform, royCtx, 'yellow');
+      }).catch(() => {
+        const resume = () => {
+          audio.play().then(() => visualizeAudio(audio, royWaveform, royCtx, 'yellow'));
+          document.body.removeEventListener('click', resume);
+          document.body.removeEventListener('touchstart', resume);
+        };
+        document.body.addEventListener('click', resume, { once: true });
+        document.body.addEventListener('touchstart', resume, { once: true });
+      });
+    };
+  }
 });
