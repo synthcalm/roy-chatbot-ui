@@ -2,39 +2,35 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Roy Chatbot</title>
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
   <div class="container">
 
-    <!-- ✅ Info Bar -->
+    <!-- Info Bar -->
     <div class="info-bar">
       <span id="current-date"></span>
       <span id="countdown-timer"></span>
       <span id="current-time"></span>
     </div>
 
-    <!-- ✅ Control Buttons -->
-    <div class="button-group">
-      <button id="roy-toggle">Roy</button>
-      <button id="randy-toggle">Randy</button>
-      <button id="speak-toggle">Speak</button>
-      <button id="home-button">SynthCalm Home</button>
-    </div>
-
-    <!-- ✅ User Scope -->
+    <!-- User Scope -->
     <canvas id="userWaveform" width="600" height="100"></canvas>
 
-    <!-- ✅ Roy Scope -->
+    <!-- Roy Scope -->
     <canvas id="royWaveform" width="600" height="100"></canvas>
 
-    <!-- ✅ Divider and Mood History Label -->
-    <hr class="divider"/>
-    <h2 class="log-label">Mood History</h2>
+    <!-- Control Buttons Below the Scopes -->
+    <div class="button-group">
+      <button id="roy-toggle" class="btn">Roy</button>
+      <button id="randy-toggle" class="btn">Randy</button>
+      <button id="speak-toggle" class="btn">Speak</button>
+      <button id="home-button" class="btn">SynthCalm Home</button>
+    </div>
 
-    <!-- ✅ Chat Log -->
+    <!-- Chat Log Only -->
     <div id="messages" class="chat-log"></div>
 
   </div>
