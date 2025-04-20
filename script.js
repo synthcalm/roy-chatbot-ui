@@ -79,7 +79,8 @@ async function startRecording() {
   analyser.fftSize = 2048;
   dataArray = new Uint8Array(analyser.frequencyBinCount);
 
-  mediaRecorder = new MediaRecorder(stream);
+  const mimeType = MediaRecorder.isTypeSupported('audio/mpeg') ? 'audio/mpeg' : 'audio/webm';
+  mediaRecorder = new MediaRecorder(stream, { mimeType });
   mediaRecorder.start();
 
   mediaRecorder.ondataavailable = (e) => {
@@ -90,9 +91,11 @@ async function startRecording() {
   };
 
   mediaRecorder.onstop = async () => {
-    const blob = new Blob(chunks, { type: 'audio/webm' });
+    const format = mediaRecorder.mimeType;
+    const extension = format === 'audio/mpeg' ? 'mp3' : 'webm';
+    const blob = new Blob(chunks, { type: format });
     const formData = new FormData();
-    formData.append('audio', blob, 'audio.webm');
+    formData.append('audio', blob, `audio.${extension}`);
 
     const res = await fetch('https://roy-chatbo-backend.onrender.com/api/transcribe', {
       method: 'POST',
