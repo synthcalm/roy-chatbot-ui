@@ -16,21 +16,24 @@ let mediaRecorder, audioChunks = [], isRecording = false;
 let selectedPersona = null;
 let audioContext, analyser, dataArray, source;
 
-function addMessage(text, sender) {
+function addMessage(text, sender, isThinking = false) {
   const msg = document.createElement('p');
   msg.className = sender;
+  if (isThinking) msg.classList.add('thinking-dots');
   msg.textContent = text;
   messagesDiv.appendChild(msg);
   messagesDiv.scrollTop = messagesDiv.scrollHeight;
+  return msg;
 }
 
-function drawScope(canvasCtx, canvas, data, color) {
+function drawScope(canvasCtx, canvas, data, color, isUserWaveform) {
   canvasCtx.clearRect(0, 0, canvas.width, canvas.height);
   canvasCtx.beginPath();
   const sliceWidth = canvas.width / data.length;
+  const offset = isUserWaveform ? 20 : 60; // User: center at 20px, Roy/Randy: center at 60px
   for (let i = 0; i < data.length; i++) {
     const x = i * sliceWidth;
-    const y = (data[i] / 128.0) * (canvas.height / 2) + (canvas.height / 2);
+    const y = (data[i] / 128.0) * (canvas.height / 4) + offset; // Adjusted scaling for better visibility
     if (i === 0) {
       canvasCtx.moveTo(x, y);
     } else {
@@ -41,17 +44,22 @@ function drawScope(canvasCtx, canvas, data, color) {
   canvasCtx.stroke();
 }
 
-function setupAudioVisualization(stream, canvasCtx, canvas, color) {
+function setupAudioVisualization(source, canvasCtx, canvas, color, isUserWaveform) {
   audioContext = new (window.AudioContext || window.webkitAudioContext)();
   analyser = audioContext.createAnalyser();
   analyser.fftSize = 2048;
   dataArray = new Uint8Array(analyser.frequencyBinCount);
-  source = audioContext.createMediaStreamSource(stream);
-  source.connect(analyser);
+
+  if (source instanceof MediaStream) {
+    const mediaStreamSource = audioContext.createMediaStreamSource(source);
+    mediaStreamSource.connect(analyser);
+  } else {
+    source.connect(analyser); // For MediaElementAudioSourceNode
+  }
 
   function animate() {
     analyser.getByteTimeDomainData(dataArray);
-    drawScope(canvasCtx, canvas, dataArray, color);
+    drawScope(canvasCtx, canvas, dataArray, color, isUserWaveform);
     requestAnimationFrame(animate);
   }
   animate();
@@ -59,17 +67,17 @@ function setupAudioVisualization(stream, canvasCtx, canvas, color) {
 
 function resetButtonColors() {
   royBtn.style.backgroundColor = 'black';
-  royBtn.style.borderColor = 'cyan';
+  royBtn.style.borderColor = 'none';
   royBtn.style.color = 'cyan';
   randyBtn.style.backgroundColor = 'black';
-  randyBtn.style.borderColor = 'cyan';
+  randyBtn.style.borderColor = 'none';
   randyBtn.style.color = 'cyan';
   speakBtn.style.backgroundColor = 'black';
-  speakBtn.style.borderColor = 'cyan';
+  speakBtn.style.borderColor = 'none';
   speakBtn.style.color = 'cyan';
   speakBtn.textContent = 'SPEAK';
   speakBtn.classList.remove('blinking');
-  scopesContainer.style.borderColor = 'cyan'; // Reset scopes border
+  scopesContainer.style.borderColor = 'cyan';
   isRecording = false;
   selectedPersona = null;
 }
@@ -82,7 +90,7 @@ function updateDateTime() {
 }
 
 function startCountdownTimer() {
-  let timeLeft = 5 * 60; // 5 minutes in seconds
+  let timeLeft = 5 * 60;
   const timer = setInterval(() => {
     const minutes = Math.floor(timeLeft / 60);
     const seconds = timeLeft % 60;
@@ -99,29 +107,30 @@ royBtn.addEventListener('click', () => {
   resetButtonColors();
   selectedPersona = 'roy';
   royBtn.style.backgroundColor = 'green';
-  royBtn.style.borderColor = 'green';
   royBtn.style.color = 'white';
   speakBtn.style.backgroundColor = 'red';
-  speakBtn.style.borderColor = 'red';
   speakBtn.style.color = 'white';
-  scopesContainer.style.borderColor = 'cyan'; // Roy mode: cyan border
+  scopesContainer.style.borderColor = 'cyan';
+  addMessage('Roy: Greetings, my friend—like a weary traveler, you’ve arrived. What weighs on your soul today?', 'roy');
 });
 
 randyBtn.addEventListener('click', () => {
   resetButtonColors();
   selectedPersona = 'randy';
   randyBtn.style.backgroundColor = '#FFC107';
-  randyBtn.style.borderColor = '#FFC107';
   randyBtn.style.color = 'white';
   speakBtn.style.backgroundColor = 'red';
-  speakBtn.style.borderColor = 'red';
   speakBtn.style.color = 'white';
-  scopesContainer.style.borderColor = 'red'; // Randy mode: red border
+  scopesContainer.style.borderColor = 'red';
+  addMessage('Randy: Unleash the chaos—what’s burning you up?', 'randy');
 });
 
 speakBtn.addEventListener('click', async () => {
   if (!selectedPersona) return alert('Please choose Roy or Randy.');
-  if (isRecording) return;
+  if (isRecording) {
+    mediaRecorder.stop(); // Stop recording when STOP is pressed
+    return;
+  }
   isRecording = true;
   speakBtn.textContent = 'STOP';
   speakBtn.classList.add('blinking');
@@ -130,7 +139,7 @@ speakBtn.addEventListener('click', async () => {
   mediaRecorder = new MediaRecorder(stream);
   audioChunks = [];
 
-  setupAudioVisualization(stream, userCtx, userCanvas, 'yellow');
+  setupAudioVisualization(stream, userCtx, userCanvas, 'yellow', true);
 
   mediaRecorder.ondataavailable = (e) => {
     audioChunks.push(e.data);
@@ -152,30 +161,33 @@ speakBtn.addEventListener('click', async () => {
       const { text } = await transcribeRes.json();
       addMessage('You: ' + text, 'user');
 
+      const thinkingMsg = addMessage(`${selectedPersona === 'randy' ? 'Randy' : 'Roy'}: Thinking`, selectedPersona, true);
+      
       const chatRes = await fetch('https://roy-chatbo-backend.onrender.com/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message: text, persona: selectedPersona })
       });
       const { text: reply, audio } = await chatRes.json();
+      
+      thinkingMsg.remove(); // Remove thinking message
       addMessage(`${selectedPersona === 'randy' ? 'Randy' : 'Roy'}: ${reply}`, selectedPersona);
 
       const audioEl = new Audio('data:audio/mp3;base64,' + audio);
       audioEl.onplay = () => {
-        const audioStream = audioContext.createMediaElementSource(audioEl);
-        const waveformColor = selectedPersona === 'randy' ? 'white' : 'magenta'; // Roy: magenta, Randy: white
-        setupAudioVisualization({ getTracks: () => [audioStream] }, royCtx, royCanvas, waveformColor);
+        const audioSource = audioContext.createMediaElementSource(audioEl);
+        const waveformColor = selectedPersona === 'randy' ? 'white' : 'magenta';
+        setupAudioVisualization(audioSource, royCtx, royCanvas, waveformColor, false);
       };
       audioEl.play();
     } catch (e) {
       console.error('Transcription failed:', e);
+      thinkingMsg.remove();
+      addMessage(`${selectedPersona === 'randy' ? 'Randy' : 'Roy'}: Sorry, something went wrong.`, selectedPersona);
     }
   };
 
   mediaRecorder.start();
-  setTimeout(() => {
-    mediaRecorder.stop();
-  }, 5000);
 });
 
 saveBtn.addEventListener('click', () => {
@@ -192,8 +204,6 @@ homeBtn.addEventListener('click', () => {
 });
 
 window.onload = () => {
-  addMessage('Roy: Greetings, my friend—like a weary traveler, you’ve arrived. What weighs on your soul today?', 'roy');
-  addMessage('Randy: Unleash the chaos—what’s burning you up?', 'randy');
   updateDateTime();
   startCountdownTimer();
 };
