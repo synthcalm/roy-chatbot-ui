@@ -129,6 +129,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
         logMessage("You", "Transcribing...");
         logMessage("Roy", `<span class='dots'>. . .</span>`);
+
         try {
           const res = await fetch("https://roy-chatbo-backend.onrender.com/api/chat", {
             method: "POST",
@@ -164,6 +165,8 @@ document.addEventListener("DOMContentLoaded", () => {
           }
         } catch (err) {
           console.error("Transcription fetch failed:", err);
+          const loadingDots = document.querySelector('.dots');
+          if (loadingDots) loadingDots.remove();
           logMessage("Roy", "undefined");
           resetButtons();
         }
@@ -173,10 +176,12 @@ document.addEventListener("DOMContentLoaded", () => {
       console.log("[MIC] Recording started");
 
       setTimeout(() => {
-        mediaRecorder.stop();
-        stream.getTracks().forEach(track => track.stop());
-        isRecording = false;
-        console.log("[MIC] Recording stopped");
+        if (mediaRecorder && mediaRecorder.state === "recording") {
+          mediaRecorder.stop();
+          stream.getTracks().forEach(track => track.stop());
+          isRecording = false;
+          console.log("[MIC] Recording stopped");
+        }
       }, 5000);
     } catch (err) {
       console.error("Microphone access denied:", err);
