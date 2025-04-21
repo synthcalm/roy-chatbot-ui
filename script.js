@@ -150,19 +150,13 @@ document.addEventListener("DOMContentLoaded", () => {
               console.log("[AUDIO] Playback ended");
             };
 
-            try {
-              const tempSource = audioCtx.createMediaElementSource(tempAudio);
-              tempSource.connect(audioCtx.destination);
-              tempSource.connect(analyzer);
-              drawWaveform("royWaveform", "magenta");
-              tempAudio.play();
-              console.log("[AUDIO] Playback started");
-            } catch (err) {
-              console.error("Roy audio connection error:", err);
-              resetButtons();
-            }
-              console.log("[AUDIO] Playback started");
-            } catch (err) {
+            const tempSource = audioCtx.createMediaElementSource(tempAudio);
+            tempSource.connect(audioCtx.destination);
+            tempSource.connect(analyzer);
+            drawWaveform("royWaveform", "magenta");
+            tempAudio.play();
+            console.log("[AUDIO] Playback started");
+          } {
               console.error("Roy audio connection error:", err);
               resetButtons();
             }
