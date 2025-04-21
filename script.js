@@ -6,6 +6,7 @@ document.addEventListener("DOMContentLoaded", () => {
   let selectedBot = null;
   let isRecording = false;
   let roySource = null;
+  let stream = null; // To store the media stream for cleanup
 
   const royButton = document.getElementById("royBtn");
   const randyButton = document.getElementById("randyBtn");
@@ -99,8 +100,10 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!selectedBot) return;
 
     if (isRecording) {
-      mediaRecorder.stop();
-      console.log("[MIC] Manual stop triggered");
+      if (mediaRecorder && mediaRecorder.state === "recording") {
+        mediaRecorder.stop(); // This should trigger the onstop event
+        console.log("[MIC] Manual stop triggered");
+      }
       return;
     }
 
@@ -111,7 +114,7 @@ document.addEventListener("DOMContentLoaded", () => {
     isRecording = true;
 
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       mediaRecorder = new MediaRecorder(stream);
       analyzer = audioCtx.createAnalyser();
       source = audioCtx.createMediaStreamSource(stream);
@@ -169,18 +172,24 @@ document.addEventListener("DOMContentLoaded", () => {
           if (loadingDots) loadingDots.remove();
           logMessage("Roy", "undefined");
           resetButtons();
+        } finally {
+          // Clean up the stream after processing
+          if (stream) {
+            stream.getTracks().forEach(track => track.stop());
+            stream = null;
+          }
+          isRecording = false;
         }
       };
 
       mediaRecorder.start();
       console.log("[MIC] Recording started");
 
+      // Optional: Keep the automatic stop as a fallback
       setTimeout(() => {
         if (mediaRecorder && mediaRecorder.state === "recording") {
           mediaRecorder.stop();
-          stream.getTracks().forEach(track => track.stop());
-          isRecording = false;
-          console.log("[MIC] Recording stopped");
+          console.log("[MIC] Recording stopped (timeout)");
         }
       }, 5000);
     } catch (err) {
