@@ -57,12 +57,15 @@ function setupAudioVisualization(stream, canvasCtx, canvas, color) {
 }
 
 function resetButtonColors() {
-  royBtn.style.backgroundColor = 'cyan';
+  royBtn.style.backgroundColor = 'black'; // Default background
   royBtn.style.borderColor = 'cyan';
-  randyBtn.style.backgroundColor = 'cyan';
+  royBtn.style.color = 'cyan'; // Default text color
+  randyBtn.style.backgroundColor = 'black';
   randyBtn.style.borderColor = 'cyan';
-  speakBtn.style.backgroundColor = 'cyan';
+  randyBtn.style.color = 'cyan';
+  speakBtn.style.backgroundColor = 'black';
   speakBtn.style.borderColor = 'cyan';
+  speakBtn.style.color = 'cyan';
   speakBtn.textContent = 'SPEAK';
   speakBtn.classList.remove('blinking');
   isRecording = false;
@@ -95,8 +98,10 @@ royBtn.addEventListener('click', () => {
   selectedPersona = 'roy';
   royBtn.style.backgroundColor = 'green';
   royBtn.style.borderColor = 'green';
+  royBtn.style.color = 'white'; // Engaged text color
   speakBtn.style.backgroundColor = 'red';
   speakBtn.style.borderColor = 'red';
+  speakBtn.style.color = 'white';
 });
 
 randyBtn.addEventListener('click', () => {
@@ -104,8 +109,10 @@ randyBtn.addEventListener('click', () => {
   selectedPersona = 'randy';
   randyBtn.style.backgroundColor = '#FFC107';
   randyBtn.style.borderColor = '#FFC107';
+  randyBtn.style.color = 'white';
   speakBtn.style.backgroundColor = 'red';
   speakBtn.style.borderColor = 'red';
+  speakBtn.style.color = 'white';
 });
 
 speakBtn.addEventListener('click', async () => {
