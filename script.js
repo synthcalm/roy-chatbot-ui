@@ -187,7 +187,7 @@ function startCountdownTimer() {
   const timer = setInterval(() => {
     const minutes = Math.floor(timeLeft / 60);
     const seconds = timeLeft % 60;
-    countdownTimerSpan.textContent = `<span class="math-inline">\{minutes\}\:</span>{seconds < 10 ? '0' : ''}${seconds}`;
+    countdownTimerSpan.textContent = `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
     timeLeft--;
 
     if (timeLeft < 0) {
@@ -210,7 +210,7 @@ royBtn.addEventListener('click', () => {
   speakBtn.style.border = '1px solid red';
 
   scopesContainer.style.borderColor = 'cyan';
-  addMessage('Roy: The architecture of the mind is a fragile thing. Tell me, what maladaptive schema currently dominates your cognitive landscape?', 'roy');
+  addMessage('Roy: Greetings, my friend—like a weary traveler, you\'ve arrived. What weighs on your soul today?', 'roy');
 });
 
 randyBtn.addEventListener('click', () => {
@@ -226,7 +226,7 @@ randyBtn.addEventListener('click', () => {
   speakBtn.style.border = '1px solid red';
 
   scopesContainer.style.borderColor = 'red';
-  addMessage('Randy: Lay bare the neural pathways that lead to this distress. What thought pattern are we dissecting today?', 'randy');
+  addMessage('Randy: Unleash the chaos—what\'s burning you up?', 'randy');
 });
 
 speakBtn.addEventListener('click', async () => {
@@ -289,7 +289,7 @@ speakBtn.addEventListener('click', async () => {
       formData.append('audio', audioBlob);
       formData.append('bot', selectedPersona);
 
-      const transcribingMessage = addMessage('You: Analyzing...', 'user');
+      const transcribingMessage = addMessage('You: Transcribing...', 'user');
       const thinkingMessage = addMessage(`${selectedPersona === 'randy' ? 'Randy' : 'Roy'}`, selectedPersona, true);
 
       let userText = null;
@@ -359,9 +359,9 @@ speakBtn.addEventListener('click', async () => {
         }
       } catch (error) {
         console.error('Transcription or chat failed:', error);
-        transcribingMessage.textContent = userText ? `You: ${userText}` : 'You: Analysis failed';
+        transcribingMessage.textContent = userText ? `You: ${userText}` : 'You: Transcription failed';
         thinkingMessage.remove();
-        addMessage(`${selectedPersona === 'randy' ? 'Randy' : 'Roy'}: Error in processing data.`, selectedPersona);
+        addMessage(`${selectedPersona === 'randy' ? 'Randy' : 'Roy'}: undefined`, selectedPersona);
         cleanupRecording();
       }
     };
@@ -388,7 +388,7 @@ speakBtn.addEventListener('click', async () => {
 saveBtn.addEventListener('click', () => {
   const now = new Date();
   const timestamp = now.toISOString().replace(/[:.]/g, '-');
-  const filename = `<span class="math-inline">\{selectedPersona \|\| 'conversation'\}\-</span>{timestamp}.txt`;
+  const filename = `${selectedPersona || 'conversation'}-${timestamp}.txt`;
   const blob = new Blob([messagesDiv.innerText], { type: 'text/plain' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
@@ -419,4 +419,26 @@ function cleanupRecording() {
   isRecording = false;
 }
 
-window.addEventListener('load
+window.addEventListener('load', () => {
+  initButtonStyles();
+  updateDateTime();
+  startCountdownTimer();
+  userCtx.clearRect(0, 0, userCanvas.width, userCanvas.height);
+  royCtx.clearRect(0, 0, royCanvas.width, royCanvas.height);
+});
+
+document.head.insertAdjacentHTML('beforeend', `
+  <style>
+    .thinking-dots::after {
+      content: '';
+      animation: thinking-dots 1.4s infinite steps(4, end);
+    }
+    @keyframes thinking-dots {
+      0% { content: ''; }
+      25% { content: '.'; }
+      50% { content: '..'; }
+      75% { content: '...'; }
+      100% { content: ''; }
+    }
+  </style>
+`);
