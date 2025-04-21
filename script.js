@@ -22,7 +22,6 @@ function initButtonStyles() {
   royBtn.style.border = '1px solid cyan';
   randyBtn.style.border = '1px solid cyan';
   saveBtn.style.border = '1px solid cyan';
-
   speakBtn.style.backgroundColor = 'black';
   speakBtn.style.color = 'cyan';
   speakBtn.style.border = '1px solid cyan';
@@ -36,7 +35,6 @@ function addMessage(text, sender, isThinking = false) {
     msg.classList.add('thinking');
     const baseText = text.endsWith('Thinking') ? text : `${text} Thinking`;
     msg.textContent = baseText;
-
     const dotsSpan = document.createElement('span');
     dotsSpan.className = 'thinking-dots';
     msg.appendChild(dotsSpan);
@@ -140,7 +138,7 @@ function playRoyAudio(base64Audio) {
       });
 
     } catch (error) {
-      console.error('Audio visualization failed, playing fallback');
+      console.error('Audio visualization failed');
       audioEl.play();
     }
   });
@@ -179,7 +177,7 @@ function updateDateTime() {
 }
 
 function startCountdownTimer() {
-  let timeLeft = 60 * 60;
+  let timeLeft = 60 * 60; // 60 minutes
 
   const timer = setInterval(() => {
     const minutes = Math.floor(timeLeft / 60);
@@ -258,7 +256,12 @@ speakBtn.addEventListener('click', async () => {
       isRecording = false;
 
       userCtx.clearRect(0, 0, userCanvas.width, userCanvas.height);
-      const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+
+      // ✅ Safari fix
+      const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+      const mimeType = isSafari ? 'audio/mp4' : 'audio/webm';
+      const audioBlob = new Blob(audioChunks, { type: mimeType });
+
       const formData = new FormData();
       formData.append('audio', audioBlob);
 
@@ -290,17 +293,16 @@ speakBtn.addEventListener('click', async () => {
         if (audio) playRoyAudio(audio);
 
       } catch (error) {
-        console.error('Transcription or response error:', error);
-        addMessage(`${selectedPersona === 'randy' ? 'Randy' : 'Roy'}: Sorry, I couldn't process your request.`, selectedPersona);
+        console.error('Error:', error);
+        addMessage(`${selectedPersona === 'randy' ? 'Randy' : 'Roy'}: Sorry, I couldn’t process your request.`, selectedPersona);
       }
     };
 
     mediaRecorder.start();
 
   } catch (error) {
-    console.error('Microphone access error:', error);
-    alert('Microphone permission denied or unavailable.');
-    isRecording = false;
+    console.error('Microphone error:', error);
+    alert('Could not access your microphone. Please allow access.');
     speakBtn.textContent = 'SPEAK';
     speakBtn.classList.remove('blinking');
   }
@@ -325,10 +327,8 @@ window.addEventListener('load', () => {
   initButtonStyles();
   updateDateTime();
   startCountdownTimer();
-
   if (userAudioContext && userAudioContext.state !== 'closed') userAudioContext.close();
   if (royAudioContext && royAudioContext.state !== 'closed') royAudioContext.close();
-
   userCtx.clearRect(0, 0, userCanvas.width, userCanvas.height);
   royCtx.clearRect(0, 0, royCanvas.width, royCanvas.height);
 });
