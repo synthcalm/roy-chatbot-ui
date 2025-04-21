@@ -210,7 +210,7 @@ royBtn.addEventListener('click', () => {
   speakBtn.style.border = '1px solid red';
 
   scopesContainer.style.borderColor = 'cyan';
-  addMessage('Roy: The synapses fire, a cascade of thought. Tell me, what intricate circuit in your mind is causing this...disquiet?', 'roy');
+  addMessage('Roy: The architecture of the mind is a fragile thing. Tell me, what maladaptive schema currently dominates your cognitive landscape?', 'roy');
 });
 
 randyBtn.addEventListener('click', () => {
@@ -226,7 +226,7 @@ randyBtn.addEventListener('click', () => {
   speakBtn.style.border = '1px solid red';
 
   scopesContainer.style.borderColor = 'red';
-  addMessage('Randy: Spill the neural soup—what cognitive knot needs untangling?', 'randy');
+  addMessage('Randy: Lay bare the neural pathways that lead to this distress. What thought pattern are we dissecting today?', 'randy');
 });
 
 speakBtn.addEventListener('click', async () => {
@@ -289,7 +289,7 @@ speakBtn.addEventListener('click', async () => {
       formData.append('audio', audioBlob);
       formData.append('bot', selectedPersona);
 
-      const transcribingMessage = addMessage('You: Processing...', 'user');
+      const transcribingMessage = addMessage('You: Analyzing...', 'user');
       const thinkingMessage = addMessage(`${selectedPersona === 'randy' ? 'Randy' : 'Roy'}`, selectedPersona, true);
 
       let userText = null;
@@ -359,9 +359,9 @@ speakBtn.addEventListener('click', async () => {
         }
       } catch (error) {
         console.error('Transcription or chat failed:', error);
-        transcribingMessage.textContent = userText ? `You: ${userText}` : 'You: Processing failed';
+        transcribingMessage.textContent = userText ? `You: ${userText}` : 'You: Analysis failed';
         thinkingMessage.remove();
-        addMessage(`${selectedPersona === 'randy' ? 'Randy' : 'Roy'}: Error in processing.`, selectedPersona);
+        addMessage(`${selectedPersona === 'randy' ? 'Randy' : 'Roy'}: Error in processing data.`, selectedPersona);
         cleanupRecording();
       }
     };
@@ -419,9 +419,4 @@ function cleanupRecording() {
   isRecording = false;
 }
 
-window.addEventListener('load', () => {
-  initButtonStyles();
-  updateDateTime();
-  startCountdownTimer();
-  userCtx.clearRect(0, 0, userCanvas.width, userCanvas.height);
-  royCtx.clearRect(0, 0, royCanvas.width,
+window.addEventListener('load
