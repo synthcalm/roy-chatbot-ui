@@ -129,7 +129,20 @@ function playRoyAudio(base64Audio) {
       }
 
       animate();
-      audioEl.play();
+      const playPromise = audioEl.play();
+      if (playPromise !== undefined) {
+        playPromise.catch(error => {
+          console.error('Audio playback failed:', error);
+          // Fallback: reset UI if audio fails to play
+          royCtx.clearRect(0, 0, royCanvas.width, royCanvas.height);
+          speakBtn.textContent = 'SPEAK';
+          speakBtn.classList.remove('blinking');
+          speakBtn.style.backgroundColor = 'red';
+          speakBtn.style.color = 'white';
+          speakBtn.style.border = '1px solid red';
+          cleanupRecording();
+        });
+      }
 
       audioEl.addEventListener('ended', () => {
         cancelAnimationFrame(animationId);
@@ -144,8 +157,19 @@ function playRoyAudio(base64Audio) {
 
     } catch (error) {
       console.error('Audio visualization failed:', error);
-      audioEl.play();
+      const playPromise = audioEl.play();
+      if (playPromise !== undefined) {
+        playPromise.catch(error => {
+          console.error('Audio playback failed:', error);
+          cleanupRecording();
+        });
+      }
     }
+  });
+
+  audioEl.addEventListener('error', (e) => {
+    console.error('Audio element error:', e);
+    cleanupRecording();
   });
 
   audioEl.load();
@@ -317,13 +341,10 @@ speakBtn.addEventListener('click', async () => {
             });
             if (!chatRes.ok) throw new Error(`Chat failed with status: ${chatRes.status}`);
             const chatJson = await chatRes.json();
-            userText = chatJson.text || "undefined";
-            // Since /api/chat also returns Roy's response, extract only the user's transcription
-            // For now, we'll assume the transcription is correct and Roy's response is separate
-            console.log("[CHAT] User text (fallback):", userText);
-            // Store Roy's response separately
-            royText = chatJson.text || "undefined"; // Roy's response is the same as the transcribed text initially
+            userText = chatJson.text ? chatJson.text.split('.')[0] + '.' : "undefined"; // Take the first sentence as the transcription
+            royText = chatJson.text || "undefined"; // The full response is Roy's reply
             audioBase64 = chatJson.audio;
+            console.log("[CHAT] User text (fallback):", userText);
           } catch (chatError) {
             console.error("[CHAT] Fallback failed:", chatError);
             throw chatError;
@@ -331,7 +352,10 @@ speakBtn.addEventListener('click', async () => {
         }
 
         // Step 2: Update the UI with the user's transcription
-        transcribingMessage.textContent = `You: ${userText}`;
+        setTimeout(() => {
+          transcribingMessage.textContent = `You: ${userText}`;
+          messagesDiv.scrollTop = messagesDiv.scrollHeight; // Force scroll to bottom
+        }, 0);
 
         // Step 3: Call /api/chat with a JSON payload to get Roy's response (if not already fetched)
         if (userText !== "undefined" && !royText) {
@@ -350,19 +374,27 @@ speakBtn.addEventListener('click', async () => {
           console.log("[AUDIO] base64 length:", audioBase64?.length);
         }
 
-        thinkingMessage.remove();
-        addMessage(`${selectedPersona === 'randy' ? 'Randy' : 'Roy'}: ${royText || "undefined"}`, selectedPersona);
+        setTimeout(() => {
+          thinkingMessage.remove();
+          addMessage(`${selectedPersona === 'randy' ? 'Randy' : 'Roy'}: ${royText || "undefined"}`, selectedPersona);
+          messagesDiv.scrollTop = messagesDiv.scrollHeight; // Force scroll to bottom
+        }, 0);
+
         if (audioBase64) {
           playRoyAudio(audioBase64);
         } else {
+          console.warn('No audio base64 data received');
           cleanupRecording();
         }
       } catch (error) {
         console.error('Transcription or chat failed:', error);
-        transcribingMessage.textContent = userText ? `You: ${userText}` : 'You: Transcription failed';
-        thinkingMessage.remove();
-        addMessage(`${selectedPersona === 'randy' ? 'Randy' : 'Roy'}: undefined`, selectedPersona);
-        cleanupRecording();
+        setTimeout(() => {
+          transcribingMessage.textContent = userText ? `You: ${userText}` : 'You: Transcription failed';
+          thinkingMessage.remove();
+          addMessage(`${selectedPersona === 'randy' ? 'Randy' : 'Roy'}: undefined`, selectedPersona);
+          messagesDiv.scrollTop = messagesDiv.scrollHeight; // Force scroll to bottom
+          cleanupRecording();
+        }, 0);
       }
     };
 
