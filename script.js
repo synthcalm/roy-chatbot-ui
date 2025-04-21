@@ -7,6 +7,7 @@ document.addEventListener("DOMContentLoaded", () => {
   let isRecording = false;
   let stream = null; // To store the media stream for cleanup
   let analyzer, source, dataArray, bufferLength;
+  let isDrawingWaveform = false; // To control waveform animation
 
   const royButton = document.getElementById("royBtn");
   const randyButton = document.getElementById("randyBtn");
@@ -109,7 +110,6 @@ document.addEventListener("DOMContentLoaded", () => {
         mediaRecorder.stop();
       } else {
         console.log("[MIC] Recorder not in recording state:", mediaRecorder?.state);
-        // Force cleanup if recorder is in an unexpected state
         cleanupRecording();
       }
       return;
@@ -128,6 +128,7 @@ document.addEventListener("DOMContentLoaded", () => {
       analyzer = audioCtx.createAnalyser();
       source = audioCtx.createMediaStreamSource(stream);
       source.connect(analyzer);
+      isDrawingWaveform = true;
       drawWaveform("userWaveform", "yellow");
 
       audioChunks = [];
@@ -140,6 +141,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
       mediaRecorder.onstop = async () => {
         console.log("[MIC] Recording stopped");
+        isDrawingWaveform = false; // Stop user waveform
         if (audioChunks.length === 0) {
           console.log("[MIC] No audio data recorded");
           cleanupRecording();
@@ -163,21 +165,26 @@ document.addEventListener("DOMContentLoaded", () => {
           const text = json.text || "undefined";
           const audioBase64 = json.audio;
           console.log("[AUDIO] base64 length:", audioBase64?.length);
+
+          // Log the user's transcription
           const loadingDots = document.querySelector('.dots');
           if (loadingDots) loadingDots.remove();
-          logMessage("Roy", text);
+          logMessage("You", text); // Display user's transcribed text
+          logMessage("Roy", text); // Display Roy's response
 
           if (audioBase64) {
             const tempAudio = new Audio();
             tempAudio.src = `data:audio/mp3;base64,${audioBase64}`;
             tempAudio.onended = () => {
               console.log("[AUDIO] Playback ended");
+              isDrawingWaveform = false; // Stop Roy's waveform
               cleanupRecording();
             };
 
             const tempSource = audioCtx.createMediaElementSource(tempAudio);
             tempSource.connect(audioCtx.destination);
             tempSource.connect(analyzer);
+            isDrawingWaveform = true;
             drawWaveform("royWaveform", "magenta");
             tempAudio.play();
             console.log("[AUDIO] Playback started");
@@ -191,6 +198,7 @@ document.addEventListener("DOMContentLoaded", () => {
           console.error("Transcription fetch failed:", err);
           const loadingDots = document.querySelector('.dots');
           if (loadingDots) loadingDots.remove();
+          logMessage("You", "Transcription failed");
           logMessage("Roy", "undefined");
           cleanupRecording();
         }
@@ -222,6 +230,7 @@ document.addEventListener("DOMContentLoaded", () => {
     mediaRecorder = null;
     audioChunks = [];
     isRecording = false;
+    isDrawingWaveform = false;
     resetButtons();
   }
 
@@ -234,12 +243,20 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function drawWaveform(canvasId, color) {
     const canvas = document.getElementById(canvasId);
+    if (!canvas) {
+      console.error(`[WAVEFORM] Canvas with ID ${canvasId} not found`);
+      return;
+    }
     const ctx = canvas.getContext("2d");
     analyzer.fftSize = 256;
     bufferLength = analyzer.frequencyBinCount;
     dataArray = new Uint8Array(bufferLength);
 
     function draw() {
+      if (!isDrawingWaveform) {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        return;
+      }
       requestAnimationFrame(draw);
       analyzer.getByteFrequencyData(dataArray);
       ctx.clearRect(0, 0, canvas.width, canvas.height);
