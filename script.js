@@ -6,12 +6,12 @@ document.addEventListener("DOMContentLoaded", () => {
   let selectedBot = null;
   let isRecording = false;
 
-  const royButton = document.getElementById("roy");
-  const randyButton = document.getElementById("randy");
-  const speakButton = document.getElementById("speak");
-  const log = document.getElementById("log");
-  const timerDisplay = document.getElementById("countdown");
-  const dateDisplay = document.getElementById("date");
+  const royButton = document.getElementById("royBtn");
+  const randyButton = document.getElementById("randyBtn");
+  const speakButton = document.getElementById("speakBtn");
+  const log = document.getElementById("messages");
+  const timerDisplay = document.getElementById("countdown-timer");
+  const dateDisplay = document.getElementById("date-time");
   const audioEl = new Audio();
   const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
   let analyzer, source, dataArray, bufferLength;
@@ -174,7 +174,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function drawWaveform() {
-    const canvas = document.getElementById("waveform");
+    const canvas = document.getElementById("userWaveform");
     const ctx = canvas.getContext("2d");
     analyzer.fftSize = 256;
     bufferLength = analyzer.frequencyBinCount;
@@ -195,7 +195,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function drawWaveformRoy() {
-    const canvas = document.getElementById("waveform");
+    const canvas = document.getElementById("royWaveform");
     const ctx = canvas.getContext("2d");
     analyzer.fftSize = 256;
     bufferLength = analyzer.frequencyBinCount;
