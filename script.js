@@ -1,6 +1,3 @@
-// Roy Chatbot frontend script with fixes for audio context, thinking animation, and UI improvements
-// AssemblyAI real-time transcription with waveform visualization
-
 const royBtn = document.getElementById('royBtn');
 const randyBtn = document.getElementById('randyBtn');
 const speakBtn = document.getElementById('speakBtn');
@@ -15,14 +12,12 @@ const royCtx = royCanvas.getContext('2d');
 const dateTimeSpan = document.getElementById('date-time');
 const countdownTimerSpan = document.getElementById('countdown-timer');
 
-// Global variables
 let mediaRecorder, audioChunks = [], isRecording = false;
 let selectedPersona = null;
 let userAudioContext = null;
 let royAudioContext = null;
 let royAudioSource = null;
 
-// Apply button borders immediately on load
 function initButtonStyles() {
   royBtn.style.border = '1px solid cyan';
   randyBtn.style.border = '1px solid cyan';
@@ -30,7 +25,6 @@ function initButtonStyles() {
   speakBtn.style.border = '1px solid red';
 }
 
-// Function to create and display messages in the chat
 function addMessage(text, sender, isThinking = false) {
   const msg = document.createElement('p');
   msg.className = sender;
@@ -52,7 +46,6 @@ function addMessage(text, sender, isThinking = false) {
   return msg;
 }
 
-// Draw waveform
 function drawWaveform(canvasCtx, canvas, data, color, isUserWaveform) {
   canvasCtx.clearRect(0, 0, canvas.width, canvas.height);
   canvasCtx.beginPath();
@@ -75,7 +68,6 @@ function drawWaveform(canvasCtx, canvas, data, color, isUserWaveform) {
   canvasCtx.stroke();
 }
 
-// Setup user's waveform
 function setupUserVisualization(stream) {
   if (userAudioContext && userAudioContext.state !== 'closed') userAudioContext.close();
 
@@ -97,7 +89,6 @@ function setupUserVisualization(stream) {
   animate();
 }
 
-// Play Roy's voice with visualization
 function playRoyAudio(base64Audio) {
   const audioEl = new Audio(`data:audio/mp3;base64,${base64Audio}`);
   audioEl.setAttribute('playsinline', '');
@@ -133,35 +124,27 @@ function playRoyAudio(base64Audio) {
       }
 
       animate();
-      audioEl.play().catch(err => {
-        console.error('Audio playback error:', err);
-        const playButton = document.createElement('button');
-        playButton.textContent = 'Play Response';
-        playButton.style.marginTop = '10px';
-        playButton.style.border = '1px solid cyan';
-        messagesDiv.appendChild(playButton);
-
-        playButton.addEventListener('click', () => {
-          audioEl.play();
-          playButton.remove();
-        });
-      });
+      audioEl.play();
 
       audioEl.addEventListener('ended', () => {
         cancelAnimationFrame(animationId);
         royCtx.clearRect(0, 0, royCanvas.width, royCanvas.height);
+        speakBtn.textContent = 'SPEAK';
+        speakBtn.classList.remove('blinking');
+        speakBtn.style.backgroundColor = 'red';
+        speakBtn.style.color = 'white';
+        speakBtn.style.border = '1px solid red';
       });
 
     } catch (error) {
-      console.error('Error setting up audio visualization:', error);
-      audioEl.play().catch(e => console.error('Fallback play error:', e));
+      console.error('Audio visualization failed, playing fallback');
+      audioEl.play();
     }
   });
 
   audioEl.load();
 }
 
-// Reset button colors
 function resetButtonColors() {
   royBtn.style.backgroundColor = 'black';
   royBtn.style.color = 'cyan';
@@ -174,18 +157,13 @@ function resetButtonColors() {
   speakBtn.style.backgroundColor = 'black';
   speakBtn.style.color = 'cyan';
   speakBtn.style.border = '1px solid red';
-  speakBtn.textContent = 'SPEAK';
-  speakBtn.classList.remove('blinking');
 
-  scopesContainer.style.borderColor = 'cyan';
   isRecording = false;
   selectedPersona = null;
-
   userCtx.clearRect(0, 0, userCanvas.width, userCanvas.height);
   royCtx.clearRect(0, 0, royCanvas.width, royCanvas.height);
 }
 
-// Update date/time
 function updateDateTime() {
   const now = new Date();
   const date = now.toLocaleDateString('en-US', { month: 'numeric', day: 'numeric', year: 'numeric' });
@@ -194,7 +172,6 @@ function updateDateTime() {
   setTimeout(updateDateTime, 60000);
 }
 
-// Countdown timer
 function startCountdownTimer() {
   let timeLeft = 5 * 60;
   const timer = setInterval(() => {
@@ -209,35 +186,50 @@ function startCountdownTimer() {
   }, 1000);
 }
 
-// Roy button
 royBtn.addEventListener('click', () => {
   resetButtonColors();
   selectedPersona = 'roy';
+
   royBtn.style.backgroundColor = 'green';
   royBtn.style.color = 'white';
   royBtn.style.border = '1px solid green';
+
+  randyBtn.style.backgroundColor = 'black';
+  randyBtn.style.color = 'cyan';
+  randyBtn.style.border = '1px solid cyan';
+
   speakBtn.style.backgroundColor = 'red';
   speakBtn.style.color = 'white';
   speakBtn.style.border = '1px solid red';
+  speakBtn.textContent = 'SPEAK';
+  speakBtn.classList.remove('blinking');
+
   scopesContainer.style.borderColor = 'cyan';
   addMessage('Roy: Greetings, my friend—like a weary traveler, you\'ve arrived. What weighs on your soul today?', 'roy');
 });
 
-// Randy button
 randyBtn.addEventListener('click', () => {
   resetButtonColors();
   selectedPersona = 'randy';
+
   randyBtn.style.backgroundColor = '#FFC107';
   randyBtn.style.color = 'white';
   randyBtn.style.border = '1px solid #FFC107';
+
+  royBtn.style.backgroundColor = 'black';
+  royBtn.style.color = 'cyan';
+  royBtn.style.border = '1px solid cyan';
+
   speakBtn.style.backgroundColor = 'red';
   speakBtn.style.color = 'white';
   speakBtn.style.border = '1px solid red';
+  speakBtn.textContent = 'SPEAK';
+  speakBtn.classList.remove('blinking');
+
   scopesContainer.style.borderColor = 'red';
   addMessage('Randy: Unleash the chaos—what\'s burning you up?', 'randy');
 });
 
-// Speak button
 speakBtn.addEventListener('click', async () => {
   if (!selectedPersona) {
     alert('Please choose Roy or Randy first.');
@@ -264,7 +256,11 @@ speakBtn.addEventListener('click', async () => {
     mediaRecorder.onstop = async () => {
       speakBtn.textContent = 'SPEAK';
       speakBtn.classList.remove('blinking');
+      speakBtn.style.backgroundColor = 'red';
+      speakBtn.style.color = 'white';
+      speakBtn.style.border = '1px solid red';
       isRecording = false;
+
       userCtx.clearRect(0, 0, userCanvas.width, userCanvas.height);
       const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
       const formData = new FormData();
@@ -295,11 +291,10 @@ speakBtn.addEventListener('click', async () => {
 
         thinkingMsg.remove();
         addMessage(`${selectedPersona === 'randy' ? 'Randy' : 'Roy'}: ${reply}`, selectedPersona);
-
         if (audio) playRoyAudio(audio);
 
       } catch (error) {
-        console.error('Error processing audio:', error);
+        console.error('Transcription or response error:', error);
         addMessage(`${selectedPersona === 'randy' ? 'Randy' : 'Roy'}: Sorry, I couldn't process your request.`, selectedPersona);
       }
     };
@@ -308,14 +303,13 @@ speakBtn.addEventListener('click', async () => {
 
   } catch (error) {
     console.error('Microphone access error:', error);
-    alert('Could not access microphone. Please check permissions.');
+    alert('Microphone permission denied or unavailable.');
     isRecording = false;
     speakBtn.textContent = 'SPEAK';
     speakBtn.classList.remove('blinking');
   }
 });
 
-// Save button
 saveBtn.addEventListener('click', () => {
   const now = new Date();
   const timestamp = now.toISOString().replace(/[:.]/g, '-');
@@ -327,23 +321,22 @@ saveBtn.addEventListener('click', () => {
   a.click();
 });
 
-// Home button
 homeBtn.addEventListener('click', () => {
   window.location.href = 'https://synthcalm.com';
 });
 
-// Init on load
 window.addEventListener('load', () => {
   initButtonStyles();
   updateDateTime();
   startCountdownTimer();
+
   if (userAudioContext && userAudioContext.state !== 'closed') userAudioContext.close();
   if (royAudioContext && royAudioContext.state !== 'closed') royAudioContext.close();
+
   userCtx.clearRect(0, 0, userCanvas.width, userCanvas.height);
   royCtx.clearRect(0, 0, royCanvas.width, royCanvas.height);
 });
 
-// Add thinking dots animation
 document.head.insertAdjacentHTML('beforeend', `
   <style>
     .thinking-dots::after {
