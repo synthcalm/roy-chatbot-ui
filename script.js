@@ -96,7 +96,13 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   speakButton.addEventListener("click", async () => {
-    if (!selectedBot || isRecording) return;
+    if (!selectedBot) return;
+
+    if (isRecording) {
+      mediaRecorder.stop();
+      console.log("[MIC] Manual stop triggered");
+      return;
+    }
 
     await audioCtx.resume(); // iOS fix
 
@@ -137,19 +143,24 @@ document.addEventListener("DOMContentLoaded", () => {
           logMessage("Roy", text);
 
           if (audioBase64) {
-            audioEl.src = `data:audio/mp3;base64,${audioBase64}`;
-            audioEl.onended = () => {
+            const tempAudio = new Audio();
+            tempAudio.src = `data:audio/mp3;base64,${audioBase64}`;
+            tempAudio.onended = () => {
               resetButtons();
               console.log("[AUDIO] Playback ended");
             };
 
             try {
-              if (roySource) roySource.disconnect();
-              roySource = audioCtx.createMediaElementSource(audioEl);
-              roySource.connect(audioCtx.destination);
-              roySource.connect(analyzer);
+              const tempSource = audioCtx.createMediaElementSource(tempAudio);
+              tempSource.connect(audioCtx.destination);
+              tempSource.connect(analyzer);
               drawWaveform("royWaveform", "magenta");
-              audioEl.play();
+              tempAudio.play();
+              console.log("[AUDIO] Playback started");
+            } catch (err) {
+              console.error("Roy audio connection error:", err);
+              resetButtons();
+            }
               console.log("[AUDIO] Playback started");
             } catch (err) {
               console.error("Roy audio connection error:", err);
