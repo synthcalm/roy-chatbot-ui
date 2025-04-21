@@ -5,8 +5,8 @@ document.addEventListener("DOMContentLoaded", () => {
   let countdownTime = 60 * 60; // 60 minutes
   let selectedBot = null;
   let isRecording = false;
-  let roySource = null;
   let stream = null; // To store the media stream for cleanup
+  let analyzer, source, dataArray, bufferLength;
 
   const royButton = document.getElementById("royBtn");
   const randyButton = document.getElementById("randyBtn");
@@ -16,7 +16,6 @@ document.addEventListener("DOMContentLoaded", () => {
   const dateDisplay = document.getElementById("date-time");
   const audioEl = new Audio();
   const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-  let analyzer, source, dataArray, bufferLength;
 
   if (!dateDisplay || !timerDisplay || !royButton || !randyButton || !speakButton || !log) {
     console.warn("Some DOM elements are missing. UI may not function as expected.");
@@ -97,18 +96,28 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   speakButton.addEventListener("click", async () => {
-    if (!selectedBot) return;
+    if (!selectedBot) {
+      console.log("[UI] No bot selected");
+      return;
+    }
 
+    // Toggle: If recording, stop; if not recording, start
     if (isRecording) {
-      if (mediaRecorder && mediaRecorder.state === "recording") {
-        mediaRecorder.stop(); // This should trigger the onstop event
-        console.log("[MIC] Manual stop triggered");
+      console.log("[UI] Stop button clicked");
+      if (mediaRecorder && (mediaRecorder.state === "recording" || mediaRecorder.state === "paused")) {
+        console.log("[MIC] Stopping recording...");
+        mediaRecorder.stop();
+      } else {
+        console.log("[MIC] Recorder not in recording state:", mediaRecorder?.state);
+        // Force cleanup if recorder is in an unexpected state
+        cleanupRecording();
       }
       return;
     }
 
+    // Start recording
+    console.log("[UI] Speak button clicked");
     await audioCtx.resume(); // iOS fix
-
     speakButton.textContent = "STOP";
     speakButton.classList.add("blinking");
     isRecording = true;
@@ -125,17 +134,15 @@ document.addEventListener("DOMContentLoaded", () => {
       mediaRecorder.ondataavailable = e => {
         if (e.data.size > 0) {
           audioChunks.push(e.data);
+          console.log("[MIC] Audio chunk received, size:", e.data.size);
         }
       };
 
       mediaRecorder.onstop = async () => {
+        console.log("[MIC] Recording stopped");
         if (audioChunks.length === 0) {
           console.log("[MIC] No audio data recorded");
-          resetButtons();
-          if (stream) {
-            stream.getTracks().forEach(track => track.stop());
-            stream = null;
-          }
+          cleanupRecording();
           return;
         }
 
@@ -164,8 +171,8 @@ document.addEventListener("DOMContentLoaded", () => {
             const tempAudio = new Audio();
             tempAudio.src = `data:audio/mp3;base64,${audioBase64}`;
             tempAudio.onended = () => {
-              resetButtons();
               console.log("[AUDIO] Playback ended");
+              cleanupRecording();
             };
 
             const tempSource = audioCtx.createMediaElementSource(tempAudio);
@@ -178,41 +185,45 @@ document.addEventListener("DOMContentLoaded", () => {
             const loadingDots = document.querySelector('.dots');
             if (loadingDots) loadingDots.remove();
             logMessage("Roy", "undefined");
-            resetButtons();
+            cleanupRecording();
           }
         } catch (err) {
           console.error("Transcription fetch failed:", err);
           const loadingDots = document.querySelector('.dots');
           if (loadingDots) loadingDots.remove();
           logMessage("Roy", "undefined");
-          resetButtons();
-        } finally {
-          // Clean up the stream after processing
-          if (stream) {
-            stream.getTracks().forEach(track => track.stop());
-            stream = null;
-          }
-          isRecording = false;
+          cleanupRecording();
         }
       };
 
       mediaRecorder.onerror = (err) => {
         console.error("[MIC] MediaRecorder error:", err);
-        resetButtons();
-        if (stream) {
-          stream.getTracks().forEach(track => track.stop());
-          stream = null;
-        }
-        isRecording = false;
+        cleanupRecording();
       };
 
       mediaRecorder.start();
       console.log("[MIC] Recording started");
     } catch (err) {
       console.error("Microphone access denied:", err);
-      resetButtons();
+      cleanupRecording();
     }
   });
+
+  function cleanupRecording() {
+    console.log("[CLEANUP] Cleaning up recording state");
+    if (stream) {
+      stream.getTracks().forEach(track => track.stop());
+      stream = null;
+    }
+    if (source) {
+      source.disconnect();
+      source = null;
+    }
+    mediaRecorder = null;
+    audioChunks = [];
+    isRecording = false;
+    resetButtons();
+  }
 
   function logMessage(who, text) {
     const span = document.createElement("div");
