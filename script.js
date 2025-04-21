@@ -51,8 +51,14 @@ document.addEventListener("DOMContentLoaded", () => {
     royButton.style.borderColor = "";
     randyButton.style.backgroundColor = "";
     randyButton.style.borderColor = "";
-    speakButton.style.backgroundColor = "#000";
-    speakButton.style.borderColor = "#0ff";
+    // If a bot is selected, keep the button red; otherwise, reset to cyan
+    if (selectedBot) {
+      speakButton.style.backgroundColor = "red";
+      speakButton.style.borderColor = "red";
+    } else {
+      speakButton.style.backgroundColor = "#000";
+      speakButton.style.borderColor = "#0ff";
+    }
     speakButton.textContent = "SPEAK";
     speakButton.classList.remove("blinking");
     isRecording = false;
@@ -119,6 +125,8 @@ document.addEventListener("DOMContentLoaded", () => {
     console.log("[UI] Speak button clicked");
     await audioCtx.resume(); // iOS fix
     speakButton.textContent = "STOP";
+    speakButton.style.backgroundColor = "red";
+    speakButton.style.borderColor = "red";
     speakButton.classList.add("blinking");
     isRecording = true;
 
@@ -162,15 +170,21 @@ document.addEventListener("DOMContentLoaded", () => {
             body: formData
           });
           const json = await res.json();
-          const text = json.text || "undefined";
+          const userText = json.text || "undefined";
           const audioBase64 = json.audio;
           console.log("[AUDIO] base64 length:", audioBase64?.length);
 
-          // Log the user's transcription
+          // Update the user's transcription
+          const transcribingMessage = log.lastChild; // Get the "Transcribing..." message
+          if (transcribingMessage && transcribingMessage.textContent.includes("Transcribing...")) {
+            transcribingMessage.innerHTML = `<span style="color:#fff">You:</span> <span style="color:#fff">${userText}</span>`;
+          } else {
+            logMessage("You", userText); // Fallback if "Transcribing..." isn't found
+          }
+
           const loadingDots = document.querySelector('.dots');
-          if (loadingDots) loadingDots.remove();
-          logMessage("You", text); // Display user's transcribed text
-          logMessage("Roy", text); // Display Roy's response
+          if (loadingDots) loadingDots.parentElement.remove();
+          logMessage("Roy", userText); // Display Roy's response
 
           if (audioBase64) {
             const tempAudio = new Audio();
@@ -190,15 +204,18 @@ document.addEventListener("DOMContentLoaded", () => {
             console.log("[AUDIO] Playback started");
           } else {
             const loadingDots = document.querySelector('.dots');
-            if (loadingDots) loadingDots.remove();
+            if (loadingDots) loadingDots.parentElement.remove();
             logMessage("Roy", "undefined");
             cleanupRecording();
           }
         } catch (err) {
           console.error("Transcription fetch failed:", err);
+          const transcribingMessage = log.lastChild;
+          if (transcribingMessage && transcribingMessage.textContent.includes("Transcribing...")) {
+            transcribingMessage.innerHTML = `<span style="color:#fff">You:</span> <span style="color:#fff">Transcription failed</span>`;
+          }
           const loadingDots = document.querySelector('.dots');
-          if (loadingDots) loadingDots.remove();
-          logMessage("You", "Transcription failed");
+          if (loadingDots) loadingDots.parentElement.remove();
           logMessage("Roy", "undefined");
           cleanupRecording();
         }
