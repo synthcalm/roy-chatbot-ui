@@ -22,7 +22,7 @@ body {
   display: flex;
   flex-direction: column;
   gap: 12px;
-  border: none; /* Remove left and right cyan borders */
+  border: none;
   background-color: black;
 }
 
@@ -73,10 +73,6 @@ button {
   text-transform: uppercase;
 }
 
-#royBtn, #randyBtn, #speakBtn {
-  border: none; /* Remove borders for Roy, Randy, and Speak/Stop buttons */
-}
-
 button:hover {
   background-color: #00b7eb;
   border-color: #00b7eb;
@@ -88,23 +84,23 @@ button.blinking {
 }
 
 @keyframes softBlink {
-  0% { 
-    background-color: red; 
+  0% {
+    background-color: red;
     border-color: red;
     color: white;
-    opacity: 1; 
+    opacity: 1;
   }
-  50% { 
-    background-color: red; 
+  50% {
+    background-color: red;
     border-color: red;
     color: white;
-    opacity: 0.5; 
+    opacity: 0.5;
   }
-  100% { 
-    background-color: red; 
+  100% {
+    background-color: red;
     border-color: red;
     color: white;
-    opacity: 1; 
+    opacity: 1;
   }
 }
 
