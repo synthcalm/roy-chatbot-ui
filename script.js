@@ -32,96 +32,6 @@ document.addEventListener("DOMContentLoaded", () => {
     const now = new Date();
     const formattedDate = now.getFullYear() + "/" +
                           String(now.getMonth() + 1).padStart(2, "0") + "/" +
-// ✅ server.js - Express backend for Roy Chatbot
-
-const express = require('express');
-const cors = require('cors');
-const multer = require('multer');
-const axios = require('axios');
-const FormData = require('form-data');
-require('dotenv').config();
-
-const app = express();
-const port = process.env.PORT || 3000;
-const upload = multer();
-
-app.use(cors());
-app.use(express.json());
-
-// POST /api/transcribe
-app.post('/api/transcribe', upload.single('audio'), async (req, res) => {
-  try {
-    const form = new FormData();
-    form.append('file', req.file.buffer, {
-      filename: 'audio.webm',
-      contentType: 'audio/webm'
-    });
-    form.append('model', 'whisper-1');
-
-    const transcript = await axios.post('https://api.openai.com/v1/audio/transcriptions', form, {
-      headers: {
-        Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
-        ...form.getHeaders()
-      }
-    });
-
-    res.json({ text: transcript.data.text });
-  } catch (err) {
-    console.error('Transcription error:', err.response?.data || err.message);
-    res.status(500).json({ error: 'Transcription failed', detail: err.response?.data });
-  }
-});
-
-// POST /api/chat
-app.post('/api/chat', async (req, res) => {
-  try {
-    const {
-      message,
-      persona = 'default',
-      tone = 'casual-direct',
-      poeticLevel = 0.1,
-      disfluencyLevel = 0.3,
-      jobsStyleLevel = 0.25,
-      volumeData = []
-    } = req.body;
-
-    const systemPrompt = persona === 'randy'
-      ? `You are Randy, an unfiltered, intense speaker who sounds like a cross between a renegade poet and a street prophet. Speak in gritty, cinematic language. Channel a raw, prophetic tone like the 'tears in rain' monologue. No sugar-coating. Punch hard with words. Keep your style 60% film noir, 40% urgent reality. Every reply should feel like the final scene of a cult movie. After each rant, check in on the user—ask how they’re doing, reflect on what they just shared, and wrap up with a tough-love coach insight that helps them reframe or refocus.`
-      : `You are Roy, a grounded AI mentor. Speak in casual American English with about 30% real-life disfluencies ("you know...", "well...", "I mean..."), 10% poetic metaphor, and 25% insightful cultural references. Avoid quoting Steve Jobs. Instead, use quotes or ideas from Middle Eastern poets, timeless lyrics, or reflective lines from sci-fi characters like Roy Batty. Speak in short, impactful bursts, not long speeches. You speak like a conflicted, thoughtful friend.`;
-
-    const response = await axios.post('https://api.openai.com/v1/chat/completions', {
-      model: 'gpt-4',
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: message }
-      ]
-    }, {
-      headers: { Authorization: `Bearer ${process.env.OPENAI_API_KEY}` }
-    });
-
-    const replyText = response.data.choices[0].message.content;
-
-    const audioResponse = await axios.post('https://api.openai.com/v1/audio/speech', {
-      model: 'tts-1',
-      voice: 'onyx',
-      input: replyText
-    }, {
-      responseType: 'arraybuffer',
-      headers: {
-        Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
-        'Content-Type': 'application/json'
-      }
-    });
-
-    const audioBase64 = Buffer.from(audioResponse.data).toString('base64');
-    res.json({ text: replyText, audio: audioBase64 });
-  } catch (err) {
-    console.error('Chat error:', err.response?.data || err.message);
-    res.status(500).json({ error: 'Chat failed', detail: err.response?.data });
-  }
-});
-
-app.listen(port, () => console.log(`Roy backend listening on port ${port}`));
                           String(now.getDate()).padStart(2, "0");
     const formattedTime = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     dateDisplay.textContent = formattedDate + " " + formattedTime;
@@ -212,7 +122,7 @@ app.listen(port, () => console.log(`Roy backend listening on port ${port}`));
         formData.append("bot", selectedBot);
 
         logMessage("You", "Transcribing...");
-logMessage("Roy", `<span class='dots'>. . .</span>`);
+        logMessage("Roy", `<span class='dots'>. . .</span>`);
         try {
           const res = await fetch("https://roy-chatbo-backend.onrender.com/api/chat", {
             method: "POST",
@@ -221,10 +131,10 @@ logMessage("Roy", `<span class='dots'>. . .</span>`);
           const json = await res.json();
           const text = json.text || "undefined";
           const audioBase64 = json.audio;
-console.log("[AUDIO] base64 length:", audioBase64?.length);
+          console.log("[AUDIO] base64 length:", audioBase64?.length);
           const loadingDots = document.querySelector('.dots');
-if (loadingDots) loadingDots.remove();
-logMessage("Roy", text);
+          if (loadingDots) loadingDots.remove();
+          logMessage("Roy", text);
 
           if (audioBase64) {
             audioEl.src = `data:audio/mp3;base64,${audioBase64}`;
@@ -247,16 +157,7 @@ logMessage("Roy", text);
             }
           } else {
             const loadingDots = document.querySelector('.dots');
-if (loadingDots) loadingDots.remove();
-logMessage("Roy", "undefined");
-            resetButtons();
-          }
-              console.log("[AUDIO] Playback started");
-            } catch (err) {
-              console.error("Roy audio connection error:", err);
-              resetButtons();
-            }
-          } else {
+            if (loadingDots) loadingDots.remove();
             logMessage("Roy", "undefined");
             resetButtons();
           }
