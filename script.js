@@ -156,7 +156,6 @@ document.addEventListener("DOMContentLoaded", () => {
             drawWaveform("royWaveform", "magenta");
             tempAudio.play();
             console.log("[AUDIO] Playback started");
-          } 
           } else {
             const loadingDots = document.querySelector('.dots');
             if (loadingDots) loadingDots.remove();
