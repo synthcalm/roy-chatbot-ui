@@ -156,7 +156,7 @@ document.addEventListener("DOMContentLoaded", () => {
             drawWaveform("royWaveform", "magenta");
             tempAudio.play();
             console.log("[AUDIO] Playback started");
-          } {
+          } else {
               console.error("Roy audio connection error:", err);
               resetButtons();
             }
