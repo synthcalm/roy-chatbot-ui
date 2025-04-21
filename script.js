@@ -122,9 +122,23 @@ document.addEventListener("DOMContentLoaded", () => {
       drawWaveform("userWaveform", "yellow");
 
       audioChunks = [];
-      mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
+      mediaRecorder.ondataavailable = e => {
+        if (e.data.size > 0) {
+          audioChunks.push(e.data);
+        }
+      };
 
       mediaRecorder.onstop = async () => {
+        if (audioChunks.length === 0) {
+          console.log("[MIC] No audio data recorded");
+          resetButtons();
+          if (stream) {
+            stream.getTracks().forEach(track => track.stop());
+            stream = null;
+          }
+          return;
+        }
+
         const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
         const formData = new FormData();
         formData.append("audio", audioBlob);
@@ -182,16 +196,18 @@ document.addEventListener("DOMContentLoaded", () => {
         }
       };
 
+      mediaRecorder.onerror = (err) => {
+        console.error("[MIC] MediaRecorder error:", err);
+        resetButtons();
+        if (stream) {
+          stream.getTracks().forEach(track => track.stop());
+          stream = null;
+        }
+        isRecording = false;
+      };
+
       mediaRecorder.start();
       console.log("[MIC] Recording started");
-
-      // Optional: Keep the automatic stop as a fallback
-      setTimeout(() => {
-        if (mediaRecorder && mediaRecorder.state === "recording") {
-          mediaRecorder.stop();
-          console.log("[MIC] Recording stopped (timeout)");
-        }
-      }, 5000);
     } catch (err) {
       console.error("Microphone access denied:", err);
       resetButtons();
