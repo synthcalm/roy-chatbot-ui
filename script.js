@@ -18,7 +18,6 @@ let userAudioContext = null;
 let royAudioContext = null;
 let royAudioSource = null;
 let stream = null;
-let pendingAudioBase64 = null; // Store base64 audio for playback
 
 function initButtonStyles() {
   royBtn.style.border = '1px solid cyan';
@@ -107,7 +106,32 @@ function resumeAudioContext(context) {
 }
 
 function playRoyAudio(base64Audio) {
-  const audioEl = new Audio(`data:audio/mp3;base64,${base64Audio}`);
+  if (!base64Audio) {
+    console.error('No base64 audio data received');
+    addMessage('Error: No audio response received from Roy/Randy', 'roy');
+    speakBtn.textContent = 'SPEAK';
+    speakBtn.classList.remove('blinking');
+    speakBtn.style.backgroundColor = 'red';
+    speakBtn.style.color = 'white';
+    speakBtn.style.border = '1px solid red';
+    cleanupRecording();
+    return;
+  }
+
+  console.log('Base64 audio length:', base64Audio.length);
+  console.log('Base64 audio snippet:', base64Audio.substring(0, 50));
+
+  // Convert base64 to binary
+  const binaryString = atob(base64Audio);
+  const bytes = new Uint8Array(binaryString.length);
+  for (let i = 0; i < binaryString.length; i++) {
+    bytes[i] = binaryString.charCodeAt(i);
+  }
+
+  // Create a Blob and Blob URL for playback
+  const audioBlob = new Blob([bytes], { type: 'audio/mp3' });
+  const audioUrl = URL.createObjectURL(audioBlob);
+  const audioEl = new Audio(audioUrl);
   audioEl.setAttribute('playsinline', '');
 
   if (royAudioContext && royAudioContext.state !== 'closed') {
@@ -125,36 +149,19 @@ function playRoyAudio(base64Audio) {
     console.error('Audio element error:', e);
     console.error('Audio element error code:', audioEl.error?.code);
     console.error('Audio element error message:', audioEl.error?.message);
-
-    // Convert base64 to Blob for download as a fallback
-    const binaryString = atob(base64Audio);
-    const bytes = new Uint8Array(binaryString.length);
-    for (let i = 0; i < binaryString.length; i++) {
-      bytes[i] = binaryString.charCodeAt(i);
-    }
-    const audioBlob = new Blob([bytes], { type: 'audio/mp3' });
-    const audioUrl = URL.createObjectURL(audioBlob);
-
-    addMessage('Error: Failed to play Roy/Randy\'s audio response. [Tap here to download audio](#)', 'roy', false);
-    const errorMsg = messagesDiv.lastChild;
-    errorMsg.style.cursor = 'pointer';
-    errorMsg.addEventListener('click', () => {
-      const a = document.createElement('a');
-      a.href = audioUrl;
-      a.download = `${selectedPersona}-response.mp3`;
-      a.click();
-    });
+    addMessage('Error: Failed to play Roy/Randy\'s audio response.', 'roy', false);
     speakBtn.textContent = 'SPEAK';
     speakBtn.classList.remove('blinking');
     speakBtn.style.backgroundColor = 'red';
     speakBtn.style.color = 'white';
     speakBtn.style.border = '1px solid red';
     cleanupRecording();
+    URL.revokeObjectURL(audioUrl);
   });
 
   audioEl.addEventListener('canplaythrough', () => {
     console.log('Audio can play through');
-    console.log('Audio readyState:', audioEl.readyState); // Should be 4 (HAVE_ENOUGH_DATA)
+    console.log('Audio readyState:', audioEl.readyState);
 
     resumeAudioContext(royAudioContext).then(() => {
       try {
@@ -180,31 +187,14 @@ function playRoyAudio(base64Audio) {
           animate();
         }).catch(err => {
           console.error('Audio playback failed:', err);
-
-          // Convert base64 to Blob for download as a fallback
-          const binaryString = atob(base64Audio);
-          const bytes = new Uint8Array(binaryString.length);
-          for (let i = 0; i < binaryString.length; i++) {
-            bytes[i] = binaryString.charCodeAt(i);
-          }
-          const audioBlob = new Blob([bytes], { type: 'audio/mp3' });
-          const audioUrl = URL.createObjectURL(audioBlob);
-
-          addMessage('Error: Failed to play Roy/Randy\'s audio response. [Tap here to download audio](#)', 'roy', false);
-          const errorMsg = messagesDiv.lastChild;
-          errorMsg.style.cursor = 'pointer';
-          errorMsg.addEventListener('click', () => {
-            const a = document.createElement('a');
-            a.href = audioUrl;
-            a.download = `${selectedPersona}-response.mp3`;
-            a.click();
-          });
+          addMessage('Error: Failed to play Roy/Randy\'s audio response.', 'roy', false);
           speakBtn.textContent = 'SPEAK';
           speakBtn.classList.remove('blinking');
           speakBtn.style.backgroundColor = 'red';
           speakBtn.style.color = 'white';
           speakBtn.style.border = '1px solid red';
           cleanupRecording();
+          URL.revokeObjectURL(audioUrl);
         });
 
         audioEl.addEventListener('ended', () => {
@@ -217,90 +207,26 @@ function playRoyAudio(base64Audio) {
           speakBtn.style.color = 'white';
           speakBtn.style.border = '1px solid red';
           cleanupRecording();
+          URL.revokeObjectURL(audioUrl);
         });
 
       } catch (error) {
         console.error('Audio visualization failed:', error);
         audioEl.play().catch(err => {
           console.error('Fallback audio playback failed:', err);
-
-          // Convert base64 to Blob for download as a fallback
-          const binaryString = atob(base64Audio);
-          const bytes = new Uint8Array(binaryString.length);
-          for (let i = 0; i < binaryString.length; i++) {
-            bytes[i] = binaryString.charCodeAt(i);
-          }
-          const audioBlob = new Blob([bytes], { type: 'audio/mp3' });
-          const audioUrl = URL.createObjectURL(audioBlob);
-
-          addMessage('Error: Failed to play Roy/Randy\'s audio response. [Tap here to download audio](#)', 'roy', false);
-          const errorMsg = messagesDiv.lastChild;
-          errorMsg.style.cursor = 'pointer';
-          errorMsg.addEventListener('click', () => {
-            const a = document.createElement('a');
-            a.href = audioUrl;
-            a.download = `${selectedPersona}-response.mp3`;
-            a.click();
-          });
+          addMessage('Error: Failed to play Roy/Randy\'s audio response.', 'roy', false);
           cleanupRecording();
+          URL.revokeObjectURL(audioUrl);
         });
       }
     });
   });
 
-  // Add a loadeddata event to log more details
   audioEl.addEventListener('loadeddata', () => {
     console.log('Audio data loaded, duration:', audioEl.duration);
   });
 
   audioEl.load();
-}
-
-function handleAudioResponse(base64Audio) {
-  if (!base64Audio) {
-    console.error('No base64 audio data received');
-    addMessage('Error: No audio response received from Roy/Randy', 'roy');
-    speakBtn.textContent = 'SPEAK';
-    speakBtn.classList.remove('blinking');
-    speakBtn.style.backgroundColor = 'red';
-    speakBtn.style.color = 'white';
-    speakBtn.style.border = '1px solid red';
-    cleanupRecording();
-    return;
-  }
-
-  console.log('Base64 audio length:', base64Audio.length);
-  console.log('Base64 audio snippet:', base64Audio.substring(0, 50)); // Log first 50 chars for debugging
-
-  pendingAudioBase64 = base64Audio;
-
-  // Prompt user to tap to play the audio, ensuring a user gesture for iOS
-  addMessage(`${selectedPersona === 'randy' ? 'Randy' : 'Roy'} is ready to respond. [Tap here to listen](#)`, 'roy', false);
-  const playMsg = messagesDiv.lastChild;
-  playMsg.style.cursor = 'pointer';
-  playMsg.addEventListener('click', () => {
-    playMsg.remove(); // Remove the prompt after tapping
-    playRoyAudio(pendingAudioBase64);
-  });
-
-  // Also provide a download link as a fallback
-  const binaryString = atob(base64Audio);
-  const bytes = new Uint8Array(binaryString.length);
-  for (let i = 0; i < binaryString.length; i++) {
-    bytes[i] = binaryString.charCodeAt(i);
-  }
-  const audioBlob = new Blob([bytes], { type: 'audio/mp3' });
-  const audioUrl = URL.createObjectURL(audioBlob);
-
-  addMessage('[Tap here to download audio](#)', 'roy', false);
-  const downloadMsg = messagesDiv.lastChild;
-  downloadMsg.style.cursor = 'pointer';
-  downloadMsg.addEventListener('click', () => {
-    const a = document.createElement('a');
-    a.href = audioUrl;
-    a.download = `${selectedPersona}-response.mp3`;
-    a.click();
-  });
 }
 
 function resetButtonColors() {
@@ -361,7 +287,6 @@ async function convertToWav(blob) {
     const buffer = new ArrayBuffer(44 + length);
     const view = new DataView(buffer);
 
-    // Write WAV header
     const writeString = (view, offset, string) => {
       for (let i = 0; i < string.length; i++) {
         view.setUint8(offset + i, string.charCodeAt(i));
@@ -369,20 +294,19 @@ async function convertToWav(blob) {
     };
 
     writeString(view, 0, 'RIFF');
-    view.setUint32(4, 36 + length, true); // File size
+    view.setUint32(4, 36 + length, true);
     writeString(view, 8, 'WAVE');
     writeString(view, 12, 'fmt ');
-    view.setUint32(16, 16, true); // Subchunk size
-    view.setUint16(20, 1, true); // Audio format (PCM)
+    view.setUint32(16, 16, true);
+    view.setUint16(20, 1, true);
     view.setUint16(22, numberOfChannels, true);
     view.setUint32(24, sampleRate, true);
-    view.setUint32(28, sampleRate * numberOfChannels * 2, true); // Byte rate
-    view.setUint16(32, numberOfChannels * 2, true); // Block align
-    view.setUint16(34, 16, true); // Bits per sample
+    view.setUint32(28, sampleRate * numberOfChannels * 2, true);
+    view.setUint16(32, numberOfChannels * 2, true);
+    view.setUint16(34, 16, true);
     writeString(view, 36, 'data');
-    view.setUint32(40, length, true); // Data chunk size
+    view.setUint32(40, length, true);
 
-    // Write PCM data
     const channelData = [];
     for (let i = 0; i < numberOfChannels; i++) {
       channelData.push(audioBuffer.getChannelData(i));
@@ -489,8 +413,8 @@ speakBtn.addEventListener('click', async () => {
       }
 
       try {
-        let audioBlob = new Blob(audioChunks, { type: 'audio/mp4' }); // Initial blob from MediaRecorder
-        audioBlob = await convertToWav(audioBlob); // Convert to WAV
+        let audioBlob = new Blob(audioChunks, { type: 'audio/mp4' });
+        audioBlob = await convertToWav(audioBlob);
 
         const formData = new FormData();
         formData.append('audio', audioBlob, 'audio.wav');
@@ -504,7 +428,6 @@ speakBtn.addEventListener('click', async () => {
         let audioBase64 = null;
 
         try {
-          // Step 1: Try /api/transcribe first
           try {
             const transcribeRes = await fetch('https://roy-chatbo-backend.onrender.com/api/transcribe', {
               method: 'POST',
@@ -516,7 +439,6 @@ speakBtn.addEventListener('click', async () => {
             console.log("[TRANSCRIBE] User text:", userText);
           } catch (transcribeError) {
             console.warn("[TRANSCRIBE] /api/transcribe failed, falling back to /api/chat:", transcribeError);
-            // Fallback to /api/chat
             try {
               const chatRes = await fetch('https://roy-chatbo-backend.onrender.com/api/chat', {
                 method: 'POST',
@@ -534,10 +456,8 @@ speakBtn.addEventListener('click', async () => {
             }
           }
 
-          // Step 2: Update the UI with the user's transcription
           transcribingMessage.textContent = `You: ${userText}`;
 
-          // Step 3: Call /api/chat with a JSON payload to get Roy's response (if not already fetched)
           if (userText !== "undefined" && !royText) {
             const chatRes = await fetch('https://roy-chatbo-backend.onrender.com/api/chat', {
               method: 'POST',
@@ -557,7 +477,7 @@ speakBtn.addEventListener('click', async () => {
           thinkingMessage.remove();
           addMessage(`${selectedPersona === 'randy' ? 'Randy' : 'Roy'}: ${royText || "undefined"}`, selectedPersona);
           if (audioBase64) {
-            handleAudioResponse(audioBase64);
+            playRoyAudio(audioBase64);
           } else {
             console.error('No audioBase64 received');
             addMessage('Error: No audio response received from Roy/Randy', 'roy');
