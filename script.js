@@ -94,7 +94,31 @@ function setupUserVisualization(stream) {
   animate();
 }
 
+function resumeAudioContext(context) {
+  if (context.state === 'suspended') {
+    return context.resume().then(() => {
+      console.log('AudioContext resumed successfully');
+    }).catch(err => {
+      console.error('Failed to resume AudioContext:', err);
+    });
+  }
+  return Promise.resolve();
+}
+
 function playRoyAudio(base64Audio) {
+  if (!base64Audio) {
+    console.error('No base64 audio data received');
+    addMessage('Error: No audio response received from Roy', 'roy');
+    speakBtn.textContent = 'SPEAK';
+    speakBtn.classList.remove('blinking');
+    speakBtn.style.backgroundColor = 'red';
+    speakBtn.style.color = 'white';
+    speakBtn.style.border = '1px solid red';
+    cleanupRecording();
+    return;
+  }
+
+  console.log('Base64 audio length:', base64Audio.length);
   const audioEl = new Audio(`data:audio/mp3;base64,${base64Audio}`);
   audioEl.setAttribute('playsinline', '');
 
@@ -109,43 +133,73 @@ function playRoyAudio(base64Audio) {
 
   royAudioContext = new (window.AudioContext || window.webkitAudioContext)();
 
+  audioEl.addEventListener('error', (e) => {
+    console.error('Audio element error:', e);
+    addMessage('Error: Failed to play Roy\'s audio response', 'roy');
+    speakBtn.textContent = 'SPEAK';
+    speakBtn.classList.remove('blinking');
+    speakBtn.style.backgroundColor = 'red';
+    speakBtn.style.color = 'white';
+    speakBtn.style.border = '1px solid red';
+    cleanupRecording();
+  });
+
   audioEl.addEventListener('canplaythrough', () => {
-    try {
-      royAudioSource = royAudioContext.createMediaElementSource(audioEl);
-      const analyser = royAudioContext.createAnalyser();
-      analyser.fftSize = 2048;
-      const dataArray = new Uint8Array(analyser.frequencyBinCount);
+    console.log('Audio can play through');
+    resumeAudioContext(royAudioContext).then(() => {
+      try {
+        royAudioSource = royAudioContext.createMediaElementSource(audioEl);
+        const analyser = royAudioContext.createAnalyser();
+        analyser.fftSize = 2048;
+        const dataArray = new Uint8Array(analyser.frequencyBinCount);
 
-      royAudioSource.connect(analyser);
-      analyser.connect(royAudioContext.destination);
+        royAudioSource.connect(analyser);
+        analyser.connect(royAudioContext.destination);
 
-      let animationId;
+        let animationId;
 
-      function animate() {
-        analyser.getByteTimeDomainData(dataArray);
-        const waveformColor = selectedPersona === 'randy' ? 'orange' : 'magenta';
-        drawWaveform(royCtx, royCanvas, dataArray, waveformColor, false);
-        animationId = requestAnimationFrame(animate);
+        function animate() {
+          analyser.getByteTimeDomainData(dataArray);
+          const waveformColor = selectedPersona === 'randy' ? 'orange' : 'magenta';
+          drawWaveform(royCtx, royCanvas, dataArray, waveformColor, false);
+          animationId = requestAnimationFrame(animate);
+        }
+
+        audioEl.play().then(() => {
+          console.log('Audio playback started');
+          animate();
+        }).catch(err => {
+          console.error('Audio playback failed:', err);
+          addMessage('Error: Failed to play Roy\'s audio response', 'roy');
+          speakBtn.textContent = 'SPEAK';
+          speakBtn.classList.remove('blinking');
+          speakBtn.style.backgroundColor = 'red';
+          speakBtn.style.color = 'white';
+          speakBtn.style.border = '1px solid red';
+          cleanupRecording();
+        });
+
+        audioEl.addEventListener('ended', () => {
+          console.log('Audio playback ended');
+          cancelAnimationFrame(animationId);
+          royCtx.clearRect(0, 0, royCanvas.width, royCanvas.height);
+          speakBtn.textContent = 'SPEAK';
+          speakBtn.classList.remove('blinking');
+          speakBtn.style.backgroundColor = 'red';
+          speakBtn.style.color = 'white';
+          speakBtn.style.border = '1px solid red';
+          cleanupRecording();
+        });
+
+      } catch (error) {
+        console.error('Audio visualization failed:', error);
+        audioEl.play().catch(err => {
+          console.error('Fallback audio playback failed:', err);
+          addMessage('Error: Failed to play Roy\'s audio response', 'roy');
+          cleanupRecording();
+        });
       }
-
-      animate();
-      audioEl.play();
-
-      audioEl.addEventListener('ended', () => {
-        cancelAnimationFrame(animationId);
-        royCtx.clearRect(0, 0, royCanvas.width, royCanvas.height);
-        speakBtn.textContent = 'SPEAK';
-        speakBtn.classList.remove('blinking');
-        speakBtn.style.backgroundColor = 'red';
-        speakBtn.style.color = 'white';
-        speakBtn.style.border = '1px solid red';
-        cleanupRecording();
-      });
-
-    } catch (error) {
-      console.error('Audio visualization failed:', error);
-      audioEl.play();
-    }
+    });
   });
 
   audioEl.load();
@@ -407,6 +461,8 @@ speakBtn.addEventListener('click', async () => {
           if (audioBase64) {
             playRoyAudio(audioBase64);
           } else {
+            console.error('No audioBase64 received');
+            addMessage('Error: No audio response received from Roy', 'roy');
             cleanupRecording();
           }
         } catch (error) {
