@@ -6,6 +6,7 @@ const homeBtn = document.getElementById('homeBtn');
 const messagesDiv = document.getElementById('messages');
 const userCanvas = document.getElementById('userWaveform');
 const royCanvas = document.getElementById('royWaveform');
+const scopesContainer = document.getElementById('scopes-container');
 const userCtx = userCanvas.getContext('2d');
 const royCtx = royCanvas.getContext('2d');
 const dateTimeSpan = document.getElementById('date-time');
@@ -57,9 +58,9 @@ function setupAudioVisualization(stream, canvasCtx, canvas, color) {
 }
 
 function resetButtonColors() {
-  royBtn.style.backgroundColor = 'black'; // Default background
+  royBtn.style.backgroundColor = 'black';
   royBtn.style.borderColor = 'cyan';
-  royBtn.style.color = 'cyan'; // Default text color
+  royBtn.style.color = 'cyan';
   randyBtn.style.backgroundColor = 'black';
   randyBtn.style.borderColor = 'cyan';
   randyBtn.style.color = 'cyan';
@@ -68,6 +69,7 @@ function resetButtonColors() {
   speakBtn.style.color = 'cyan';
   speakBtn.textContent = 'SPEAK';
   speakBtn.classList.remove('blinking');
+  scopesContainer.style.borderColor = 'cyan'; // Reset scopes border
   isRecording = false;
   selectedPersona = null;
 }
@@ -98,10 +100,11 @@ royBtn.addEventListener('click', () => {
   selectedPersona = 'roy';
   royBtn.style.backgroundColor = 'green';
   royBtn.style.borderColor = 'green';
-  royBtn.style.color = 'white'; // Engaged text color
+  royBtn.style.color = 'white';
   speakBtn.style.backgroundColor = 'red';
   speakBtn.style.borderColor = 'red';
   speakBtn.style.color = 'white';
+  scopesContainer.style.borderColor = 'cyan'; // Roy mode: cyan border
 });
 
 randyBtn.addEventListener('click', () => {
@@ -113,6 +116,7 @@ randyBtn.addEventListener('click', () => {
   speakBtn.style.backgroundColor = 'red';
   speakBtn.style.borderColor = 'red';
   speakBtn.style.color = 'white';
+  scopesContainer.style.borderColor = 'red'; // Randy mode: red border
 });
 
 speakBtn.addEventListener('click', async () => {
@@ -159,7 +163,8 @@ speakBtn.addEventListener('click', async () => {
       const audioEl = new Audio('data:audio/mp3;base64,' + audio);
       audioEl.onplay = () => {
         const audioStream = audioContext.createMediaElementSource(audioEl);
-        setupAudioVisualization({ getTracks: () => [audioStream] }, royCtx, royCanvas, 'cyan');
+        const waveformColor = selectedPersona === 'randy' ? 'white' : 'magenta'; // Roy: magenta, Randy: white
+        setupAudioVisualization({ getTracks: () => [audioStream] }, royCtx, royCanvas, waveformColor);
       };
       audioEl.play();
     } catch (e) {
