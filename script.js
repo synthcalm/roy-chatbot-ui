@@ -5,6 +5,7 @@ document.addEventListener("DOMContentLoaded", () => {
   let countdownTime = 60 * 60; // 60 minutes
   let selectedBot = null;
   let isRecording = false;
+  let roySource = null;
 
   const royButton = document.getElementById("royBtn");
   const randyButton = document.getElementById("randyBtn");
@@ -52,6 +53,8 @@ document.addEventListener("DOMContentLoaded", () => {
     speakButton.style.backgroundColor = "#000";
     speakButton.style.borderColor = "#0ff";
     speakButton.textContent = "SPEAK";
+    speakButton.classList.remove("blinking");
+    isRecording = false;
   }
 
   function setRoyActive() {
@@ -93,76 +96,85 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   speakButton.addEventListener("click", async () => {
-    if (!selectedBot) return;
+    if (!selectedBot || isRecording) return;
 
-    await audioCtx.resume(); // Required for iOS
+    await audioCtx.resume(); // iOS fix
 
-    if (!isRecording) {
-      speakButton.textContent = "STOP";
-      speakButton.classList.add("blinking");
-      isRecording = true;
+    speakButton.textContent = "STOP";
+    speakButton.classList.add("blinking");
+    isRecording = true;
 
-      navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
-        mediaRecorder = new MediaRecorder(stream);
-        analyzer = audioCtx.createAnalyser();
-        source = audioCtx.createMediaStreamSource(stream);
-        source.connect(analyzer);
-        drawWaveform();
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      mediaRecorder = new MediaRecorder(stream);
+      analyzer = audioCtx.createAnalyser();
+      source = audioCtx.createMediaStreamSource(stream);
+      source.connect(analyzer);
+      drawWaveform("userWaveform", "yellow");
 
-        audioChunks = [];
-        mediaRecorder.ondataavailable = event => audioChunks.push(event.data);
-        mediaRecorder.onstop = async () => {
-          const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
-          const formData = new FormData();
-          formData.append("audio", audioBlob);
-          formData.append("bot", selectedBot);
+      audioChunks = [];
+      mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
 
-          logMessage("You", "Transcribing...");
-          try {
-            const res = await fetch("https://roy-chatbo-backend.onrender.com/api/chat", {
-              method: "POST",
-              body: formData
-            });
-            const json = await res.json();
-            const text = json.text || "undefined";
-            const audioUrl = json.audioUrl || null;
+      mediaRecorder.onstop = async () => {
+        const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
+        const formData = new FormData();
+        formData.append("audio", audioBlob);
+        formData.append("bot", selectedBot);
 
-            logMessage("You", text);
-            if (audioUrl) {
-              audioEl.src = audioUrl;
-              audioEl.onplay = () => {
-                try {
-                  const roySource = audioCtx.createMediaElementSource(audioEl);
-                  roySource.connect(audioCtx.destination);
-                  roySource.connect(analyzer);
-                  drawWaveformRoy();
-                } catch (err) {
-                  console.error("Roy playback error:", err);
-                }
-              };
-              audioEl.onended = () => {
-                if (selectedBot) {
-                  speakButton.textContent = "SPEAK";
-                  speakButton.classList.remove("blinking");
-                } else {
-                  resetButtons();
-                }
-              };
+        logMessage("You", "Transcribing...");
+        try {
+          const res = await fetch("https://roy-chatbo-backend.onrender.com/api/chat", {
+            method: "POST",
+            body: formData
+          });
+          const json = await res.json();
+          const text = json.text || "undefined";
+          const audioUrl = json.audioUrl || null;
+
+          logMessage("You", text);
+
+          if (audioUrl) {
+            audioEl.src = audioUrl;
+            audioEl.onended = () => {
+              resetButtons();
+              console.log("[AUDIO] Playback ended");
+            };
+
+            try {
+              if (roySource) roySource.disconnect();
+              roySource = audioCtx.createMediaElementSource(audioEl);
+              roySource.connect(audioCtx.destination);
+              roySource.connect(analyzer);
+              drawWaveform("royWaveform", "magenta");
               audioEl.play();
+              console.log("[AUDIO] Playback started");
+            } catch (err) {
+              console.error("Roy audio connection error:", err);
+              resetButtons();
             }
-          } catch (err) {
-            console.error("Transcription failed:", err);
+          } else {
             logMessage("Roy", "undefined");
+            resetButtons();
           }
-        };
+        } catch (err) {
+          console.error("Transcription fetch failed:", err);
+          logMessage("Roy", "undefined");
+          resetButtons();
+        }
+      };
 
-        mediaRecorder.start();
-        setTimeout(() => {
-          mediaRecorder.stop();
-          stream.getTracks().forEach(track => track.stop());
-          isRecording = false;
-        }, 5000); // Auto-stop after 5 sec
-      });
+      mediaRecorder.start();
+      console.log("[MIC] Recording started");
+
+      setTimeout(() => {
+        mediaRecorder.stop();
+        stream.getTracks().forEach(track => track.stop());
+        isRecording = false;
+        console.log("[MIC] Recording stopped");
+      }, 5000);
+    } catch (err) {
+      console.error("Microphone access denied:", err);
+      resetButtons();
     }
   });
 
@@ -173,8 +185,8 @@ document.addEventListener("DOMContentLoaded", () => {
     log.scrollTop = log.scrollHeight;
   }
 
-  function drawWaveform() {
-    const canvas = document.getElementById("userWaveform");
+  function drawWaveform(canvasId, color) {
+    const canvas = document.getElementById(canvasId);
     const ctx = canvas.getContext("2d");
     analyzer.fftSize = 256;
     bufferLength = analyzer.frequencyBinCount;
@@ -187,28 +199,7 @@ document.addEventListener("DOMContentLoaded", () => {
       ctx.beginPath();
       for (let i = 0; i < bufferLength; i++) {
         const barHeight = dataArray[i] / 2;
-        ctx.fillStyle = "yellow";
-        ctx.fillRect(i * 3, canvas.height - barHeight, 2, barHeight);
-      }
-    }
-    draw();
-  }
-
-  function drawWaveformRoy() {
-    const canvas = document.getElementById("royWaveform");
-    const ctx = canvas.getContext("2d");
-    analyzer.fftSize = 256;
-    bufferLength = analyzer.frequencyBinCount;
-    dataArray = new Uint8Array(bufferLength);
-
-    function draw() {
-      requestAnimationFrame(draw);
-      analyzer.getByteFrequencyData(dataArray);
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      ctx.beginPath();
-      for (let i = 0; i < bufferLength; i++) {
-        const barHeight = dataArray[i] / 2;
-        ctx.fillStyle = "magenta";
+        ctx.fillStyle = color;
         ctx.fillRect(i * 3, canvas.height - barHeight, 2, barHeight);
       }
     }
