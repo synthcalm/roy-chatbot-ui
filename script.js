@@ -15,7 +15,6 @@ document.addEventListener("DOMContentLoaded", () => {
   const log = document.getElementById("messages");
   const timerDisplay = document.getElementById("countdown-timer");
   const dateDisplay = document.getElementById("date-time");
-  const audioEl = new Audio();
   const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 
   if (!dateDisplay || !timerDisplay || !royButton || !randyButton || !speakButton || !log) {
@@ -55,9 +54,11 @@ document.addEventListener("DOMContentLoaded", () => {
     if (selectedBot) {
       speakButton.style.backgroundColor = "red";
       speakButton.style.borderColor = "red";
+      speakButton.style.color = "white";
     } else {
       speakButton.style.backgroundColor = "#000";
       speakButton.style.borderColor = "#0ff";
+      speakButton.style.color = "cyan";
     }
     speakButton.textContent = "SPEAK";
     speakButton.classList.remove("blinking");
@@ -72,6 +73,7 @@ document.addEventListener("DOMContentLoaded", () => {
     randyButton.style.borderColor = "#0ff";
     speakButton.style.backgroundColor = "red";
     speakButton.style.borderColor = "red";
+    speakButton.style.color = "white";
   }
 
   function setRandyActive() {
@@ -82,6 +84,7 @@ document.addEventListener("DOMContentLoaded", () => {
     royButton.style.borderColor = "#0ff";
     speakButton.style.backgroundColor = "red";
     speakButton.style.borderColor = "red";
+    speakButton.style.color = "white";
   }
 
   royButton.addEventListener("click", () => {
@@ -127,6 +130,7 @@ document.addEventListener("DOMContentLoaded", () => {
     speakButton.textContent = "STOP";
     speakButton.style.backgroundColor = "red";
     speakButton.style.borderColor = "red";
+    speakButton.style.color = "white";
     speakButton.classList.add("blinking");
     isRecording = true;
 
@@ -150,45 +154,72 @@ document.addEventListener("DOMContentLoaded", () => {
       mediaRecorder.onstop = async () => {
         console.log("[MIC] Recording stopped");
         isDrawingWaveform = false; // Stop user waveform
+
+        // Force button state change in case the event is delayed on iOS
+        speakButton.textContent = "SPEAK";
+        speakButton.classList.remove("blinking");
+        speakButton.style.backgroundColor = "red";
+        speakButton.style.borderColor = "red";
+        speakButton.style.color = "white";
+        isRecording = false;
+
         if (audioChunks.length === 0) {
           console.log("[MIC] No audio data recorded");
           cleanupRecording();
           return;
         }
 
-        const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
+        // Safari fix for MIME type
+        const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+        const mimeType = isSafari ? 'audio/mp4' : 'audio/wav';
+        const audioBlob = new Blob(audioChunks, { type: mimeType });
         const formData = new FormData();
         formData.append("audio", audioBlob);
-        formData.append("bot", selectedBot);
 
         logMessage("You", "Transcribing...");
         logMessage("Roy", `<span class='dots'>. . .</span>`);
 
         try {
-          const res = await fetch("https://roy-chatbo-backend.onrender.com/api/chat", {
+          // Step 1: Transcribe the user's audio
+          const transcribeRes = await fetch("https://roy-chatbo-backend.onrender.com/api/transcribe", {
             method: "POST",
             body: formData
           });
-          const json = await res.json();
-          const userText = json.text || "undefined";
-          const audioBase64 = json.audio;
-          console.log("[AUDIO] base64 length:", audioBase64?.length);
+          const transcribeJson = await transcribeRes.json();
+          const userText = transcribeJson.text || "undefined";
+          console.log("[TRANSCRIBE] User text:", userText);
 
-          // Update the user's transcription
-          const transcribingMessage = log.lastChild; // Get the "Transcribing..." message
+          // Update the "Transcribing..." message with the user's transcription
+          const transcribingMessage = log.lastChild.previousSibling; // Get the "Transcribing..." message
           if (transcribingMessage && transcribingMessage.textContent.includes("Transcribing...")) {
             transcribingMessage.innerHTML = `<span style="color:#fff">You:</span> <span style="color:#fff">${userText}</span>`;
           } else {
-            logMessage("You", userText); // Fallback if "Transcribing..." isn't found
+            logMessage("You", userText); // Fallback
           }
+
+          // Step 2: Get Roy's response
+          const chatRes = await fetch("https://roy-chatbo-backend.onrender.com/api/chat", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              message: userText,
+              persona: selectedBot,
+              mode: "both"
+            })
+          });
+          const chatJson = await chatRes.json();
+          const royText = chatJson.text || "undefined";
+          const audioBase64 = chatJson.audio;
+          console.log("[AUDIO] base64 length:", audioBase64?.length);
 
           const loadingDots = document.querySelector('.dots');
           if (loadingDots) loadingDots.parentElement.remove();
-          logMessage("Roy", userText); // Display Roy's response
+          logMessage("Roy", royText);
 
           if (audioBase64) {
             const tempAudio = new Audio();
             tempAudio.src = `data:audio/mp3;base64,${audioBase64}`;
+            tempAudio.setAttribute('playsinline', ''); // iOS fix
             tempAudio.onended = () => {
               console.log("[AUDIO] Playback ended");
               isDrawingWaveform = false; // Stop Roy's waveform
@@ -209,8 +240,8 @@ document.addEventListener("DOMContentLoaded", () => {
             cleanupRecording();
           }
         } catch (err) {
-          console.error("Transcription fetch failed:", err);
-          const transcribingMessage = log.lastChild;
+          console.error("Transcription or chat failed:", err);
+          const transcribingMessage = log.lastChild.previousSibling;
           if (transcribingMessage && transcribingMessage.textContent.includes("Transcribing...")) {
             transcribingMessage.innerHTML = `<span style="color:#fff">You:</span> <span style="color:#fff">Transcription failed</span>`;
           }
