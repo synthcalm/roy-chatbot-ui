@@ -2,27 +2,30 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>SynthCalm</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Roy Chatbot UI</title>
   <link rel="stylesheet" href="style.css" />
+  <link rel="icon" href="data:;base64,iVBORw0KGgo=" /> <!-- Placeholder favicon to suppress 404 error -->
 </head>
 <body>
-  <div class="container">
-    <div class="scope-box">
-      <div id="dateDisplay"></div>
-      <div id="countdown">60:00</div>
-      <canvas id="waveform"></canvas>
+  <div id="main">
+    <div id="info-bar">
+      <span id="date-time"></span>
+      <span id="countdown-timer"></span>
     </div>
-
-    <div class="button-row">
+    <div id="scopes-container">
+      <canvas id="userWaveform" width="600" height="80"></canvas>
+      <canvas id="royWaveform" width="600" height="80"></canvas>
+    </div>
+    <div id="controls">
       <button id="royBtn">Roy</button>
       <button id="randyBtn">Randy</button>
       <button id="speakBtn">Speak</button>
+      <button id="saveBtn">Save Log</button>
+      <button id="homeBtn">SynthCalm Home</button>
     </div>
-
-    <div id="output" class="output-box">You: <br>Roy: </div>
+    <div id="messages"></div>
   </div>
-
   <script src="script.js"></script>
 </body>
 </html>
