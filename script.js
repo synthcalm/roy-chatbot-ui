@@ -310,31 +310,33 @@ speakBtn.addEventListener('click', async () => {
         } catch (transcribeError) {
           console.warn("[TRANSCRIBE] /api/transcribe failed, falling back to /api/chat:", transcribeError);
           // Fallback to /api/chat
-          const chatRes = await fetch('https://roy-chatbo-backend.onrender.com/api/chat', {
-            method: 'POST',
-            body: formData,
-          });
-          if (!chatRes.ok) throw new Error(`Chat failed with status: ${chatRes.status}`);
-          const chatJson = await chatRes.json();
-          userText = chatJson.text || "undefined";
-          console.log("[CHAT] User text (fallback):", userText);
+          try {
+            const chatRes = await fetch('https://roy-chatbo-backend.onrender.com/api/chat', {
+              method: 'POST',
+              body: formData,
+            });
+            if (!chatRes.ok) throw new Error(`Chat failed with status: ${chatRes.status}`);
+            const chatJson = await chatRes.json();
+            userText = chatJson.text || "undefined";
+            console.log("[CHAT] User text (fallback):", userText);
+          } catch (chatError) {
+            console.error("[CHAT] Fallback failed:", chatError);
+            throw chatError;
+          }
         }
 
         // Step 2: Update the UI with the user's transcription
         transcribingMessage.textContent = `You: ${userText}`;
 
-        // Step 3: Call /api/chat again with the same FormData to get Roy's response
+        // Step 3: Call /api/chat with a JSON payload to get Roy's response
         if (userText !== "undefined") {
-          const chatFormData = new FormData();
-          chatFormData.append('bot', selectedPersona);
-          // Since /api/chat worked with FormData, we'll try sending the same payload
-          chatFormData.append('audio', audioBlob); // Reuse the audio blob
-          // Add the transcribed text as a field, in case the server can use it
-          chatFormData.append('text', userText);
-
           const chatRes = await fetch('https://roy-chatbo-backend.onrender.com/api/chat', {
             method: 'POST',
-            body: chatFormData,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              message: userText,
+              persona: selectedPersona,
+            }),
           });
           if (!chatRes.ok) throw new Error(`Chat failed with status: ${chatRes.status}`);
           const chatJson = await chatRes.json();
@@ -352,10 +354,7 @@ speakBtn.addEventListener('click', async () => {
         }
       } catch (error) {
         console.error('Transcription or chat failed:', error);
-        // Only update the transcription message if it failed earlier
-        if (!userText) {
-          transcribingMessage.textContent = 'You: Transcription failed';
-        }
+        transcribingMessage.textContent = userText ? `You: ${userText}` : 'You: Transcription failed';
         thinkingMessage.remove();
         addMessage(`${selectedPersona === 'randy' ? 'Randy' : 'Roy'}: undefined`, selectedPersona);
         cleanupRecording();
