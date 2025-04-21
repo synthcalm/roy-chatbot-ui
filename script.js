@@ -292,9 +292,12 @@ speakBtn.addEventListener('click', async () => {
       const transcribingMessage = addMessage('You: Transcribing...', 'user');
       const thinkingMessage = addMessage(`${selectedPersona === 'randy' ? 'Randy' : 'Roy'}`, selectedPersona, true);
 
+      let userText = null;
+      let royText = null;
+      let audioBase64 = null;
+
       try {
-        // Try /api/transcribe first
-        let userText = null;
+        // Step 1: Try /api/transcribe first
         try {
           const transcribeRes = await fetch('https://roy-chatbo-backend.onrender.com/api/transcribe', {
             method: 'POST',
@@ -317,21 +320,21 @@ speakBtn.addEventListener('click', async () => {
           console.log("[CHAT] User text (fallback):", userText);
         }
 
-        // Update the transcription message
+        // Step 2: Update the UI with the user's transcription
         transcribingMessage.textContent = `You: ${userText}`;
 
-        // If /api/transcribe worked, now call /api/chat for Roy's response
-        let royText = userText;
-        let audioBase64 = null;
+        // Step 3: Call /api/chat again with the same FormData to get Roy's response
         if (userText !== "undefined") {
+          const chatFormData = new FormData();
+          chatFormData.append('bot', selectedPersona);
+          // Since /api/chat worked with FormData, we'll try sending the same payload
+          chatFormData.append('audio', audioBlob); // Reuse the audio blob
+          // Add the transcribed text as a field, in case the server can use it
+          chatFormData.append('text', userText);
+
           const chatRes = await fetch('https://roy-chatbo-backend.onrender.com/api/chat', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              message: userText,
-              persona: selectedPersona,
-              mode: 'both',
-            }),
+            body: chatFormData,
           });
           if (!chatRes.ok) throw new Error(`Chat failed with status: ${chatRes.status}`);
           const chatJson = await chatRes.json();
@@ -341,17 +344,18 @@ speakBtn.addEventListener('click', async () => {
         }
 
         thinkingMessage.remove();
-        addMessage(`${selectedPersona === 'randy' ? 'Randy' : 'Roy'}: ${royText}`, selectedPersona);
+        addMessage(`${selectedPersona === 'randy' ? 'Randy' : 'Roy'}: ${royText || "undefined"}`, selectedPersona);
         if (audioBase64) {
           playRoyAudio(audioBase64);
         } else {
-          thinkingMessage.remove();
-          addMessage(`${selectedPersona === 'randy' ? 'Randy' : 'Roy'}: undefined`, selectedPersona);
           cleanupRecording();
         }
       } catch (error) {
         console.error('Transcription or chat failed:', error);
-        transcribingMessage.textContent = 'You: Transcription failed';
+        // Only update the transcription message if it failed earlier
+        if (!userText) {
+          transcribingMessage.textContent = 'You: Transcription failed';
+        }
         thinkingMessage.remove();
         addMessage(`${selectedPersona === 'randy' ? 'Randy' : 'Roy'}: undefined`, selectedPersona);
         cleanupRecording();
