@@ -94,44 +94,8 @@ function setupUserVisualization(stream) {
   animate();
 }
 
-function resumeAudioContext(context) {
-  if (context.state === 'suspended') {
-    return context.resume().then(() => {
-      console.log('AudioContext resumed successfully');
-    }).catch(err => {
-      console.error('Failed to resume AudioContext:', err);
-    });
-  }
-  return Promise.resolve();
-}
-
 function playRoyAudio(base64Audio) {
-  if (!base64Audio) {
-    console.error('No base64 audio data received');
-    addMessage('Error: No audio response received from Roy/Randy', 'roy');
-    speakBtn.textContent = 'SPEAK';
-    speakBtn.classList.remove('blinking');
-    speakBtn.style.backgroundColor = 'red';
-    speakBtn.style.color = 'white';
-    speakBtn.style.border = '1px solid red';
-    cleanupRecording();
-    return;
-  }
-
-  console.log('Base64 audio length:', base64Audio.length);
-  console.log('Base64 audio snippet:', base64Audio.substring(0, 50));
-
-  // Convert base64 to binary
-  const binaryString = atob(base64Audio);
-  const bytes = new Uint8Array(binaryString.length);
-  for (let i = 0; i < binaryString.length; i++) {
-    bytes[i] = binaryString.charCodeAt(i);
-  }
-
-  // Create a Blob and Blob URL for playback
-  const audioBlob = new Blob([bytes], { type: 'audio/mp3' });
-  const audioUrl = URL.createObjectURL(audioBlob);
-  const audioEl = new Audio(audioUrl);
+  const audioEl = new Audio(`data:audio/mp3;base64,${base64Audio}`);
   audioEl.setAttribute('playsinline', '');
 
   if (royAudioContext && royAudioContext.state !== 'closed') {
@@ -145,85 +109,43 @@ function playRoyAudio(base64Audio) {
 
   royAudioContext = new (window.AudioContext || window.webkitAudioContext)();
 
-  audioEl.addEventListener('error', (e) => {
-    console.error('Audio element error:', e);
-    console.error('Audio element error code:', audioEl.error?.code);
-    console.error('Audio element error message:', audioEl.error?.message);
-    addMessage('Error: Failed to play Roy/Randy\'s audio response.', 'roy', false);
-    speakBtn.textContent = 'SPEAK';
-    speakBtn.classList.remove('blinking');
-    speakBtn.style.backgroundColor = 'red';
-    speakBtn.style.color = 'white';
-    speakBtn.style.border = '1px solid red';
-    cleanupRecording();
-    URL.revokeObjectURL(audioUrl);
-  });
-
   audioEl.addEventListener('canplaythrough', () => {
-    console.log('Audio can play through');
-    console.log('Audio readyState:', audioEl.readyState);
+    try {
+      royAudioSource = royAudioContext.createMediaElementSource(audioEl);
+      const analyser = royAudioContext.createAnalyser();
+      analyser.fftSize = 2048;
+      const dataArray = new Uint8Array(analyser.frequencyBinCount);
 
-    resumeAudioContext(royAudioContext).then(() => {
-      try {
-        royAudioSource = royAudioContext.createMediaElementSource(audioEl);
-        const analyser = royAudioContext.createAnalyser();
-        analyser.fftSize = 2048;
-        const dataArray = new Uint8Array(analyser.frequencyBinCount);
+      royAudioSource.connect(analyser);
+      analyser.connect(royAudioContext.destination);
 
-        royAudioSource.connect(analyser);
-        analyser.connect(royAudioContext.destination);
+      let animationId;
 
-        let animationId;
-
-        function animate() {
-          analyser.getByteTimeDomainData(dataArray);
-          const waveformColor = selectedPersona === 'randy' ? 'orange' : 'magenta';
-          drawWaveform(royCtx, royCanvas, dataArray, waveformColor, false);
-          animationId = requestAnimationFrame(animate);
-        }
-
-        audioEl.play().then(() => {
-          console.log('Audio playback started');
-          animate();
-        }).catch(err => {
-          console.error('Audio playback failed:', err);
-          addMessage('Error: Failed to play Roy/Randy\'s audio response.', 'roy', false);
-          speakBtn.textContent = 'SPEAK';
-          speakBtn.classList.remove('blinking');
-          speakBtn.style.backgroundColor = 'red';
-          speakBtn.style.color = 'white';
-          speakBtn.style.border = '1px solid red';
-          cleanupRecording();
-          URL.revokeObjectURL(audioUrl);
-        });
-
-        audioEl.addEventListener('ended', () => {
-          console.log('Audio playback ended');
-          cancelAnimationFrame(animationId);
-          royCtx.clearRect(0, 0, royCanvas.width, royCanvas.height);
-          speakBtn.textContent = 'SPEAK';
-          speakBtn.classList.remove('blinking');
-          speakBtn.style.backgroundColor = 'red';
-          speakBtn.style.color = 'white';
-          speakBtn.style.border = '1px solid red';
-          cleanupRecording();
-          URL.revokeObjectURL(audioUrl);
-        });
-
-      } catch (error) {
-        console.error('Audio visualization failed:', error);
-        audioEl.play().catch(err => {
-          console.error('Fallback audio playback failed:', err);
-          addMessage('Error: Failed to play Roy/Randy\'s audio response.', 'roy', false);
-          cleanupRecording();
-          URL.revokeObjectURL(audioUrl);
-        });
+      function animate() {
+        analyser.getByteTimeDomainData(dataArray);
+        const waveformColor = selectedPersona === 'randy' ? 'orange' : 'magenta';
+        drawWaveform(royCtx, royCanvas, dataArray, waveformColor, false);
+        animationId = requestAnimationFrame(animate);
       }
-    });
-  });
 
-  audioEl.addEventListener('loadeddata', () => {
-    console.log('Audio data loaded, duration:', audioEl.duration);
+      animate();
+      audioEl.play();
+
+      audioEl.addEventListener('ended', () => {
+        cancelAnimationFrame(animationId);
+        royCtx.clearRect(0, 0, royCanvas.width, royCanvas.height);
+        speakBtn.textContent = 'SPEAK';
+        speakBtn.classList.remove('blinking');
+        speakBtn.style.backgroundColor = 'red';
+        speakBtn.style.color = 'white';
+        speakBtn.style.border = '1px solid red';
+        cleanupRecording();
+      });
+
+    } catch (error) {
+      console.error('Audio visualization failed:', error);
+      audioEl.play();
+    }
   });
 
   audioEl.load();
@@ -273,58 +195,6 @@ function startCountdownTimer() {
       countdownTimerSpan.textContent = '0:00';
     }
   }, 1000);
-}
-
-async function convertToWav(blob) {
-  try {
-    const arrayBuffer = await blob.arrayBuffer();
-    const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-    const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
-
-    const numberOfChannels = audioBuffer.numberOfChannels;
-    const sampleRate = audioBuffer.sampleRate;
-    const length = audioBuffer.length * numberOfChannels * 2; // 16-bit PCM
-    const buffer = new ArrayBuffer(44 + length);
-    const view = new DataView(buffer);
-
-    const writeString = (view, offset, string) => {
-      for (let i = 0; i < string.length; i++) {
-        view.setUint8(offset + i, string.charCodeAt(i));
-      }
-    };
-
-    writeString(view, 0, 'RIFF');
-    view.setUint32(4, 36 + length, true);
-    writeString(view, 8, 'WAVE');
-    writeString(view, 12, 'fmt ');
-    view.setUint32(16, 16, true);
-    view.setUint16(20, 1, true);
-    view.setUint16(22, numberOfChannels, true);
-    view.setUint32(24, sampleRate, true);
-    view.setUint32(28, sampleRate * numberOfChannels * 2, true);
-    view.setUint16(32, numberOfChannels * 2, true);
-    view.setUint16(34, 16, true);
-    writeString(view, 36, 'data');
-    view.setUint32(40, length, true);
-
-    const channelData = [];
-    for (let i = 0; i < numberOfChannels; i++) {
-      channelData.push(audioBuffer.getChannelData(i));
-    }
-    let offset = 44;
-    for (let i = 0; i < audioBuffer.length; i++) {
-      for (let channel = 0; channel < numberOfChannels; channel++) {
-        const sample = Math.max(-1, Math.min(1, channelData[channel][i]));
-        view.setInt16(offset, sample < 0 ? sample * 0x8000 : sample * 0x7FFF, true);
-        offset += 2;
-      }
-    }
-
-    return new Blob([buffer], { type: 'audio/wav' });
-  } catch (error) {
-    console.error('WAV conversion failed:', error);
-    throw error;
-  }
 }
 
 royBtn.addEventListener('click', () => {
@@ -412,87 +282,86 @@ speakBtn.addEventListener('click', async () => {
         return;
       }
 
+      const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+      const mimeType = isSafari ? 'audio/mp4' : 'audio/wav';
+      const audioBlob = new Blob(audioChunks, { type: mimeType });
+      const formData = new FormData();
+      formData.append('audio', audioBlob);
+      formData.append('bot', selectedPersona);
+
+      const transcribingMessage = addMessage('You: Transcribing...', 'user');
+      const thinkingMessage = addMessage(`${selectedPersona === 'randy' ? 'Randy' : 'Roy'}`, selectedPersona, true);
+
+      let userText = null;
+      let royText = null;
+      let audioBase64 = null;
+
       try {
-        let audioBlob = new Blob(audioChunks, { type: 'audio/mp4' });
-        audioBlob = await convertToWav(audioBlob);
-
-        const formData = new FormData();
-        formData.append('audio', audioBlob, 'audio.wav');
-        formData.append('bot', selectedPersona);
-
-        const transcribingMessage = addMessage('You: Transcribing...', 'user');
-        const thinkingMessage = addMessage(`${selectedPersona === 'randy' ? 'Randy' : 'Roy'}`, selectedPersona, true);
-
-        let userText = null;
-        let royText = null;
-        let audioBase64 = null;
-
+        // Step 1: Try /api/transcribe first
         try {
+          const transcribeRes = await fetch('https://roy-chatbo-backend.onrender.com/api/transcribe', {
+            method: 'POST',
+            body: formData,
+          });
+          if (!transcribeRes.ok) throw new Error(`Transcription failed with status: ${transcribeRes.status}`);
+          const transcribeJson = await transcribeRes.json();
+          userText = transcribeJson.text || "undefined";
+          console.log("[TRANSCRIBE] User text:", userText);
+        } catch (transcribeError) {
+          console.warn("[TRANSCRIBE] /api/transcribe failed, falling back to /api/chat:", transcribeError);
+          // Fallback to /api/chat
           try {
-            const transcribeRes = await fetch('https://roy-chatbo-backend.onrender.com/api/transcribe', {
+            const chatRes = await fetch('https://roy-chatbo-backend.onrender.com/api/chat', {
               method: 'POST',
               body: formData,
             });
-            if (!transcribeRes.ok) throw new Error(`Transcription failed with status: ${transcribeRes.status}`);
-            const transcribeJson = await transcribeRes.json();
-            userText = transcribeJson.text || "undefined";
-            console.log("[TRANSCRIBE] User text:", userText);
-          } catch (transcribeError) {
-            console.warn("[TRANSCRIBE] /api/transcribe failed, falling back to /api/chat:", transcribeError);
-            try {
-              const chatRes = await fetch('https://roy-chatbo-backend.onrender.com/api/chat', {
-                method: 'POST',
-                body: formData,
-              });
-              if (!chatRes.ok) throw new Error(`Chat failed with status: ${chatRes.status}`);
-              const chatJson = await chatRes.json();
-              userText = chatJson.text || "undefined";
-              royText = chatJson.text || "undefined";
-              audioBase64 = chatJson.audio;
-              console.log("[CHAT] User text (fallback):", userText);
-            } catch (chatError) {
-              console.error("[CHAT] Fallback failed:", chatError);
-              throw chatError;
-            }
-          }
-
-          transcribingMessage.textContent = `You: ${userText}`;
-
-          if (userText !== "undefined" && !royText) {
-            const chatRes = await fetch('https://roy-chatbo-backend.onrender.com/api/chat', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                message: userText,
-                persona: selectedPersona,
-              }),
-            });
             if (!chatRes.ok) throw new Error(`Chat failed with status: ${chatRes.status}`);
             const chatJson = await chatRes.json();
-            royText = chatJson.text || "undefined";
+            userText = chatJson.text || "undefined";
+            // Since /api/chat also returns Roy's response, extract only the user's transcription
+            // For now, we'll assume the transcription is correct and Roy's response is separate
+            console.log("[CHAT] User text (fallback):", userText);
+            // Store Roy's response separately
+            royText = chatJson.text || "undefined"; // Roy's response is the same as the transcribed text initially
             audioBase64 = chatJson.audio;
-            console.log("[AUDIO] base64 length:", audioBase64?.length);
+          } catch (chatError) {
+            console.error("[CHAT] Fallback failed:", chatError);
+            throw chatError;
           }
+        }
 
-          thinkingMessage.remove();
-          addMessage(`${selectedPersona === 'randy' ? 'Randy' : 'Roy'}: ${royText || "undefined"}`, selectedPersona);
-          if (audioBase64) {
-            playRoyAudio(audioBase64);
-          } else {
-            console.error('No audioBase64 received');
-            addMessage('Error: No audio response received from Roy/Randy', 'roy');
-            cleanupRecording();
-          }
-        } catch (error) {
-          console.error('Transcription or chat failed:', error);
-          transcribingMessage.textContent = userText ? `You: ${userText}` : 'You: Transcription failed';
-          thinkingMessage.remove();
-          addMessage(`${selectedPersona === 'randy' ? 'Randy' : 'Roy'}: undefined`, selectedPersona);
+        // Step 2: Update the UI with the user's transcription
+        transcribingMessage.textContent = `You: ${userText}`;
+
+        // Step 3: Call /api/chat with a JSON payload to get Roy's response (if not already fetched)
+        if (userText !== "undefined" && !royText) {
+          const chatRes = await fetch('https://roy-chatbo-backend.onrender.com/api/chat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              message: userText,
+              persona: selectedPersona,
+            }),
+          });
+          if (!chatRes.ok) throw new Error(`Chat failed with status: ${chatRes.status}`);
+          const chatJson = await chatRes.json();
+          royText = chatJson.text || "undefined";
+          audioBase64 = chatJson.audio;
+          console.log("[AUDIO] base64 length:", audioBase64?.length);
+        }
+
+        thinkingMessage.remove();
+        addMessage(`${selectedPersona === 'randy' ? 'Randy' : 'Roy'}: ${royText || "undefined"}`, selectedPersona);
+        if (audioBase64) {
+          playRoyAudio(audioBase64);
+        } else {
           cleanupRecording();
         }
       } catch (error) {
-        console.error('Audio conversion failed:', error);
-        addMessage('You: Audio processing failed', 'user');
+        console.error('Transcription or chat failed:', error);
+        transcribingMessage.textContent = userText ? `You: ${userText}` : 'You: Transcription failed';
+        thinkingMessage.remove();
+        addMessage(`${selectedPersona === 'randy' ? 'Randy' : 'Roy'}: undefined`, selectedPersona);
         cleanupRecording();
       }
     };
