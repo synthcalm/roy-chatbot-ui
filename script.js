@@ -121,19 +121,8 @@ function playRoyAudio(base64Audio) {
   console.log('Base64 audio length:', base64Audio.length);
   console.log('Base64 audio snippet:', base64Audio.substring(0, 50)); // Log first 50 chars for debugging
 
-  // Convert base64 to binary
-  const binaryString = atob(base64Audio);
-  const bytes = new Uint8Array(binaryString.length);
-  for (let i = 0; i < binaryString.length; i++) {
-    bytes[i] = binaryString.charCodeAt(i);
-  }
-
-  // Create a Blob from the binary data
-  const audioBlob = new Blob([bytes], { type: 'audio/mp3' });
-  const audioUrl = URL.createObjectURL(audioBlob);
-  console.log('Blob URL created:', audioUrl);
-
-  const audioEl = new Audio(audioUrl);
+  // Revert to the original base64 data URL approach
+  const audioEl = new Audio(`data:audio/mp3;base64,${base64Audio}`);
   audioEl.setAttribute('playsinline', '');
 
   if (royAudioContext && royAudioContext.state !== 'closed') {
@@ -151,13 +140,23 @@ function playRoyAudio(base64Audio) {
     console.error('Audio element error:', e);
     console.error('Audio element error code:', audioEl.error?.code);
     console.error('Audio element error message:', audioEl.error?.message);
+
+    // Convert base64 to Blob for download as a fallback
+    const binaryString = atob(base64Audio);
+    const bytes = new Uint8Array(binaryString.length);
+    for (let i = 0; i < binaryString.length; i++) {
+      bytes[i] = binaryString.charCodeAt(i);
+    }
+    const audioBlob = new Blob([bytes], { type: 'audio/mp3' });
+    const audioUrl = URL.createObjectURL(audioBlob);
+
     addMessage('Error: Failed to play Roy/Randy\'s audio response. [Tap here to download audio](#)', 'roy', false);
     const errorMsg = messagesDiv.lastChild;
     errorMsg.style.cursor = 'pointer';
     errorMsg.addEventListener('click', () => {
       const a = document.createElement('a');
       a.href = audioUrl;
-      a.download = `${selectedPersona}-response.mp3`;
+      a.download = `${selectedPersona}-response.mp3`; // Reverted to MP3
       a.click();
     });
     speakBtn.textContent = 'SPEAK';
@@ -194,13 +193,23 @@ function playRoyAudio(base64Audio) {
           animate();
         }).catch(err => {
           console.error('Audio playback failed:', err);
+
+          // Convert base64 to Blob for download as a fallback
+          const binaryString = atob(base64Audio);
+          const bytes = new Uint8Array(binaryString.length);
+          for (let i = 0; i < binaryString.length; i++) {
+            bytes[i] = binaryString.charCodeAt(i);
+          }
+          const audioBlob = new Blob([bytes], { type: 'audio/mp3' });
+          const audioUrl = URL.createObjectURL(audioBlob);
+
           addMessage('Error: Failed to play Roy/Randy\'s audio response. [Tap here to download audio](#)', 'roy', false);
           const errorMsg = messagesDiv.lastChild;
           errorMsg.style.cursor = 'pointer';
           errorMsg.addEventListener('click', () => {
             const a = document.createElement('a');
             a.href = audioUrl;
-            a.download = `${selectedPersona}-response.mp3`;
+            a.download = `${selectedPersona}-response.mp3`; // Reverted to MP3
             a.click();
           });
           speakBtn.textContent = 'SPEAK';
@@ -221,20 +230,29 @@ function playRoyAudio(base64Audio) {
           speakBtn.style.color = 'white';
           speakBtn.style.border = '1px solid red';
           cleanupRecording();
-          URL.revokeObjectURL(audioUrl); // Clean up Blob URL
         });
 
       } catch (error) {
         console.error('Audio visualization failed:', error);
         audioEl.play().catch(err => {
           console.error('Fallback audio playback failed:', err);
+
+          // Convert base64 to Blob for download as a fallback
+          const binaryString = atob(base64Audio);
+          const bytes = new Uint8Array(binaryString.length);
+          for (let i = 0; i < binaryString.length; i++) {
+            bytes[i] = binaryString.charCodeAt(i);
+          }
+          const audioBlob = new Blob([bytes], { type: 'audio/mp3' });
+          const audioUrl = URL.createObjectURL(audioBlob);
+
           addMessage('Error: Failed to play Roy/Randy\'s audio response. [Tap here to download audio](#)', 'roy', false);
           const errorMsg = messagesDiv.lastChild;
           errorMsg.style.cursor = 'pointer';
           errorMsg.addEventListener('click', () => {
             const a = document.createElement('a');
             a.href = audioUrl;
-            a.download = `${selectedPersona}-response.mp3`;
+            a.download = `${selectedPersona}-response.mp3`; // Reverted to MP3
             a.click();
           });
           cleanupRecording();
