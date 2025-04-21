@@ -18,7 +18,18 @@ const countdownTimerSpan = document.getElementById('countdown-timer');
 // Global variables
 let mediaRecorder, audioChunks = [], isRecording = false;
 let selectedPersona = null;
-let userAudioContext, royAudioContext; // Separate audio contexts
+let userAudioContext = null;
+let royAudioContext = null;
+let royAudioSource = null;
+
+// Apply button borders immediately on load
+function initButtonStyles() {
+  // Add cyan borders to buttons
+  royBtn.style.border = '1px solid cyan';
+  randyBtn.style.border = '1px solid cyan';
+  saveBtn.style.border = '1px solid cyan';
+  speakBtn.style.border = '1px solid red'; // Red border for speak button
+}
 
 // Function to create and display messages in the chat
 function addMessage(text, sender, isThinking = false) {
@@ -71,8 +82,9 @@ function drawWaveform(canvasCtx, canvas, data, color, isUserWaveform) {
 
 // Setup user's audio visualization (microphone input)
 function setupUserVisualization(stream) {
-  if (userAudioContext) {
-    userAudioContext.close(); // Close previous context if exists
+  // Close previous context if it exists
+  if (userAudioContext && userAudioContext.state !== 'closed') {
+    userAudioContext.close();
   }
   
   userAudioContext = new (window.AudioContext || window.webkitAudioContext)();
@@ -95,48 +107,101 @@ function setupUserVisualization(stream) {
   animate();
 }
 
-// Setup Roy's audio visualization (playback)
-function setupRoyVisualization(audioElement) {
-  if (royAudioContext) {
-    royAudioContext.close(); // Close previous context
-  }
+// Play audio with visualization (completely rewritten to fix audio context issue)
+function playRoyAudio(base64Audio) {
+  // Create audio element
+  const audioEl = new Audio(`data:audio/mp3;base64,${base64Audio}`);
+  audioEl.setAttribute('playsinline', '');
   
+  // Clean up previous audio context if it exists
+  if (royAudioContext && royAudioContext.state !== 'closed') {
+    try {
+      if (royAudioSource) {
+        royAudioSource.disconnect();
+      }
+      royAudioContext.close();
+    } catch (e) {
+      console.log('Error closing previous audio context:', e);
+    }
+  }
+
+  // Create a fresh audio context
   royAudioContext = new (window.AudioContext || window.webkitAudioContext)();
-  const source = royAudioContext.createMediaElementSource(audioElement);
-  const analyser = royAudioContext.createAnalyser();
-  analyser.fftSize = 2048;
-  const dataArray = new Uint8Array(analyser.frequencyBinCount);
   
-  source.connect(analyser);
-  analyser.connect(royAudioContext.destination); // Connect to destination to hear audio
-  
-  let animationId;
-  
-  function animate() {
-    analyser.getByteTimeDomainData(dataArray);
-    const waveformColor = selectedPersona === 'randy' ? 'orange' : 'magenta';
-    drawWaveform(royCtx, royCanvas, dataArray, waveformColor, false);
-    animationId = requestAnimationFrame(animate);
-  }
-  
-  audioElement.addEventListener('ended', () => {
-    cancelAnimationFrame(animationId); // Stop animation when audio ends
-    royCtx.clearRect(0, 0, royCanvas.width, royCanvas.height); // Clear waveform
+  // Set up audio visualization only after audio is loaded
+  audioEl.addEventListener('canplaythrough', () => {
+    try {
+      // Create new source from the audio element
+      royAudioSource = royAudioContext.createMediaElementSource(audioEl);
+      const analyser = royAudioContext.createAnalyser();
+      analyser.fftSize = 2048;
+      const dataArray = new Uint8Array(analyser.frequencyBinCount);
+      
+      // Connect nodes within the same context
+      royAudioSource.connect(analyser);
+      analyser.connect(royAudioContext.destination);
+      
+      let animationId;
+      
+      function animate() {
+        analyser.getByteTimeDomainData(dataArray);
+        const waveformColor = selectedPersona === 'randy' ? 'orange' : 'magenta';
+        drawWaveform(royCtx, royCanvas, dataArray, waveformColor, false);
+        animationId = requestAnimationFrame(animate);
+      }
+      
+      // Start animation and play audio
+      animate();
+      
+      audioEl.play().catch(err => {
+        console.error('Audio playback error:', err);
+        
+        // Fallback for browsers that require user interaction
+        const playButton = document.createElement('button');
+        playButton.textContent = 'Play Response';
+        playButton.style.marginTop = '10px';
+        playButton.style.border = '1px solid cyan';
+        messagesDiv.appendChild(playButton);
+        
+        playButton.addEventListener('click', () => {
+          audioEl.play();
+          playButton.remove();
+        });
+      });
+      
+      // Clean up when audio ends
+      audioEl.addEventListener('ended', () => {
+        cancelAnimationFrame(animationId);
+        royCtx.clearRect(0, 0, royCanvas.width, royCanvas.height);
+      });
+      
+    } catch (error) {
+      console.error('Error setting up audio visualization:', error);
+      // Fallback - just play the audio without visualization
+      audioEl.play().catch(e => console.error('Fallback play error:', e));
+    }
   });
   
-  animate();
+  // Load the audio
+  audioEl.load();
 }
 
 // Reset all button states and UI elements
 function resetButtonColors() {
   royBtn.style.backgroundColor = 'black';
   royBtn.style.color = 'cyan';
+  royBtn.style.border = '1px solid cyan';
+  
   randyBtn.style.backgroundColor = 'black';
   randyBtn.style.color = 'cyan';
+  randyBtn.style.border = '1px solid cyan';
+  
   speakBtn.style.backgroundColor = 'black';
   speakBtn.style.color = 'cyan';
+  speakBtn.style.border = '1px solid red';
   speakBtn.textContent = 'SPEAK';
   speakBtn.classList.remove('blinking');
+  
   scopesContainer.style.borderColor = 'cyan';
   isRecording = false;
   selectedPersona = null;
@@ -181,8 +246,12 @@ royBtn.addEventListener('click', () => {
   selectedPersona = 'roy';
   royBtn.style.backgroundColor = 'green';
   royBtn.style.color = 'white';
+  royBtn.style.border = '1px solid green';
+  
   speakBtn.style.backgroundColor = 'red';
   speakBtn.style.color = 'white';
+  speakBtn.style.border = '1px solid red';
+  
   scopesContainer.style.borderColor = 'cyan';
   addMessage('Roy: Greetings, my friend—like a weary traveler, you've arrived. What weighs on your soul today?', 'roy');
 });
@@ -193,8 +262,12 @@ randyBtn.addEventListener('click', () => {
   selectedPersona = 'randy';
   randyBtn.style.backgroundColor = '#FFC107';
   randyBtn.style.color = 'white';
+  randyBtn.style.border = '1px solid #FFC107';
+  
   speakBtn.style.backgroundColor = 'red';
   speakBtn.style.color = 'white';
+  speakBtn.style.border = '1px solid red';
+  
   scopesContainer.style.borderColor = 'red';
   addMessage('Randy: Unleash the chaos—what's burning you up?', 'randy');
 });
@@ -277,30 +350,9 @@ speakBtn.addEventListener('click', async () => {
         // Add response message
         addMessage(`${selectedPersona === 'randy' ? 'Randy' : 'Roy'}: ${reply}`, selectedPersona);
         
-        // Play audio response
+        // Play audio response with the completely rewritten function
         if (audio) {
-          const audioEl = new Audio(`data:audio/mp3;base64,${audio}`);
-          audioEl.setAttribute('playsinline', '');
-          
-          audioEl.addEventListener('canplaythrough', () => {
-            // Set up audio visualization before playing
-            setupRoyVisualization(audioEl);
-            audioEl.play().catch(err => {
-              console.error('Audio playback error:', err);
-              
-              // Add click-to-play fallback (for iOS/Safari)
-              const playButton = document.createElement('button');
-              playButton.textContent = 'Play Response';
-              playButton.style.marginTop = '10px';
-              messagesDiv.appendChild(playButton);
-              
-              playButton.addEventListener('click', () => {
-                setupRoyVisualization(audioEl);
-                audioEl.play();
-                playButton.remove();
-              });
-            });
-          });
+          playRoyAudio(audio);
         }
       } catch (error) {
         console.error('Error processing audio:', error);
@@ -344,12 +396,20 @@ homeBtn.addEventListener('click', () => {
 
 // Initialize on page load
 window.addEventListener('load', () => {
+  // Apply button styles immediately
+  initButtonStyles();
+  
+  // Start clock and timer
   updateDateTime();
   startCountdownTimer();
   
   // Clear any lingering audio contexts
-  if (userAudioContext) userAudioContext.close();
-  if (royAudioContext) royAudioContext.close();
+  if (userAudioContext && userAudioContext.state !== 'closed') {
+    userAudioContext.close();
+  }
+  if (royAudioContext && royAudioContext.state !== 'closed') {
+    royAudioContext.close();
+  }
   
   // Initialize canvases with grid backgrounds
   userCtx.clearRect(0, 0, userCanvas.width, userCanvas.height);
