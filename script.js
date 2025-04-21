@@ -22,7 +22,10 @@ function initButtonStyles() {
   royBtn.style.border = '1px solid cyan';
   randyBtn.style.border = '1px solid cyan';
   saveBtn.style.border = '1px solid cyan';
-  speakBtn.style.border = '1px solid red';
+
+  speakBtn.style.backgroundColor = 'black';
+  speakBtn.style.color = 'cyan';
+  speakBtn.style.border = '1px solid cyan';
 }
 
 function addMessage(text, sender, isThinking = false) {
@@ -156,10 +159,13 @@ function resetButtonColors() {
 
   speakBtn.style.backgroundColor = 'black';
   speakBtn.style.color = 'cyan';
-  speakBtn.style.border = '1px solid red';
+  speakBtn.style.border = '1px solid cyan';
+  speakBtn.textContent = 'SPEAK';
+  speakBtn.classList.remove('blinking');
 
   isRecording = false;
   selectedPersona = null;
+
   userCtx.clearRect(0, 0, userCanvas.width, userCanvas.height);
   royCtx.clearRect(0, 0, royCanvas.width, royCanvas.height);
 }
@@ -173,12 +179,14 @@ function updateDateTime() {
 }
 
 function startCountdownTimer() {
-  let timeLeft = 5 * 60;
+  let timeLeft = 60 * 60;
+
   const timer = setInterval(() => {
     const minutes = Math.floor(timeLeft / 60);
     const seconds = timeLeft % 60;
     countdownTimerSpan.textContent = `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
     timeLeft--;
+
     if (timeLeft < 0) {
       clearInterval(timer);
       countdownTimerSpan.textContent = '0:00';
@@ -194,15 +202,9 @@ royBtn.addEventListener('click', () => {
   royBtn.style.color = 'white';
   royBtn.style.border = '1px solid green';
 
-  randyBtn.style.backgroundColor = 'black';
-  randyBtn.style.color = 'cyan';
-  randyBtn.style.border = '1px solid cyan';
-
   speakBtn.style.backgroundColor = 'red';
   speakBtn.style.color = 'white';
   speakBtn.style.border = '1px solid red';
-  speakBtn.textContent = 'SPEAK';
-  speakBtn.classList.remove('blinking');
 
   scopesContainer.style.borderColor = 'cyan';
   addMessage('Roy: Greetings, my friend—like a weary traveler, you\'ve arrived. What weighs on your soul today?', 'roy');
@@ -216,15 +218,9 @@ randyBtn.addEventListener('click', () => {
   randyBtn.style.color = 'white';
   randyBtn.style.border = '1px solid #FFC107';
 
-  royBtn.style.backgroundColor = 'black';
-  royBtn.style.color = 'cyan';
-  royBtn.style.border = '1px solid cyan';
-
   speakBtn.style.backgroundColor = 'red';
   speakBtn.style.color = 'white';
   speakBtn.style.border = '1px solid red';
-  speakBtn.textContent = 'SPEAK';
-  speakBtn.classList.remove('blinking');
 
   scopesContainer.style.borderColor = 'red';
   addMessage('Randy: Unleash the chaos—what\'s burning you up?', 'randy');
