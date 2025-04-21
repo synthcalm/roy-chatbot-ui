@@ -1,3 +1,7 @@
+html {
+  background-color: black; /* Ensure browser background is black */
+}
+
 body {
   font-family: 'Courier New', monospace;
   background-color: black;
@@ -8,7 +12,7 @@ body {
   justify-content: center;
   align-items: flex-start;
   min-height: 100vh;
-  padding-top: 5px;
+  padding-top: 50px; /* Increased to lower the UI */
 }
 
 #main {
@@ -20,6 +24,7 @@ body {
   gap: 12px;
   border-left: 1px solid cyan;
   border-right: 1px solid cyan;
+  background-color: black; /* Ensure container background is black */
 }
 
 #info-bar {
@@ -51,12 +56,12 @@ canvas {
 button {
   font-family: inherit;
   font-size: 14px;
-  color: white;
-  background-color: cyan;
+  color: cyan; /* Default text color */
+  background-color: black; /* Default background color */
   border: 1px solid cyan;
   padding: 6px 12px;
   cursor: pointer;
-  transition: background-color 0.3s ease, border-color 0.3s ease;
+  transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease; /* Added color transition */
   min-width: 80px;
   text-transform: uppercase;
 }
@@ -64,6 +69,7 @@ button {
 button:hover {
   background-color: #00b7eb;
   border-color: #00b7eb;
+  color: white; /* Text color on hover */
 }
 
 button.blinking {
@@ -74,16 +80,19 @@ button.blinking {
   0% { 
     background-color: red; 
     border-color: red;
+    color: white; /* Ensure text remains white during blink */
     opacity: 1; 
   }
   50% { 
     background-color: red; 
-    border-color: red; 
+    border-color: red;
+    color: white;
     opacity: 0.5; 
   }
   100% { 
     background-color: red; 
-    border-color: red; 
+    border-color: red;
+    color: white;
     opacity: 1; 
   }
 }
