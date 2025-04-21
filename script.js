@@ -15,26 +15,32 @@ const audioEl = new Audio();
 const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 let analyzer, source, dataArray, bufferLength;
 
+document.addEventListener("DOMContentLoaded", () => {
+  if (dateDisplay && timerDisplay) {
+    updateDateTime();
+    setInterval(updateDateTime, 1000);
+
+    updateCountdown();
+    countdownInterval = setInterval(updateCountdown, 1000);
+  }
+});
+
 function updateDateTime() {
   const now = new Date();
   const formattedDate = now.getFullYear() + "/" +
                         String(now.getMonth() + 1).padStart(2, "0") + "/" +
                         String(now.getDate()).padStart(2, "0");
   const formattedTime = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-  dateDisplay.textContent = formattedDate + " " + formattedTime;
+  if (dateDisplay) dateDisplay.textContent = formattedDate + " " + formattedTime;
 }
-setInterval(updateDateTime, 1000);
-updateDateTime();
 
 function updateCountdown() {
   const minutes = String(Math.floor(countdownTime / 60)).padStart(2, "0");
   const seconds = String(countdownTime % 60).padStart(2, "0");
-  timerDisplay.textContent = `${minutes}:${seconds}`;
+  if (timerDisplay) timerDisplay.textContent = `${minutes}:${seconds}`;
   countdownTime--;
   if (countdownTime < 0) clearInterval(countdownInterval);
 }
-countdownInterval = setInterval(updateCountdown, 1000);
-updateCountdown();
 
 function resetButtons() {
   royButton.style.backgroundColor = "";
