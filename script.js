@@ -94,9 +94,39 @@ function setupUserVisualization(stream) {
   animate();
 }
 
+// Helper function to convert base64 to Blob
+function base64ToBlob(base64, mimeType) {
+  const byteString = atob(base64);
+  const ab = new ArrayBuffer(byteString.length);
+  const ia = new Uint8Array(ab);
+  
+  for (let i = 0; i < byteString.length; i++) {
+    ia[i] = byteString.charCodeAt(i);
+  }
+  
+  return new Blob([ab], { type: mimeType });
+}
+
 function playRoyAudio(base64Audio) {
-  const audioEl = new Audio(`data:audio/mp3;base64,${base64Audio}`);
+  console.log("[AUDIO] Attempting to play audio, data length:", base64Audio?.length);
+  if (!base64Audio) {
+    console.error("[AUDIO] No audio data provided");
+    return;
+  }
+
+  // Create a temporary object URL instead of keeping base64 in memory
+  const audioBlob = base64ToBlob(base64Audio, 'audio/mp3');
+  const audioUrl = URL.createObjectURL(audioBlob);
+  
+  const audioEl = new Audio(audioUrl);
   audioEl.setAttribute('playsinline', '');
+  audioEl.setAttribute('controlsList', 'nodownload'); // Disable download in browsers that support it
+  
+  // Disable right-click menu on audio element
+  audioEl.addEventListener('contextmenu', (e) => {
+    e.preventDefault();
+    return false;
+  });
 
   if (royAudioContext && royAudioContext.state !== 'closed') {
     try {
@@ -139,11 +169,20 @@ function playRoyAudio(base64Audio) {
         speakBtn.style.backgroundColor = 'red';
         speakBtn.style.color = 'white';
         speakBtn.style.border = '1px solid red';
+        URL.revokeObjectURL(audioUrl); // Release the URL object
+        cleanupRecording();
+      });
+
+      // Also revoke URL if there's an error
+      audioEl.addEventListener('error', () => {
+        console.error("[AUDIO] Error playing audio");
+        URL.revokeObjectURL(audioUrl);
         cleanupRecording();
       });
 
     } catch (error) {
       console.error('Audio visualization failed:', error);
+      URL.revokeObjectURL(audioUrl);
       audioEl.play();
     }
   });
@@ -229,6 +268,20 @@ randyBtn.addEventListener('click', () => {
   addMessage('Randy: Unleash the chaos—what\'s burning you up?', 'randy');
 });
 
+// Check backend health
+async function checkBackendHealth() {
+  try {
+    const response = await fetch('https://roy-chatbo-backend.onrender.com/api/health', {
+      method: 'GET',
+    });
+    console.log("[API] Backend health check:", response.ok ? "OK" : "Failed");
+    return response.ok;
+  } catch (error) {
+    console.error("[API] Backend health check error:", error);
+    return false;
+  }
+}
+
 speakBtn.addEventListener('click', async () => {
   if (!selectedPersona) {
     alert('Please choose Roy or Randy first.');
@@ -282,6 +335,14 @@ speakBtn.addEventListener('click', async () => {
         return;
       }
 
+      // Check backend health before proceeding
+      const backendHealthy = await checkBackendHealth();
+      if (!backendHealthy) {
+        alert("Backend service appears to be unavailable. Please try again later.");
+        cleanupRecording();
+        return;
+      }
+
       const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
       const mimeType = isSafari ? 'audio/mp4' : 'audio/wav';
       const audioBlob = new Blob(audioChunks, { type: mimeType });
@@ -299,11 +360,19 @@ speakBtn.addEventListener('click', async () => {
       try {
         // Step 1: Try /api/transcribe first
         try {
+          console.log("[API] Calling /api/transcribe...");
           const transcribeRes = await fetch('https://roy-chatbo-backend.onrender.com/api/transcribe', {
             method: 'POST',
             body: formData,
           });
-          if (!transcribeRes.ok) throw new Error(`Transcription failed with status: ${transcribeRes.status}`);
+          console.log("[API] Transcribe status:", transcribeRes.status);
+          
+          if (!transcribeRes.ok) {
+            const errorText = await transcribeRes.text();
+            console.error(`[API] Transcribe error (${transcribeRes.status}):`, errorText);
+            throw new Error(`Transcription failed with status: ${transcribeRes.status}`);
+          }
+          
           const transcribeJson = await transcribeRes.json();
           userText = transcribeJson.text || "undefined";
           console.log("[TRANSCRIBE] User text:", userText);
@@ -311,12 +380,21 @@ speakBtn.addEventListener('click', async () => {
           console.warn("[TRANSCRIBE] /api/transcribe failed, falling back to /api/chat:", transcribeError);
           // Fallback to /api/chat
           try {
+            console.log("[API] Calling /api/chat with audio...");
             const chatRes = await fetch('https://roy-chatbo-backend.onrender.com/api/chat', {
               method: 'POST',
               body: formData,
             });
-            if (!chatRes.ok) throw new Error(`Chat failed with status: ${chatRes.status}`);
+            console.log("[API] Chat status:", chatRes.status);
+            
+            if (!chatRes.ok) {
+              const errorText = await chatRes.text();
+              console.error(`[API] Chat error (${chatRes.status}):`, errorText);
+              throw new Error(`Chat failed with status: ${chatRes.status}`);
+            }
+            
             const chatJson = await chatRes.json();
+            console.log("[API] Chat response structure:", Object.keys(chatJson));
             userText = chatJson.text || "undefined";
             // Since /api/chat also returns Roy's response, extract only the user's transcription
             // For now, we'll assume the transcription is correct and Roy's response is separate
@@ -324,6 +402,7 @@ speakBtn.addEventListener('click', async () => {
             // Store Roy's response separately
             royText = chatJson.text || "undefined"; // Roy's response is the same as the transcribed text initially
             audioBase64 = chatJson.audio;
+            console.log("[AUDIO] base64 received:", audioBase64 ? "Yes" : "No");
           } catch (chatError) {
             console.error("[CHAT] Fallback failed:", chatError);
             throw chatError;
@@ -335,6 +414,7 @@ speakBtn.addEventListener('click', async () => {
 
         // Step 3: Call /api/chat with a JSON payload to get Roy's response (if not already fetched)
         if (userText !== "undefined" && !royText) {
+          console.log("[API] Calling /api/chat with JSON...");
           const chatRes = await fetch('https://roy-chatbo-backend.onrender.com/api/chat', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -343,25 +423,38 @@ speakBtn.addEventListener('click', async () => {
               persona: selectedPersona,
             }),
           });
-          if (!chatRes.ok) throw new Error(`Chat failed with status: ${chatRes.status}`);
+          console.log("[API] Chat status:", chatRes.status);
+          
+          if (!chatRes.ok) {
+            const errorText = await chatRes.text();
+            console.error(`[API] Chat error (${chatRes.status}):`, errorText);
+            throw new Error(`Chat failed with status: ${chatRes.status}`);
+          }
+          
           const chatJson = await chatRes.json();
+          console.log("[API] Chat response structure:", Object.keys(chatJson));
           royText = chatJson.text || "undefined";
           audioBase64 = chatJson.audio;
-          console.log("[AUDIO] base64 length:", audioBase64?.length);
+          console.log("[AUDIO] base64 received:", audioBase64 ? "Yes (length: " + audioBase64.length + ")" : "No");
         }
 
         thinkingMessage.remove();
         addMessage(`${selectedPersona === 'randy' ? 'Randy' : 'Roy'}: ${royText || "undefined"}`, selectedPersona);
         if (audioBase64) {
           playRoyAudio(audioBase64);
+          // Clear sensitive data from memory after use
+          setTimeout(() => {
+            audioBase64 = null;
+          }, 1000);
         } else {
+          console.error("[AUDIO] No audio data in response");
           cleanupRecording();
         }
       } catch (error) {
         console.error('Transcription or chat failed:', error);
         transcribingMessage.textContent = userText ? `You: ${userText}` : 'You: Transcription failed';
         thinkingMessage.remove();
-        addMessage(`${selectedPersona === 'randy' ? 'Randy' : 'Roy'}: undefined`, selectedPersona);
+        addMessage(`${selectedPersona === 'randy' ? 'Randy' : 'Roy'}: Service unavailable. Please try again.`, selectedPersona);
         cleanupRecording();
       }
     };
@@ -425,6 +518,15 @@ window.addEventListener('load', () => {
   startCountdownTimer();
   userCtx.clearRect(0, 0, userCanvas.width, userCanvas.height);
   royCtx.clearRect(0, 0, royCanvas.width, royCanvas.height);
+  
+  // Check backend health on page load
+  checkBackendHealth().then(isHealthy => {
+    if (!isHealthy) {
+      console.warn("[STARTUP] Backend appears to be unavailable");
+    } else {
+      console.log("[STARTUP] Backend health check passed");
+    }
+  });
 });
 
 document.head.insertAdjacentHTML('beforeend', `
