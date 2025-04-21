@@ -221,9 +221,10 @@ logMessage("Roy", `<span class='dots'>. . .</span>`);
           const json = await res.json();
           const text = json.text || "undefined";
           const audioBase64 = json.audio;
+console.log("[AUDIO] base64 length:", audioBase64?.length);
           const loadingDots = document.querySelector('.dots');
 if (loadingDots) loadingDots.remove();
-logMessage("You", text);
+logMessage("Roy", text);
 
           if (audioBase64) {
             audioEl.src = `data:audio/mp3;base64,${audioBase64}`;
