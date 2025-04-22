@@ -1,9 +1,6 @@
 // Roy/Randy Chat App - iPhone Compatible Version
 
-// Wait until page is fully loaded
-window.addEventListener('load', function() {
-  
-  // Get all the buttons and elements we need
+window.addEventListener('load', function () {
   const royBtn = document.getElementById('royBtn');
   const randyBtn = document.getElementById('randyBtn');
   const speakBtn = document.getElementById('speakBtn');
@@ -12,90 +9,78 @@ window.addEventListener('load', function() {
   const messagesDiv = document.getElementById('messages');
   const userCanvas = document.getElementById('userWaveform');
   const royCanvas = document.getElementById('royWaveform');
-  
-  // Set initial button styles
+
   royBtn.style.border = '1px solid cyan';
   randyBtn.style.border = '1px solid cyan';
   speakBtn.style.backgroundColor = 'black';
   speakBtn.style.color = 'cyan';
   speakBtn.style.border = '1px solid cyan';
-  
-  // Variables to track state
+
   let isRecording = false;
   let selectedPersona = null;
   let audioChunks = [];
-  
-  // Roy Button Click
-  royBtn.addEventListener('click', function() {
+  let mediaRecorder;
+
+  royBtn.addEventListener('click', function () {
     selectedPersona = 'roy';
     royBtn.style.backgroundColor = 'green';
     royBtn.style.color = 'white';
     randyBtn.style.backgroundColor = 'black';
+    randyBtn.style.color = 'cyan';
     addMessage('Roy: Greetings, my friend. What would you like to discuss today?', 'roy');
   });
-  
-  // Randy Button Click
-  randyBtn.addEventListener('click', function() {
+
+  randyBtn.addEventListener('click', function () {
     selectedPersona = 'randy';
     randyBtn.style.backgroundColor = '#FFC107';
     randyBtn.style.color = 'white';
     royBtn.style.backgroundColor = 'black';
+    royBtn.style.color = 'cyan';
     addMessage('Randy: What\'s up? Let\'s talk!', 'randy');
   });
-  
-  // Speak Button Click - Main Functionality
-  speakBtn.addEventListener('click', async function() {
+
+  speakBtn.addEventListener('click', async function () {
     if (!selectedPersona) {
       alert('Please select Roy or Randy first');
       return;
     }
-    
+
     if (isRecording) {
-      // Stop recording
       mediaRecorder.stop();
       speakBtn.textContent = 'SPEAK';
       isRecording = false;
       return;
     }
-    
-    // Start recording
+
     speakBtn.textContent = 'STOP';
     isRecording = true;
-    
+
     try {
-      // Get microphone access
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const mediaRecorder = new MediaRecorder(stream);
+      mediaRecorder = new MediaRecorder(stream);
       audioChunks = [];
-      
-      mediaRecorder.ondataavailable = function(e) {
+
+      mediaRecorder.ondataavailable = function (e) {
         audioChunks.push(e.data);
       };
-      
-      mediaRecorder.onstop = async function() {
-        // Create audio blob
+
+      mediaRecorder.onstop = async function () {
         const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
-        
-        // Show "Transcribing..." message
         addMessage('You: (Transcribing...)', 'user');
-        
+
         try {
-          // Send to server for transcription
           const formData = new FormData();
           formData.append('audio', audioBlob);
           formData.append('bot', selectedPersona);
-          
+
           const response = await fetch('https://roy-chatbo-backend.onrender.com/api/transcribe', {
             method: 'POST',
             body: formData
           });
-          
+
           const result = await response.json();
-          
-          // Update with transcribed text
           messagesDiv.lastChild.textContent = 'You: ' + (result.text || 'Could not transcribe');
-          
-          // Get Roy/Randy response
+
           const botResponse = await fetch('https://roy-chatbo-backend.onrender.com/api/chat', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -104,24 +89,25 @@ window.addEventListener('load', function() {
               persona: selectedPersona
             })
           });
-          
+
           const botData = await botResponse.json();
           addMessage((selectedPersona === 'randy' ? 'Randy: ' : 'Roy: ') + botData.text, selectedPersona);
-          
-          // Play audio response if available
+
           if (botData.audio) {
+            console.log("Bot audio base64 preview:", botData.audio.slice(0, 100));
             playAudio(botData.audio);
+            drawWaveformRoy(botData.audio);
           }
-          
+
         } catch (error) {
           console.error('Error:', error);
           messagesDiv.lastChild.textContent = 'You: Transcription failed';
           addMessage((selectedPersona === 'randy' ? 'Randy: ' : 'Roy: ') + 'Sorry, I didn\'t get that', selectedPersona);
         }
       };
-      
+
       mediaRecorder.start();
-      
+
     } catch (error) {
       console.error('Microphone error:', error);
       speakBtn.textContent = 'SPEAK';
@@ -129,13 +115,11 @@ window.addEventListener('load', function() {
       alert('Could not access microphone. Please allow access.');
     }
   });
-  
-  // Simple audio playback function for iPhone
+
   function playAudio(base64Audio) {
-    const audio = new Audio('data:audio/mp3;base64,' + base64Audio);
-    audio.setAttribute('playsinline', ''); // Important for iPhone
+    const audio = new Audio('data:audio/wav;base64,' + base64Audio); // try wav if mp3 fails
+    audio.setAttribute('playsinline', '');
     audio.play().catch(e => {
-      // Show play button if auto-play fails
       const playBtn = document.createElement('button');
       playBtn.textContent = 'Tap to Play Response';
       playBtn.style.margin = '10px';
@@ -147,8 +131,37 @@ window.addEventListener('load', function() {
       messagesDiv.appendChild(playBtn);
     });
   }
-  
-  // Helper function to add messages
+
+  function drawWaveformRoy(base64Audio) {
+    const royCtx = royCanvas.getContext('2d');
+    royCtx.clearRect(0, 0, royCanvas.width, royCanvas.height);
+
+    const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    const audioData = atob(base64Audio);
+    const buffer = new Uint8Array(audioData.length);
+    for (let i = 0; i < audioData.length; i++) {
+      buffer[i] = audioData.charCodeAt(i);
+    }
+
+    audioContext.decodeAudioData(buffer.buffer).then(decoded => {
+      const data = decoded.getChannelData(0);
+      royCtx.beginPath();
+      for (let i = 0; i < royCanvas.width; i++) {
+        const x = i;
+        const y = (0.5 + data[Math.floor(i * data.length / royCanvas.width)] / 2) * royCanvas.height;
+        if (i === 0) {
+          royCtx.moveTo(x, y);
+        } else {
+          royCtx.lineTo(x, y);
+        }
+      }
+      royCtx.strokeStyle = 'magenta';
+      royCtx.stroke();
+    }).catch(err => {
+      console.error('drawWaveformRoy failed:', err);
+    });
+  }
+
   function addMessage(text, sender) {
     const msg = document.createElement('p');
     msg.className = sender;
@@ -156,9 +169,8 @@ window.addEventListener('load', function() {
     messagesDiv.appendChild(msg);
     messagesDiv.scrollTop = messagesDiv.scrollHeight;
   }
-  
-  // Save Button
-  saveBtn.addEventListener('click', function() {
+
+  saveBtn.addEventListener('click', function () {
     const blob = new Blob([messagesDiv.innerText], { type: 'text/plain' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -166,33 +178,29 @@ window.addEventListener('load', function() {
     a.download = 'conversation.txt';
     a.click();
   });
-  
-  // Home Button
-  homeBtn.addEventListener('click', function() {
+
+  homeBtn.addEventListener('click', function () {
     window.location.href = 'https://synthcalm.com';
   });
-  
-  // Update time display
+
   function updateTime() {
     const now = new Date();
-    document.getElementById('date-time').textContent = 
-      (now.getMonth()+1) + '/' + now.getDate() + '/' + now.getFullYear() + ' ' +
-      now.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+    document.getElementById('date-time').textContent =
+      (now.getMonth() + 1) + '/' + now.getDate() + '/' + now.getFullYear() + ' ' +
+      now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   }
   setInterval(updateTime, 60000);
   updateTime();
-  
-  // iPhone-specific initialization
+
   if (/iPhone|iPad|iPod/i.test(navigator.userAgent)) {
-    // Add special styles for iPhone
     const style = document.createElement('style');
     style.textContent = `
       button { 
-        min-height: 44px; /* Better touch target */
-        -webkit-tap-highlight-color: transparent; /* Remove tap highlight */
+        min-height: 44px;
+        -webkit-tap-highlight-color: transparent;
       }
       #speakBtn {
-        font-size: 18px; /* Larger text */
+        font-size: 18px;
       }
     `;
     document.head.appendChild(style);
