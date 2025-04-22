@@ -1,11 +1,25 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Roy Audio Test (Direct Transcription)</title>
+  <style>
+    body { background: #000; color: #fff; font-family: 'Courier New', monospace; text-align: center; padding: 50px; }
+    button { margin: 10px; padding: 10px 20px; font-size: 16px; }
+    audio { margin-top: 20px; }
+  </style>
+</head>
 <body>
   <h2>🎤 Roy Audio Test (Bypass Hostinger, Direct Transcription Test)</h2>
   <button id="recordBtn">🎙️ Start Recording</button>
   <button id="stopBtn" disabled>🛑 Stop & Transcribe</button>
+
   <p><strong>Transcription Result:</strong></p>
   <div id="result">(waiting...)</div>
+
   <p><strong>Playback:</strong></p>
-  <audio id="audioPlayback" controls style="margin-top: 10px; display:none;"></audio>
+  <audio id="audioPlayback" controls style="display:none;"></audio>
 
   <script src="script.js"></script>
 </body>
+</html>
