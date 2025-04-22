@@ -1,5 +1,3 @@
-// Roy/Randy Chat App - iPhone Compatible Version
-
 window.addEventListener('load', function () {
   const royBtn = document.getElementById('royBtn');
   const randyBtn = document.getElementById('randyBtn');
@@ -10,16 +8,37 @@ window.addEventListener('load', function () {
   const userCanvas = document.getElementById('userWaveform');
   const royCanvas = document.getElementById('royWaveform');
 
-  royBtn.style.border = '1px solid cyan';
-  randyBtn.style.border = '1px solid cyan';
-  speakBtn.style.backgroundColor = 'black';
-  speakBtn.style.color = 'cyan';
-  speakBtn.style.border = '1px solid cyan';
-
   let isRecording = false;
   let selectedPersona = null;
   let audioChunks = [];
   let mediaRecorder;
+
+  // Initial Speak button style (default)
+  function setSpeakDefault() {
+    speakBtn.style.backgroundColor = 'black';
+    speakBtn.style.color = 'cyan';
+    speakBtn.style.border = '1px solid cyan';
+    speakBtn.classList.remove('blinking');
+    speakBtn.textContent = 'SPEAK';
+  }
+
+  function setSpeakHot() {
+    speakBtn.style.backgroundColor = 'red';
+    speakBtn.style.border = '1px solid red';
+    speakBtn.style.color = 'white';
+    speakBtn.classList.remove('blinking');
+    speakBtn.textContent = 'SPEAK';
+  }
+
+  function setSpeakRecording() {
+    speakBtn.classList.add('blinking');
+    speakBtn.style.backgroundColor = 'red';
+    speakBtn.style.border = '1px solid red';
+    speakBtn.style.color = 'white';
+    speakBtn.textContent = 'STOP';
+  }
+
+  setSpeakDefault();
 
   royBtn.addEventListener('click', function () {
     selectedPersona = 'roy';
@@ -28,6 +47,7 @@ window.addEventListener('load', function () {
     randyBtn.style.backgroundColor = 'black';
     randyBtn.style.color = 'cyan';
     addMessage('Roy: Greetings, my friend. What would you like to discuss today?', 'roy');
+    setSpeakHot();
   });
 
   randyBtn.addEventListener('click', function () {
@@ -37,6 +57,7 @@ window.addEventListener('load', function () {
     royBtn.style.backgroundColor = 'black';
     royBtn.style.color = 'cyan';
     addMessage('Randy: What\'s up? Let\'s talk!', 'randy');
+    setSpeakHot();
   });
 
   speakBtn.addEventListener('click', async function () {
@@ -47,12 +68,12 @@ window.addEventListener('load', function () {
 
     if (isRecording) {
       mediaRecorder.stop();
-      speakBtn.textContent = 'SPEAK';
       isRecording = false;
+      setSpeakHot();
       return;
     }
 
-    speakBtn.textContent = 'STOP';
+    setSpeakRecording();
     isRecording = true;
 
     try {
@@ -94,7 +115,6 @@ window.addEventListener('load', function () {
           addMessage((selectedPersona === 'randy' ? 'Randy: ' : 'Roy: ') + botData.text, selectedPersona);
 
           if (botData.audio) {
-            console.log("Bot audio base64 preview:", botData.audio.slice(0, 100));
             playAudio(botData.audio);
             drawWaveformRoy(botData.audio);
           }
@@ -110,14 +130,14 @@ window.addEventListener('load', function () {
 
     } catch (error) {
       console.error('Microphone error:', error);
-      speakBtn.textContent = 'SPEAK';
-      isRecording = false;
       alert('Could not access microphone. Please allow access.');
+      setSpeakHot();
+      isRecording = false;
     }
   });
 
   function playAudio(base64Audio) {
-    const audio = new Audio('data:audio/wav;base64,' + base64Audio); // try wav if mp3 fails
+    const audio = new Audio('data:audio/wav;base64,' + base64Audio);
     audio.setAttribute('playsinline', '');
     audio.play().catch(e => {
       const playBtn = document.createElement('button');
@@ -205,4 +225,16 @@ window.addEventListener('load', function () {
     `;
     document.head.appendChild(style);
   }
+
+  // Inject blinking CSS
+  const style = document.createElement('style');
+  style.textContent = `
+    .blinking {
+      animation: blink 1s step-start infinite;
+    }
+    @keyframes blink {
+      50% { opacity: 0.3; }
+    }
+  `;
+  document.head.appendChild(style);
 });
