@@ -25,6 +25,30 @@
     </div>
     <div id="messages"></div>
   </div>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const dateTimeSpan = document.getElementById('date-time');
+      const countdownTimerSpan = document.getElementById('countdown-timer');
+
+      function updateDateTime() {
+        const now = new Date();
+        dateTimeSpan.textContent = now.toLocaleString();
+      }
+
+      let timeLeft = 3600;
+      function updateCountdown() {
+        const minutes = Math.floor(timeLeft / 60);
+        const seconds = timeLeft % 60;
+        countdownTimerSpan.textContent = `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
+        timeLeft = Math.max(0, timeLeft - 1);
+      }
+
+      updateDateTime();
+      updateCountdown();
+      setInterval(updateDateTime, 60000);
+      setInterval(updateCountdown, 1000);
+    });
+  </script>
   <script src="script.js"></script>
 </body>
 </html>
