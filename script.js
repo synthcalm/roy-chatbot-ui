@@ -1,8 +1,8 @@
-// script.js (updated behavior: ROY = MIC ON/OFF, RANDY = ON/OFF, SPEAK renamed to FEEDBACK)
+// Updated script.js with new button logic and auto-scroll behavior
 
 const royBtn = document.getElementById('royBtn');
 const randyBtn = document.getElementById('randyBtn');
-const speakBtn = document.getElementById('speakBtn');
+const feedbackBtn = document.getElementById('speakBtn');
 const saveBtn = document.getElementById('saveBtn');
 const homeBtn = document.getElementById('homeBtn');
 const messagesDiv = document.getElementById('messages');
@@ -20,6 +20,7 @@ let royAudioContext = null;
 let royAudioSource = null;
 let stream = null;
 
+// Date, time, countdown
 function updateDateTime() {
   const now = new Date();
   const date = `${now.getFullYear()}/${now.getMonth() + 1}/${now.getDate()}`;
@@ -39,16 +40,17 @@ function updateCountdown() {
 setInterval(updateCountdown, 1000);
 updateCountdown();
 
+// Button color reset
 function resetButtonColors() {
   royBtn.style.backgroundColor = 'black';
   royBtn.style.color = 'cyan';
   randyBtn.style.backgroundColor = 'black';
   randyBtn.style.color = 'cyan';
-  speakBtn.textContent = 'FEEDBACK';
-  speakBtn.classList.remove('blinking');
+  feedbackBtn.style.backgroundColor = 'black';
+  feedbackBtn.style.color = 'cyan';
+  feedbackBtn.classList.remove('blinking');
+  feedbackBtn.textContent = 'FEEDBACK';
   isRecording = false;
-  userCtx.clearRect(0, 0, userCanvas.width, userCanvas.height);
-  royCtx.clearRect(0, 0, royCanvas.width, royCanvas.height);
 }
 
 function addMessage(sender, text) {
@@ -97,43 +99,13 @@ function setupUserVisualization(stream) {
   animate();
 }
 
-function playRoyAudio(base64Audio) {
-  const audioEl = new Audio(`data:audio/mp3;base64,${base64Audio}`);
-  audioEl.setAttribute('playsinline', '');
-  if (royAudioContext && royAudioContext.state !== 'closed') {
-    try { if (royAudioSource) royAudioSource.disconnect(); royAudioContext.close(); } catch (e) { console.log('Audio context error:', e); }
-  }
-  royAudioContext = new (window.AudioContext || window.webkitAudioContext)();
-  audioEl.addEventListener('loadedmetadata', () => {
-    try {
-      royAudioSource = royAudioContext.createMediaElementSource(audioEl);
-      const analyser = royAudioContext.createAnalyser();
-      analyser.fftSize = 2048;
-      const dataArray = new Uint8Array(analyser.frequencyBinCount);
-      royAudioSource.connect(analyser);
-      analyser.connect(royAudioContext.destination);
-      function animate() {
-        analyser.getByteTimeDomainData(dataArray);
-        drawWaveform(royCtx, royCanvas, dataArray, 'magenta');
-        requestAnimationFrame(animate);
-      }
-      animate();
-      royAudioContext.resume().then(() => audioEl.play().catch(err => console.warn('Audio play failed:', err)));
-      audioEl.addEventListener('ended', () => {
-        royCtx.clearRect(0, 0, royCanvas.width, royCanvas.height);
-        speakBtn.textContent = 'FEEDBACK';
-        speakBtn.classList.remove('blinking');
-      });
-    } catch (error) { console.error('Audio playback failed:', error); }
-  });
-  audioEl.load();
-}
-
+// ROY button logic
 royBtn.addEventListener('click', async () => {
-  if (isRecording) {
+  if (isRecording && selectedPersona === 'roy') {
     mediaRecorder.stop();
     royBtn.style.backgroundColor = 'black';
     royBtn.style.color = 'cyan';
+    feedbackBtn.classList.add('blinking');
     return;
   }
   resetButtonColors();
@@ -147,7 +119,7 @@ royBtn.addEventListener('click', async () => {
     setupUserVisualization(stream);
     mediaRecorder = new MediaRecorder(stream);
     mediaRecorder.ondataavailable = e => { if (e.data.size > 0) audioChunks.push(e.data); };
-    mediaRecorder.onstop = async () => { /* your existing stop logic here */ };
+    mediaRecorder.onstop = async () => { /* Transcription logic here */ };
     mediaRecorder.start();
   } catch (error) {
     console.error('Microphone error:', error);
@@ -155,13 +127,59 @@ royBtn.addEventListener('click', async () => {
   }
 });
 
-randyBtn.addEventListener('click', () => {
-  if (selectedPersona === 'randy') {
-    resetButtonColors();
+// RANDY button logic
+randyBtn.addEventListener('click', async () => {
+  if (isRecording && selectedPersona === 'randy') {
+    mediaRecorder.stop();
+    randyBtn.style.backgroundColor = 'black';
+    randyBtn.style.color = 'cyan';
+    feedbackBtn.classList.add('blinking');
     return;
   }
   resetButtonColors();
   selectedPersona = 'randy';
   randyBtn.style.backgroundColor = 'orange';
   randyBtn.style.color = 'black';
+  try {
+    isRecording = true;
+    audioChunks = [];
+    stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    setupUserVisualization(stream);
+    mediaRecorder = new MediaRecorder(stream);
+    mediaRecorder.ondataavailable = e => { if (e.data.size > 0) audioChunks.push(e.data); };
+    mediaRecorder.onstop = async () => { /* Transcription logic here */ };
+    mediaRecorder.start();
+  } catch (error) {
+    console.error('Microphone error:', error);
+    alert('Could not access your microphone. Please allow access.');
+  }
+});
+
+// Feedback button logic
+feedbackBtn.addEventListener('click', async () => {
+  if (!audioChunks.length) return;
+  feedbackBtn.classList.remove('blinking');
+  feedbackBtn.style.backgroundColor = 'red';
+  feedbackBtn.style.color = 'white';
+  const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+  const formData = new FormData();
+  formData.append('audio', audioBlob);
+  formData.append('bot', selectedPersona);
+
+  try {
+    const transcribeRes = await fetch('https://roy-chatbo-backend.onrender.com/api/transcribe', { method: 'POST', body: formData });
+    const transcribeJson = await transcribeRes.json();
+    const userText = transcribeJson.text || 'undefined';
+    addMessage('user', userText);
+
+    const chatRes = await fetch('https://roy-chatbo-backend.onrender.com/api/chat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ message: userText, persona: selectedPersona }) });
+    const chatJson = await chatRes.json();
+    addMessage(selectedPersona, chatJson.text);
+    if (chatJson.audio) playRoyAudio(chatJson.audio);
+  } catch (error) {
+    console.error('Error during feedback:', error);
+  } finally {
+    feedbackBtn.style.backgroundColor = 'black';
+    feedbackBtn.style.color = 'cyan';
+  }
 });
