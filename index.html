@@ -1,31 +1,11 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Roy Chatbot UI</title>
-  <link rel="stylesheet" href="style.css" />
-  <link rel="icon" href="data:;base64,iVBORw0KGgo=" /> <!-- Placeholder favicon to suppress 404 error -->
-</head>
 <body>
-  <div id="main">
-    <div id="info-bar">
-      <span id="date-time"></span>
-      <span id="countdown-timer"></span>
-    </div>
-    <div id="scopes-container">
-      <canvas id="userWaveform" width="600" height="80"></canvas>
-      <canvas id="royWaveform" width="600" height="80"></canvas>
-    </div>
-    <div id="controls">
-      <button id="royBtn">Roy</button>
-      <button id="randyBtn">Randy</button>
-      <button id="speakBtn">Speak</button>
-      <button id="saveBtn">Save Log</button>
-      <button id="homeBtn">SynthCalm Home</button>
-    </div>
-    <div id="messages"></div>
-  </div>
+  <h2>🎤 Roy Audio Test (Bypass Hostinger, Direct Transcription Test)</h2>
+  <button id="recordBtn">🎙️ Start Recording</button>
+  <button id="stopBtn" disabled>🛑 Stop & Transcribe</button>
+  <p><strong>Transcription Result:</strong></p>
+  <div id="result">(waiting...)</div>
+  <p><strong>Playback:</strong></p>
+  <audio id="audioPlayback" controls style="margin-top: 10px; display:none;"></audio>
+
   <script src="script.js"></script>
 </body>
-</html>
