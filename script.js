@@ -99,10 +99,14 @@ window.addEventListener('load', function () {
             body: formData
           });
 
+          if (!response.ok) {
+            throw new Error('Transcription failed');
+          }
+
           const result = await response.json();
           messagesDiv.lastChild.textContent = 'You: ' + (result.text || 'Could not transcribe');
 
-          const botResponse = await fetch('https://roy-chatbo-backend.onrender.com/api/chat', {
+          const botResponse = await fetch('https://your-backend-url.com/api/chat', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -110,6 +114,10 @@ window.addEventListener('load', function () {
               persona: selectedPersona
             })
           });
+
+          if (!botResponse.ok) {
+            throw new Error('Chat failed');
+          }
 
           const botData = await botResponse.json();
           addMessage((selectedPersona === 'randy' ? 'Randy: ' : 'Roy: ') + botData.text, selectedPersona);
