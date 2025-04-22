@@ -1,87 +1,204 @@
+// script.js (updated for natural flow and retro UI)
 const royBtn = document.getElementById('royBtn');
 const randyBtn = document.getElementById('randyBtn');
 const speakBtn = document.getElementById('speakBtn');
-const resultDiv = document.getElementById('result');
-const replyDiv = document.getElementById('reply');
-const audioPlayback = document.getElementById('audioPlayback');
+const messagesDiv = document.getElementById('messages');
+const userCanvas = document.getElementById('userWaveform');
+const royCanvas = document.getElementById('royWaveform');
+const userCtx = userCanvas.getContext('2d');
+const royCtx = royCanvas.getContext('2d');
 
 let selectedPersona = null;
 let mediaRecorder, audioChunks = [], isRecording = false;
+let userAudioContext = null;
+let royAudioContext = null;
+let royAudioSource = null;
+let stream = null;
 
-royBtn.addEventListener('click', () => selectPersona('roy'));
-randyBtn.addEventListener('click', () => selectPersona('randy'));
-
-function selectPersona(persona) {
-  selectedPersona = persona;
-  royBtn.classList.remove('active');
-  randyBtn.classList.remove('active');
-  if (persona === 'roy') royBtn.classList.add('active');
-  if (persona === 'randy') randyBtn.classList.add('active');
-  speakBtn.disabled = false;
+function initButtonStyles() {
+  royBtn.style.border = '1px solid cyan';
+  randyBtn.style.border = '1px solid cyan';
+  speakBtn.style.backgroundColor = 'black';
+  speakBtn.style.color = 'cyan';
+  speakBtn.style.border = '1px solid cyan';
 }
 
+function addMessage(text, sender) {
+  const msg = document.createElement('p');
+  msg.className = sender;
+  msg.textContent = text;
+  messagesDiv.appendChild(msg);
+  messagesDiv.scrollTop = messagesDiv.scrollHeight;
+}
+
+function drawWaveform(canvasCtx, canvas, data, color) {
+  canvasCtx.clearRect(0, 0, canvas.width, canvas.height);
+  canvasCtx.beginPath();
+  const sliceWidth = canvas.width / data.length;
+  const centerY = canvas.height / 2;
+  const scale = 50;
+  for (let i = 0; i < data.length; i++) {
+    const normalized = (data[i] / 128.0) - 1;
+    const y = centerY + (normalized * scale);
+    const x = i * sliceWidth;
+    if (i === 0) canvasCtx.moveTo(x, y);
+    else canvasCtx.lineTo(x, y);
+  }
+  canvasCtx.strokeStyle = color;
+  canvasCtx.lineWidth = 2;
+  canvasCtx.stroke();
+}
+
+function setupUserVisualization(stream) {
+  if (userAudioContext && userAudioContext.state !== 'closed') userAudioContext.close();
+  userAudioContext = new (window.AudioContext || window.webkitAudioContext)();
+  const source = userAudioContext.createMediaStreamSource(stream);
+  const analyser = userAudioContext.createAnalyser();
+  analyser.fftSize = 2048;
+  const dataArray = new Uint8Array(analyser.frequencyBinCount);
+  source.connect(analyser);
+  function animate() {
+    if (!isRecording) {
+      userCtx.clearRect(0, 0, userCanvas.width, userCanvas.height);
+      return;
+    }
+    analyser.getByteTimeDomainData(dataArray);
+    drawWaveform(userCtx, userCanvas, dataArray, 'yellow');
+    requestAnimationFrame(animate);
+  }
+  animate();
+}
+
+function playRoyAudio(base64Audio) {
+  const audioEl = new Audio(`data:audio/mp3;base64,${base64Audio}`);
+  audioEl.setAttribute('playsinline', '');
+  if (royAudioContext && royAudioContext.state !== 'closed') {
+    try { if (royAudioSource) royAudioSource.disconnect(); royAudioContext.close(); } catch (e) { console.log('Audio context error:', e); }
+  }
+  royAudioContext = new (window.AudioContext || window.webkitAudioContext)();
+  audioEl.addEventListener('loadedmetadata', () => {
+    try {
+      royAudioSource = royAudioContext.createMediaElementSource(audioEl);
+      const analyser = royAudioContext.createAnalyser();
+      analyser.fftSize = 2048;
+      const dataArray = new Uint8Array(analyser.frequencyBinCount);
+      royAudioSource.connect(analyser);
+      analyser.connect(royAudioContext.destination);
+      function animate() {
+        analyser.getByteTimeDomainData(dataArray);
+        drawWaveform(royCtx, royCanvas, dataArray, 'magenta');
+        requestAnimationFrame(animate);
+      }
+      animate();
+      royAudioContext.resume().then(() => audioEl.play().catch(err => console.warn('Audio play failed:', err)));
+      audioEl.addEventListener('ended', () => {
+        royCtx.clearRect(0, 0, royCanvas.width, royCanvas.height);
+        speakBtn.textContent = 'SPEAK';
+        speakBtn.classList.remove('blinking');
+        speakBtn.style.backgroundColor = 'red';
+        speakBtn.style.color = 'white';
+        speakBtn.style.border = '1px solid red';
+      });
+    } catch (error) { console.error('Audio playback failed:', error); }
+  });
+  audioEl.load();
+}
+
+function resetButtonColors() {
+  royBtn.style.backgroundColor = 'black';
+  royBtn.style.color = 'cyan';
+  royBtn.style.border = '1px solid cyan';
+  randyBtn.style.backgroundColor = 'black';
+  randyBtn.style.color = 'cyan';
+  randyBtn.style.border = '1px solid cyan';
+  speakBtn.style.backgroundColor = 'black';
+  speakBtn.style.color = 'cyan';
+  speakBtn.style.border = '1px solid cyan';
+  speakBtn.textContent = 'SPEAK';
+  speakBtn.classList.remove('blinking');
+  isRecording = false;
+  selectedPersona = null;
+  userCtx.clearRect(0, 0, userCanvas.width, userCanvas.height);
+  royCtx.clearRect(0, 0, royCanvas.width, royCanvas.height);
+}
+
+royBtn.addEventListener('click', () => {
+  resetButtonColors();
+  selectedPersona = 'roy';
+  royBtn.style.backgroundColor = 'green';
+  royBtn.style.color = 'white';
+  speakBtn.style.backgroundColor = 'red';
+  speakBtn.style.color = 'white';
+  speakBtn.style.border = '1px solid red';
+  addMessage('Roy: Greetings, my friend. What weighs on your soul today?', 'roy');
+});
+
+randyBtn.addEventListener('click', () => {
+  resetButtonColors();
+  selectedPersona = 'randy';
+  randyBtn.style.backgroundColor = '#FFC107';
+  randyBtn.style.color = 'white';
+  speakBtn.style.backgroundColor = 'red';
+  speakBtn.style.color = 'white';
+  speakBtn.style.border = '1px solid red';
+  addMessage('Randy: Unleash the chaos—what's burning you up?', 'randy');
+});
+
 speakBtn.addEventListener('click', async () => {
-  if (!selectedPersona) {
-    alert('Select Roy or Randy first!');
-    return;
-  }
-
+  if (!selectedPersona) { alert('Please choose Roy or Randy first.'); return; }
   if (isRecording) {
-    mediaRecorder.stop();
-    speakBtn.textContent = 'SPEAK';
-    isRecording = false;
+    if (mediaRecorder && (mediaRecorder.state === 'recording' || mediaRecorder.state === 'paused')) mediaRecorder.stop();
     return;
   }
-
   try {
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    mediaRecorder = new MediaRecorder(stream);
-    audioChunks = [];
     isRecording = true;
     speakBtn.textContent = 'STOP';
-
-    mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
-
+    speakBtn.classList.add('blinking');
+    audioChunks = [];
+    stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    setupUserVisualization(stream);
+    mediaRecorder = new MediaRecorder(stream);
+    mediaRecorder.ondataavailable = e => { if (e.data.size > 0) audioChunks.push(e.data); };
     mediaRecorder.onstop = async () => {
-      const audioBlob = new Blob(audioChunks, { type: mediaRecorder.mimeType });
+      speakBtn.textContent = 'SPEAK';
+      speakBtn.classList.remove('blinking');
+      speakBtn.style.backgroundColor = 'red';
+      speakBtn.style.color = 'white';
+      speakBtn.style.border = '1px solid red';
+      isRecording = false;
+      userCtx.clearRect(0, 0, userCanvas.width, userCanvas.height);
+      if (audioChunks.length === 0) return;
+      const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
       const formData = new FormData();
       formData.append('audio', audioBlob);
-      resultDiv.textContent = 'Transcribing...';
-
+      const transcribingMessage = addMessage('You: Transcribing...', 'user');
+      const thinkingMessage = addMessage(`${selectedPersona === 'randy' ? 'Randy' : 'Roy'} Thinking...`, selectedPersona);
       try {
-        const res = await fetch('https://roy-chatbo-backend.onrender.com/api/transcribe', { method: 'POST', body: formData });
-        const data = await res.json();
-        const userText = data.text || '(No transcription)';
-        resultDiv.textContent = `You: ${userText}`;
-
-        replyDiv.innerHTML = '<span class="thinking-dots">Thinking</span>';
-
-        const chatRes = await fetch('https://roy-chatbo-backend.onrender.com/api/chat', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ message: userText, persona: selectedPersona })
-        });
-        const chatData = await chatRes.json();
-        replyDiv.textContent = `${selectedPersona === 'randy' ? 'Randy' : 'Roy'}: ${chatData.text}`;
-
-        if (chatData.audio) {
-          audioPlayback.src = `data:audio/mp3;base64,${chatData.audio}`;
-          audioPlayback.style.display = 'block';
-          audioPlayback.play();
-        } else {
-          audioPlayback.style.display = 'none';
-        }
-
+        const transcribeRes = await fetch('https://roy-chatbo-backend.onrender.com/api/transcribe', { method: 'POST', body: formData });
+        const transcribeJson = await transcribeRes.json();
+        const userText = transcribeJson.text || 'undefined';
+        transcribingMessage.textContent = `You: ${userText}`;
+        const chatRes = await fetch('https://roy-chatbo-backend.onrender.com/api/chat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ message: userText, persona: selectedPersona }) });
+        const chatJson = await chatRes.json();
+        thinkingMessage.remove();
+        addMessage(`${selectedPersona === 'randy' ? 'Randy' : 'Roy'}: ${chatJson.text}`, selectedPersona);
+        if (chatJson.audio) playRoyAudio(chatJson.audio);
       } catch (error) {
-        console.error('Error:', error);
-        resultDiv.textContent = 'Transcription failed.';
-        replyDiv.textContent = 'No reply.';
+        console.error('Transcription or chat failed:', error);
+        transcribingMessage.textContent = 'You: Transcription failed';
+        thinkingMessage.remove();
+        addMessage(`${selectedPersona === 'randy' ? 'Randy' : 'Roy'}: undefined`, selectedPersona);
       }
     };
-
     mediaRecorder.start();
-  } catch (err) {
-    console.error('Microphone error:', err);
-    alert('Microphone access denied or error.');
+  } catch (error) {
+    console.error('Microphone error:', error);
+    alert('Could not access your microphone. Please allow access.');
+    speakBtn.textContent = 'SPEAK';
+    speakBtn.classList.remove('blinking');
+    speakBtn.style.backgroundColor = 'red';
+    speakBtn.style.color = 'white';
+    speakBtn.style.border = '1px solid red';
+    isRecording = false;
   }
 });
