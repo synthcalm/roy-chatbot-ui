@@ -1,4 +1,4 @@
-// FULLY WIRED script.js with updated button logic
+// FULLY WIRED script.js with updated button logic and Roy's personality
 
 const royBtn = document.getElementById('royBtn');
 const randyBtn = document.getElementById('randyBtn');
@@ -7,9 +7,7 @@ const saveBtn = document.getElementById('saveBtn');
 const homeBtn = document.getElementById('homeBtn');
 const messagesDiv = document.getElementById('messages');
 const userCanvas = document.getElementById('userWaveform');
-const royCanvas = document.getElementById('royWaveform');
 const userCtx = userCanvas.getContext('2d');
-const royCtx = royCanvas.getContext('2d');
 const dateTimeSpan = document.getElementById('date-time');
 const countdownTimerSpan = document.getElementById('countdown-timer');
 
