@@ -1,4 +1,4 @@
-/* Removed DS-Digital font import */
+/* Updated style.css with user text color white, longer textbox, auto-scroll, and proper alignment */
 
 body {
   margin: 0;
@@ -82,8 +82,23 @@ button:focus {
   padding: 0;
   border: none;
   background: transparent;
+  overflow-y: auto;
+  max-height: 300px;
 }
 
 #messages .roy { color: yellow; }
 #messages .randy { color: orange; }
-#messages .user { color: cyan; }
+#messages .user { color: white; }
+
+#text-input {
+  width: 90%;
+  max-width: 900px;
+  margin: 20px auto;
+  display: block;
+  font-family: 'Courier New', monospace;
+  font-size: 16px;
+  padding: 10px;
+  border: 1px solid cyan;
+  background-color: black;
+  color: white;
+}
