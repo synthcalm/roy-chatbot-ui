@@ -1,5 +1,3 @@
-// FULLY WIRED script.js with updated button logic and Roy's personality
-
 const royBtn = document.getElementById('royBtn');
 const randyBtn = document.getElementById('randyBtn');
 const feedbackBtn = document.getElementById('feedbackBtn');
@@ -7,7 +5,9 @@ const saveBtn = document.getElementById('saveBtn');
 const homeBtn = document.getElementById('homeBtn');
 const messagesDiv = document.getElementById('messages');
 const userCanvas = document.getElementById('userWaveform');
+const royCanvas = document.getElementById('royWaveform');
 const userCtx = userCanvas.getContext('2d');
+const royCtx = royCanvas.getContext('2d');
 const dateTimeSpan = document.getElementById('date-time');
 const countdownTimerSpan = document.getElementById('countdown-timer');
 
@@ -32,16 +32,16 @@ setInterval(() => {
   countdownTimerSpan.textContent = `${minutes}:${seconds}`;
 }, 1000);
 
-function drawUserWaveform(dataArray) {
-  userCtx.clearRect(0, 0, userCanvas.width, userCanvas.height);
-  userCtx.beginPath();
+function drawWaveform(ctx, dataArray, color) {
+  ctx.clearRect(0, 0, userCanvas.width, userCanvas.height);
+  ctx.beginPath();
   for (let i = 0; i < dataArray.length; i++) {
     const x = (i / dataArray.length) * userCanvas.width;
     const y = userCanvas.height / 2 + dataArray[i] - 128;
-    userCtx.lineTo(x, y);
+    ctx.lineTo(x, y);
   }
-  userCtx.strokeStyle = 'yellow';
-  userCtx.stroke();
+  ctx.strokeStyle = color;
+  ctx.stroke();
 }
 
 function setupUserVisualization(stream) {
@@ -49,16 +49,39 @@ function setupUserVisualization(stream) {
   userAnalyser = userAudioContext.createAnalyser();
   userSource = userAudioContext.createMediaStreamSource(stream);
   userSource.connect(userAnalyser);
-
-  const bufferLength = userAnalyser.frequencyBinCount;
-  const dataArray = new Uint8Array(bufferLength);
-
+  const dataArray = new Uint8Array(userAnalyser.frequencyBinCount);
   function animate() {
+    if (!isRecording) return;
     requestAnimationFrame(animate);
     userAnalyser.getByteTimeDomainData(dataArray);
-    drawUserWaveform(dataArray);
+    drawWaveform(userCtx, dataArray, 'yellow');
   }
   animate();
+}
+
+function playRoyAudio(base64Audio) {
+  const audio = new Audio(`data:audio/mp3;base64,${base64Audio}`);
+  const royAudioContext = new (window.AudioContext || window.webkitAudioContext)();
+  const royAudioSource = royAudioContext.createMediaElementSource(audio);
+  const analyser = royAudioContext.createAnalyser();
+  royAudioSource.connect(analyser);
+  analyser.connect(royAudioContext.destination);
+  const dataArray = new Uint8Array(analyser.frequencyBinCount);
+  function animate() {
+    analyser.getByteTimeDomainData(dataArray);
+    drawWaveform(royCtx, dataArray, 'magenta');
+    requestAnimationFrame(animate);
+  }
+  animate();
+  audio.play();
+}
+
+function addMessage(text, sender) {
+  const msg = document.createElement('p');
+  msg.className = sender;
+  msg.textContent = text;
+  messagesDiv.appendChild(msg);
+  messagesDiv.scrollTop = messagesDiv.scrollHeight;
 }
 
 royBtn.addEventListener('click', async () => {
@@ -71,21 +94,17 @@ royBtn.addEventListener('click', async () => {
     mediaRecorder = new MediaRecorder(userStream);
     setupUserVisualization(userStream);
     mediaRecorder.start();
-
     mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
     mediaRecorder.onstop = async () => {
       const blob = new Blob(audioChunks, { type: 'audio/webm' });
       const formData = new FormData();
       formData.append('audio', blob);
       try {
-        const response = await fetch('https://roy-chatbo-backend.onrender.com/api/transcribe', {
-          method: 'POST',
-          body: formData
-        });
+        const response = await fetch('https://roy-chatbo-backend.onrender.com/api/transcribe', { method: 'POST', body: formData });
         const data = await response.json();
         if (data.text) {
-          displayMessage('You', data.text, 'white');
-          thinkingDots();
+          addMessage(`You: ${data.text}`, 'user');
+          addMessage(`Roy thinking...`, 'roy');
           feedbackBtn.classList.add('blinking-red');
         }
       } catch (err) {
@@ -103,13 +122,11 @@ royBtn.addEventListener('click', async () => {
 });
 
 feedbackBtn.addEventListener('click', async () => {
-  const lastUser = [...messagesDiv.querySelectorAll('.user')].pop();
-  if (!lastUser) return;
-  const text = lastUser.textContent.replace('You: ', '');
+  const lastUserMsg = [...messagesDiv.querySelectorAll('.user')].pop();
+  if (!lastUserMsg) return;
+  const text = lastUserMsg.textContent.replace('You: ', '');
   feedbackBtn.classList.remove('blinking-red');
   feedbackBtn.style.backgroundColor = 'red';
-  feedbackBtn.textContent = 'FEEDBACK';
-
   try {
     const res = await fetch('https://roy-chatbo-backend.onrender.com/api/chat', {
       method: 'POST',
@@ -117,7 +134,7 @@ feedbackBtn.addEventListener('click', async () => {
       body: JSON.stringify({ message: text, persona: selectedPersona })
     });
     const data = await res.json();
-    if (data.text) displayMessage(capitalize(selectedPersona), data.text, 'yellow');
+    if (data.text) addMessage(`Roy: ${data.text}`, 'roy');
     if (data.audio) playRoyAudio(data.audio);
   } catch (err) {
     console.error('Error during feedback:', err);
@@ -128,36 +145,15 @@ feedbackBtn.addEventListener('click', async () => {
   }
 });
 
-function playRoyAudio(base64Audio) {
-  const audio = new Audio(`data:audio/mp3;base64,${base64Audio}`);
-  audio.play();
-}
+saveBtn.addEventListener('click', () => {
+  const blob = new Blob([messagesDiv.innerText], { type: 'text/plain' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'conversation-log.txt';
+  a.click();
+});
 
-function thinkingDots() {
-  const msg = document.createElement('div');
-  msg.className = 'roy';
-  msg.textContent = 'Roy thinking';
-  messagesDiv.appendChild(msg);
-  let count = 0;
-  const interval = setInterval(() => {
-    if (count >= 3) count = 0;
-    msg.textContent = 'Roy thinking' + '.'.repeat(count++);
-  }, 500);
-  setTimeout(() => {
-    clearInterval(interval);
-    messagesDiv.removeChild(msg);
-  }, 3000);
-}
-
-function displayMessage(role, text, color) {
-  const msg = document.createElement('div');
-  msg.className = role.toLowerCase();
-  msg.textContent = `${role}: ${text}`;
-  msg.style.color = color;
-  messagesDiv.appendChild(msg);
-  messagesDiv.scrollTop = messagesDiv.scrollHeight;
-}
-
-function capitalize(str) {
-  return str.charAt(0).toUpperCase() + str.slice(1);
-}
+homeBtn.addEventListener('click', () => {
+  window.location.href = 'https://synthcalm.com';
+});
