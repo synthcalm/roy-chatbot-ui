@@ -94,10 +94,12 @@ function setupUserVisualization(stream) {
   animate();
 }
 
+
 function playRoyAudio(base64Audio) {
   const audioEl = new Audio(`data:audio/mp3;base64,${base64Audio}`);
   audioEl.setAttribute('playsinline', '');
 
+  // Close any old context
   if (royAudioContext && royAudioContext.state !== 'closed') {
     try {
       if (royAudioSource) royAudioSource.disconnect();
@@ -105,6 +107,56 @@ function playRoyAudio(base64Audio) {
     } catch (e) {
       console.log('Error closing previous audio context:', e);
     }
+  }
+
+  royAudioContext = new (window.AudioContext || window.webkitAudioContext)();
+
+  audioEl.addEventListener('loadedmetadata', () => {
+    try {
+      royAudioSource = royAudioContext.createMediaElementSource(audioEl);
+      const analyser = royAudioContext.createAnalyser();
+      analyser.fftSize = 2048;
+      const dataArray = new Uint8Array(analyser.frequencyBinCount);
+
+      royAudioSource.connect(analyser);
+      analyser.connect(royAudioContext.destination);
+
+      let animationId;
+      function animate() {
+        analyser.getByteTimeDomainData(dataArray);
+        const waveformColor = selectedPersona === 'randy' ? 'orange' : 'magenta';
+        drawWaveform(royCtx, royCanvas, dataArray, waveformColor, false);
+        animationId = requestAnimationFrame(animate);
+      }
+
+      animate();
+
+      // ⬇️ Required for iOS Safari audio playback
+      royAudioContext.resume().then(() => {
+        audioEl.play().catch(err => {
+          console.warn('Audio play() failed:', err);
+        });
+      });
+
+      audioEl.addEventListener('ended', () => {
+        cancelAnimationFrame(animationId);
+        royCtx.clearRect(0, 0, royCanvas.width, royCanvas.height);
+        speakBtn.textContent = 'SPEAK';
+        speakBtn.classList.remove('blinking');
+        speakBtn.style.backgroundColor = 'red';
+        speakBtn.style.color = 'white';
+        speakBtn.style.border = '1px solid red';
+        cleanupRecording();
+      });
+
+    } catch (error) {
+      console.error('Audio visualization failed:', error);
+    }
+  });
+
+  audioEl.load();
+}
+
   }
 
   royAudioContext = new (window.AudioContext || window.webkitAudioContext)();
