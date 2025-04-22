@@ -1,4 +1,4 @@
-// script.js (fully aligned with your requested design)
+// script.js (updated behavior: ROY = MIC ON/OFF, RANDY = ON/OFF, SPEAK renamed to FEEDBACK)
 
 const royBtn = document.getElementById('royBtn');
 const randyBtn = document.getElementById('randyBtn');
@@ -13,7 +13,13 @@ const royCtx = royCanvas.getContext('2d');
 const dateTimeSpan = document.getElementById('date-time');
 const countdownTimerSpan = document.getElementById('countdown-timer');
 
-// === DATE / TIME / COUNTDOWN ===
+let selectedPersona = null;
+let mediaRecorder, audioChunks = [], isRecording = false;
+let userAudioContext = null;
+let royAudioContext = null;
+let royAudioSource = null;
+let stream = null;
+
 function updateDateTime() {
   const now = new Date();
   const date = `${now.getFullYear()}/${now.getMonth() + 1}/${now.getDate()}`;
@@ -33,12 +39,13 @@ function updateCountdown() {
 setInterval(updateCountdown, 1000);
 updateCountdown();
 
-// === BUTTON LOGIC ===
 function resetButtonColors() {
-  royBtn.classList.remove('active');
-  randyBtn.classList.remove('active');
+  royBtn.style.backgroundColor = 'black';
+  royBtn.style.color = 'cyan';
+  randyBtn.style.backgroundColor = 'black';
+  randyBtn.style.color = 'cyan';
+  speakBtn.textContent = 'FEEDBACK';
   speakBtn.classList.remove('blinking');
-  speakBtn.textContent = 'SPEAK';
   isRecording = false;
   userCtx.clearRect(0, 0, userCanvas.width, userCanvas.height);
   royCtx.clearRect(0, 0, royCanvas.width, royCanvas.height);
@@ -114,7 +121,7 @@ function playRoyAudio(base64Audio) {
       royAudioContext.resume().then(() => audioEl.play().catch(err => console.warn('Audio play failed:', err)));
       audioEl.addEventListener('ended', () => {
         royCtx.clearRect(0, 0, royCanvas.width, royCanvas.height);
-        speakBtn.textContent = 'SPEAK';
+        speakBtn.textContent = 'FEEDBACK';
         speakBtn.classList.remove('blinking');
       });
     } catch (error) { console.error('Audio playback failed:', error); }
@@ -122,9 +129,39 @@ function playRoyAudio(base64Audio) {
   audioEl.load();
 }
 
-// Greet on page load
-window.addEventListener('DOMContentLoaded', () => {
-  addMessage('roy', 'Hey there, my friend. Roy here, fully operational and ready for action. What’s on your mind today?');
-  updateDateTime();
-  updateCountdown();
+royBtn.addEventListener('click', async () => {
+  if (isRecording) {
+    mediaRecorder.stop();
+    royBtn.style.backgroundColor = 'black';
+    royBtn.style.color = 'cyan';
+    return;
+  }
+  resetButtonColors();
+  selectedPersona = 'roy';
+  royBtn.style.backgroundColor = 'green';
+  royBtn.style.color = 'white';
+  try {
+    isRecording = true;
+    audioChunks = [];
+    stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    setupUserVisualization(stream);
+    mediaRecorder = new MediaRecorder(stream);
+    mediaRecorder.ondataavailable = e => { if (e.data.size > 0) audioChunks.push(e.data); };
+    mediaRecorder.onstop = async () => { /* your existing stop logic here */ };
+    mediaRecorder.start();
+  } catch (error) {
+    console.error('Microphone error:', error);
+    alert('Could not access your microphone. Please allow access.');
+  }
+});
+
+randyBtn.addEventListener('click', () => {
+  if (selectedPersona === 'randy') {
+    resetButtonColors();
+    return;
+  }
+  resetButtonColors();
+  selectedPersona = 'randy';
+  randyBtn.style.backgroundColor = 'orange';
+  randyBtn.style.color = 'black';
 });
