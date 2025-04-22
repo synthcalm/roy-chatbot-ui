@@ -1,86 +1,37 @@
-@import url('https://fonts.cdnfonts.com/css/ds-digital');
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SynthCalm Roy Chatbot</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <!-- Date, Time, Countdown -->
+  <div id="header">
+    <span id="date-time"></span>
+    <span id="countdown-timer"></span>
+  </div>
 
-body {
-  margin: 0;
-  padding: 0;
-  background-color: black;
-  color: cyan;
-  font-family: 'Courier New', monospace;
-  overflow: hidden;
-}
+  <!-- Waveform Scopes (Merged Visual Look) -->
+  <div id="scopes-container">
+    <canvas id="userWaveform"></canvas>
+    <canvas id="royWaveform"></canvas>
+  </div>
 
-#header {
-  display: flex;
-  justify-content: space-between;
-  padding: 10px;
-  font-family: 'DS-Digital', monospace;
-  font-size: 18px;
-  width: fit-content;
-  margin: 0 auto;
-}
+  <!-- Buttons -->
+  <div class="buttons">
+    <button id="royBtn">ROY</button>
+    <button id="randyBtn">RANDY</button>
+    <button id="speakBtn">SPEAK</button>
+    <button id="saveBtn">SAVE LOG</button>
+    <button id="homeBtn">SYNTHCALM HOME</button>
+  </div>
 
-#scopes-container {
-  display: flex;
-  flex-direction: column;
-  background-color: transparent;
-  border: none;
-  padding: 0;
-  width: fit-content;
-  margin: 0 auto;
-}
+  <!-- Chat Messages -->
+  <div id="messages"></div>
 
-canvas {
-  width: 100%;
-  height: 150px;
-  background-color: black;
-  background-image: linear-gradient(to right, rgba(255, 255, 0, 0.2) 1px, transparent 1px),
-                    linear-gradient(to bottom, rgba(255, 255, 0, 0.2) 1px, transparent 1px);
-  background-size: 20px 20px;
-  border: none;
-}
-
-.buttons {
-  margin: 20px 0;
-  display: flex;
-  justify-content: center;
-  width: fit-content;
-  margin: 20px auto;
-}
-
-button {
-  background-color: black;
-  border: 1px solid cyan;
-  color: cyan;
-  padding: 10px 20px;
-  margin: 0 5px;
-  font-family: 'DS-Digital', monospace;
-  font-size: 16px;
-  cursor: pointer;
-}
-
-button.blinking {
-  animation: blink 1s infinite;
-}
-
-@keyframes blink {
-  50% { opacity: 0.5; }
-}
-
-button:focus {
-  outline: none;
-}
-
-#messages {
-  width: fit-content;
-  max-width: 90%;
-  margin: 20px auto 0 auto;
-  text-align: left;
-  color: yellow;
-  padding: 0;
-  border: none;
-  background: transparent;
-}
-
-#messages .roy { color: yellow; }
-#messages .randy { color: orange; }
-#messages .user { color: cyan; }
+  <!-- Script -->
+  <script src="script.js"></script>
+</body>
+</html>
