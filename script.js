@@ -1,4 +1,4 @@
-// script.js (full working version with integrated design and behavior)
+// script.js (full working version with restored retro neon UI and updated behavior)
 
 const royBtn = document.getElementById('royBtn');
 const randyBtn = document.getElementById('randyBtn');
@@ -19,15 +19,10 @@ let royAudioSource = null;
 let stream = null;
 
 function resetButtonColors() {
-  royBtn.style.backgroundColor = 'black';
-  royBtn.style.color = 'cyan';
-  randyBtn.style.backgroundColor = 'black';
-  randyBtn.style.color = 'cyan';
-  speakBtn.style.backgroundColor = 'black';
-  speakBtn.style.color = 'cyan';
-  speakBtn.style.border = '1px solid cyan';
-  speakBtn.textContent = 'SPEAK';
+  royBtn.classList.remove('active');
+  randyBtn.classList.remove('active');
   speakBtn.classList.remove('blinking');
+  speakBtn.textContent = 'SPEAK';
   isRecording = false;
   userCtx.clearRect(0, 0, userCanvas.width, userCanvas.height);
   royCtx.clearRect(0, 0, royCanvas.width, royCanvas.height);
@@ -105,9 +100,6 @@ function playRoyAudio(base64Audio) {
         royCtx.clearRect(0, 0, royCanvas.width, royCanvas.height);
         speakBtn.textContent = 'SPEAK';
         speakBtn.classList.remove('blinking');
-        speakBtn.style.backgroundColor = 'red';
-        speakBtn.style.color = 'white';
-        speakBtn.style.border = '1px solid red';
       });
     } catch (error) { console.error('Audio playback failed:', error); }
   });
@@ -118,22 +110,16 @@ function playRoyAudio(base64Audio) {
 royBtn.addEventListener('click', () => {
   resetButtonColors();
   selectedPersona = 'roy';
-  royBtn.style.backgroundColor = 'green';
-  royBtn.style.color = 'white';
-  speakBtn.style.backgroundColor = 'red';
-  speakBtn.style.color = 'white';
-  speakBtn.style.border = '1px solid red';
+  royBtn.classList.add('active');
+  speakBtn.classList.add('armed');
   addMessage('Roy: Greetings, my friend. What weighs on your soul today?', 'roy');
 });
 
 randyBtn.addEventListener('click', () => {
   resetButtonColors();
   selectedPersona = 'randy';
-  randyBtn.style.backgroundColor = '#FFC107';
-  randyBtn.style.color = 'white';
-  speakBtn.style.backgroundColor = 'red';
-  speakBtn.style.color = 'white';
-  speakBtn.style.border = '1px solid red';
+  randyBtn.classList.add('active');
+  speakBtn.classList.add('armed');
   addMessage('Randy: Unleash the chaos—what's burning you up?', 'randy');
 });
 
@@ -156,9 +142,6 @@ speakBtn.addEventListener('click', async () => {
     mediaRecorder.onstop = async () => {
       speakBtn.textContent = 'SPEAK';
       speakBtn.classList.remove('blinking');
-      speakBtn.style.backgroundColor = 'red';
-      speakBtn.style.color = 'white';
-      speakBtn.style.border = '1px solid red';
       isRecording = false;
       userCtx.clearRect(0, 0, userCanvas.width, userCanvas.height);
       if (audioChunks.length === 0) return;
@@ -190,9 +173,6 @@ speakBtn.addEventListener('click', async () => {
     alert('Could not access your microphone. Please allow access.');
     speakBtn.textContent = 'SPEAK';
     speakBtn.classList.remove('blinking');
-    speakBtn.style.backgroundColor = 'red';
-    speakBtn.style.color = 'white';
-    speakBtn.style.border = '1px solid red';
     isRecording = false;
   }
 });
