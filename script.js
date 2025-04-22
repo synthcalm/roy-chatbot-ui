@@ -154,50 +154,6 @@ function playRoyAudio(base64Audio) {
   audioEl.load();
 }
 
-  royAudioContext = new (window.AudioContext || window.webkitAudioContext)();
-
-  audioEl.addEventListener('canplaythrough', () => {
-    try {
-      royAudioSource = royAudioContext.createMediaElementSource(audioEl);
-      const analyser = royAudioContext.createAnalyser();
-      analyser.fftSize = 2048;
-      const dataArray = new Uint8Array(analyser.frequencyBinCount);
-
-      royAudioSource.connect(analyser);
-      analyser.connect(royAudioContext.destination);
-
-      let animationId;
-
-      function animate() {
-        analyser.getByteTimeDomainData(dataArray);
-        const waveformColor = selectedPersona === 'randy' ? 'orange' : 'magenta';
-        drawWaveform(royCtx, royCanvas, dataArray, waveformColor, false);
-        animationId = requestAnimationFrame(animate);
-      }
-
-      animate();
-      audioEl.play();
-
-      audioEl.addEventListener('ended', () => {
-        cancelAnimationFrame(animationId);
-        royCtx.clearRect(0, 0, royCanvas.width, royCanvas.height);
-        speakBtn.textContent = 'SPEAK';
-        speakBtn.classList.remove('blinking');
-        speakBtn.style.backgroundColor = 'red';
-        speakBtn.style.color = 'white';
-        speakBtn.style.border = '1px solid red';
-        cleanupRecording();
-      });
-
-    } catch (error) {
-      console.error('Audio visualization failed:', error);
-      audioEl.play();
-    }
-  });
-
-  audioEl.load();
-}
-
 function resetButtonColors() {
   royBtn.style.backgroundColor = 'black';
   royBtn.style.color = 'cyan';
