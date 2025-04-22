@@ -15,7 +15,8 @@ body {
   padding: 10px;
   font-family: 'Courier New', monospace;
   font-size: 18px;
-  width: fit-content;
+  width: 100%;
+  max-width: 900px;
   margin: 0 auto;
 }
 
@@ -25,7 +26,8 @@ body {
   background-color: transparent;
   border: none;
   padding: 0;
-  width: fit-content;
+  width: 100%;
+  max-width: 900px;
   margin: 0 auto;
 }
 
@@ -43,7 +45,8 @@ canvas {
   margin: 20px 0;
   display: flex;
   justify-content: center;
-  width: fit-content;
+  width: 100%;
+  max-width: 900px;
   margin: 20px auto;
 }
 
@@ -71,8 +74,8 @@ button:focus {
 }
 
 #messages {
-  width: fit-content;
-  max-width: 90%;
+  width: 100%;
+  max-width: 900px;
   margin: 20px auto 0 auto;
   text-align: left;
   color: yellow;
