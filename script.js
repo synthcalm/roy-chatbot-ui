@@ -6,11 +6,14 @@ const CONFIG = {
     ROY_ACTIVE_BG: '#00FF00',
     RANDY_ACTIVE_BG: 'orange',
     ACTIVE_FG: 'black',
-    WAVEFORM_USER: 'yellow'
+    WAVEFORM_USER: 'yellow',
+    WAVEFORM_ROY: 'cyan',
+    FEEDBACK_BLINK: 'red'
   },
   COUNTDOWN_SECONDS: 3600,
   WAVEFORM_SCALE: 50,
-  ANALYSER_FFT_SIZE: 2048
+  ANALYSER_FFT_SIZE: 2048,
+  ROY_RESPONSE_DURATION: 5000 // Simulated Roy audio duration in ms
 };
 
 const elements = {
@@ -37,8 +40,10 @@ let state = {
   mediaRecorder: null,
   stream: null,
   userAudioContext: null,
+  royAudioContext: null,
   animationFrameId: null,
-  countdown: CONFIG.COUNTDOWN_SECONDS
+  countdown: CONFIG.COUNTDOWN_SECONDS,
+  lastTranscription: null // Store the last transcribed text
 };
 
 const { userCanvas, royCanvas, messagesDiv } = elements;
@@ -69,7 +74,7 @@ const resetButtonStyles = () => {
   const { DEFAULT_BG, DEFAULT_FG } = CONFIG.COLORS;
   elements.royBtn.style.cssText = `background-color: ${DEFAULT_BG}; color: ${DEFAULT_FG}`;
   elements.randyBtn.style.cssText = `background-color: ${DEFAULT_BG}; color: ${DEFAULT_FG}`;
-  elements.feedbackBtn.style.cssText = `background-color: ${DEFAULT_BG}; color: ${DEFAULT_FG}`;
+  elements.feedbackBtn.style.cssText = `background-color: ${DEFAULT_BG}; color: ${DEFAULT_FG}; border: none`;
   elements.feedbackBtn.classList.remove('blinking');
   elements.feedbackBtn.textContent = 'FEEDBACK';
   elements.royBtn.textContent = 'ROY';
@@ -110,14 +115,49 @@ const cleanupAudio = () => {
     state.userAudioContext.close().catch(err => console.warn('Audio context close error:', err));
     state.userAudioContext = null;
   }
+  if (state.royAudioContext) {
+    state.royAudioContext.close().catch(err => console.warn('Roy audio context close error:', err));
+    state.royAudioContext = null;
+  }
   if (state.animationFrameId) {
     cancelAnimationFrame(state.animationFrameId);
     state.animationFrameId = null;
   }
   userCtx?.clearRect(0, 0, userCanvas.width, userCanvas.height);
+  royCtx?.clearRect(0, 0, royCanvas.width, royCanvas.height);
 };
 
-// Audio visualization setup
+// Simulate Roy's audio waveform (since we don't have actual audio)
+const simulateRoyAudio = () => {
+  state.royAudioContext = new (window.AudioContext || window.webkitAudioContext)();
+  const analyser = state.royAudioContext.createAnalyser();
+  analyser.fftSize = CONFIG.ANALYSER_FFT_SIZE;
+  const dataArray = new Uint8Array(analyser.frequencyBinCount);
+
+  // Simulate audio data with a simple sine wave
+  let time = 0;
+  const simulateWaveform = () => {
+    for (let i = 0; i < dataArray.length; i++) {
+      const value = Math.sin(time + i * 0.05) * 50 + 128; // Simulate audio wave
+      dataArray[i] = value;
+    }
+    time += 0.1;
+    drawWaveform(royCtx, royCanvas, dataArray, CONFIG.COLORS.WAVEFORM_ROY);
+    state.animationFrameId = requestAnimationFrame(simulateWaveform);
+  };
+
+  simulateWaveform();
+
+  // Stop after a set duration
+  setTimeout(() => {
+    cancelAnimationFrame(state.animationFrameId);
+    royCtx?.clearRect(0, 0, royCanvas.width, royCanvas.height);
+    state.royAudioContext.close().catch(err => console.warn('Roy audio context close error:', err));
+    state.royAudioContext = null;
+  }, CONFIG.ROY_RESPONSE_DURATION);
+};
+
+// Audio visualization setup for user
 const setupVisualization = async stream => {
   cleanupAudio();
   state.userAudioContext = new (window.AudioContext || window.webkitAudioContext)();
@@ -145,6 +185,7 @@ const handlePersonaClick = async (persona, button, activeBg) => {
     state.mediaRecorder?.stop();
     resetButtonStyles();
     elements.feedbackBtn.classList.add('blinking');
+    elements.feedbackBtn.style.cssText = `background-color: ${CONFIG.COLORS.FEEDBACK_BLINK}; color: ${CONFIG.COLORS.ACTIVE_FG}; border: none`;
     return;
   }
 
@@ -170,8 +211,10 @@ const handlePersonaClick = async (persona, button, activeBg) => {
       try {
         const response = await fetch(CONFIG.API_URL, { method: 'POST', body: formData });
         const { text = 'undefined' } = await response.json();
+        state.lastTranscription = text; // Store for feedback use
         addMessage('user', text);
         elements.feedbackBtn.classList.add('blinking');
+        elements.feedbackBtn.style.cssText = `background-color: ${CONFIG.COLORS.FEEDBACK_BLINK}; color: ${CONFIG.COLORS.ACTIVE_FG}; border: none`;
       } catch (error) {
         console.error('Transcription failed:', error);
         addMessage('system', 'Error: Transcription failed');
@@ -201,9 +244,20 @@ elements.feedbackBtn.addEventListener('click', async () => {
     return;
   }
   elements.feedbackBtn.classList.remove('blinking');
-  elements.feedbackBtn.style.cssText = `background-color: ${CONFIG.COLORS.DEFAULT_FG}; color: ${CONFIG.COLORS.ACTIVE_FG}`;
-  // Placeholder for feedback logic (e.g., fetch bot response)
-  addMessage(state.selectedPersona, 'Feedback response placeholder');
+  elements.feedbackBtn.style.cssText = `background-color: ${CONFIG.COLORS.DEFAULT_FG}; color: ${CONFIG.COLORS.ACTIVE_FG}; border: none`;
+  
+  // Simulate Roy's response (audio waveform and text)
+  if (state.selectedPersona === 'roy') {
+    simulateRoyAudio();
+    // Mock Roy's response based on the last transcription
+    const royResponse = state.lastTranscription === 'undefined'
+      ? "Sorry, I didn't catch that. Could you repeat?"
+      : `I heard you say: "${state.lastTranscription}". How can I assist you further?`;
+    addMessage('roy', royResponse);
+  } else {
+    // Placeholder for Randy's response
+    addMessage('randy', 'Randy response placeholder');
+  }
   resetButtonStyles();
 });
 
