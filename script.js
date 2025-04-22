@@ -183,6 +183,24 @@ randyBtn.addEventListener('click', async () => {
 });
 
 // Feedback button logic
+
+// Save Log button logic
+saveBtn.addEventListener('click', () => {
+  const now = new Date();
+  const timestamp = now.toISOString().replace(/[:.]/g, '-');
+  const filename = `${selectedPersona || 'conversation'}-${timestamp}.txt`;
+  const blob = new Blob([messagesDiv.innerText], { type: 'text/plain' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = filename;
+  a.click();
+
+  // Reset all buttons to default state
+  resetButtonColors();
+  royBtn.textContent = 'ROY';
+  randyBtn.textContent = 'RANDY';
+  feedbackBtn.textContent = 'FEEDBACK';
+});
 feedbackBtn.addEventListener('click', async () => {
   if (!audioChunks.length) return;
   feedbackBtn.classList.remove('blinking');
