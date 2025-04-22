@@ -88,10 +88,18 @@ function setupUserVisualization(stream) {
 }
 
 function playRoyAudio(base64Audio) {
-  const audioEl = new Audio(`data:audio/mp3;base64,${base64Audio}`);
+  if (!base64Audio || typeof base64Audio !== 'string') {
+    console.warn('🚫 No valid audio received.');
+    return;
+  }
+
+  const audioEl = new Audio(`data:audio/wav;base64,${base64Audio}`);
   audioEl.setAttribute('playsinline', '');
 
-  if (royAudioContext) royAudioContext.close();
+  if (royAudioContext) {
+    try { royAudioContext.close(); } catch (e) {}
+  }
+
   royAudioContext = new (window.AudioContext || window.webkitAudioContext)();
 
   audioEl.addEventListener('loadedmetadata', () => {
@@ -100,6 +108,7 @@ function playRoyAudio(base64Audio) {
       const analyser = royAudioContext.createAnalyser();
       analyser.fftSize = 2048;
       const dataArray = new Uint8Array(analyser.frequencyBinCount);
+
       royAudioSource.connect(analyser);
       analyser.connect(royAudioContext.destination);
 
@@ -109,19 +118,47 @@ function playRoyAudio(base64Audio) {
         drawWaveform(royCtx, royCanvas, dataArray, color, false);
         if (!audioEl.paused) requestAnimationFrame(animate);
       }
+
       animate();
 
-      royAudioContext.resume().then(() => audioEl.play().catch(console.warn));
+      royAudioContext.resume().then(() => {
+        audioEl.play().then(() => {
+          console.log('🔊 Roy audio is playing...');
+        }).catch(err => {
+          console.warn('🛑 Auto-play failed:', err);
+          showManualPlayButton(audioEl);
+        });
+      });
+
       audioEl.addEventListener('ended', () => {
         royCtx.clearRect(0, 0, royCanvas.width, royCanvas.height);
         resetSpeakButton();
       });
-    } catch (e) {
-      console.error('Roy audio playback failed:', e);
+
+    } catch (err) {
+      console.error('Roy waveform setup failed:', err);
+      showManualPlayButton(audioEl);
     }
   });
 
   audioEl.load();
+}
+
+function showManualPlayButton(audioEl) {
+  const manualPlayBtn = document.createElement('button');
+  manualPlayBtn.textContent = '▶️ Tap to Play Roy';
+  manualPlayBtn.style.margin = '10px';
+  manualPlayBtn.style.padding = '10px';
+  manualPlayBtn.onclick = () => {
+    royAudioContext.resume().then(() => {
+      audioEl.play().then(() => {
+        manualPlayBtn.remove();
+      }).catch(err => {
+        console.warn('Manual play still failed:', err);
+      });
+    });
+  };
+  messagesDiv.appendChild(manualPlayBtn);
 }
 
 function resetSpeakButton() {
