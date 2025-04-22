@@ -2,30 +2,22 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Roy Chatbot - Natural Flow</title>
-  <style>
-    body { background: #000; color: cyan; font-family: 'Courier New', monospace; text-align: center; padding: 20px; }
-    button { margin: 10px; padding: 10px 20px; font-size: 16px; background: black; color: cyan; border: 1px solid cyan; cursor: pointer; }
-    button:disabled { opacity: 0.5; cursor: not-allowed; }
-    .active { background-color: green; color: white; border-color: green; }
-    .thinking-dots::after { content: ''; animation: thinking-dots 1.4s infinite steps(4, end); }
-    @keyframes thinking-dots { 0% { content: ''; } 25% { content: '.'; } 50% { content: '..'; } 75% { content: '...'; } 100% { content: ''; } }
-  </style>
+  <title>Roy Chatbot - SynthCalm Retro Flow</title>
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <h2>🧠 Roy & Randy Natural Flow Chatbot</h2>
-  <div>
+  <div id="scopes-container">
+    <canvas id="userWaveform" width="600" height="120"></canvas>
+    <canvas id="royWaveform" width="600" height="120"></canvas>
+  </div>
+
+  <div id="controls">
     <button id="royBtn">Roy</button>
     <button id="randyBtn">Randy</button>
+    <button id="speakBtn">SPEAK</button>
   </div>
-  <button id="speakBtn" disabled>SPEAK</button>
 
-  <h3>Transcript:</h3>
-  <div id="result">(waiting...)</div>
-
-  <h3>Roy/Randy Response:</h3>
-  <div id="reply">(waiting...)</div>
-  <audio id="audioPlayback" controls style="display:none;"></audio>
+  <div id="messages"></div>
 
   <script src="script.js"></script>
 </body>
