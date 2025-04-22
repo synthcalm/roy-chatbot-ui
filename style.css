@@ -1,12 +1,12 @@
 @import url('https://fonts.cdnfonts.com/css/ds-digital');
 
 body {
+  margin: 0;
+  padding: 0;
   background-color: black;
   color: cyan;
   font-family: 'Courier New', monospace;
-  margin: 0;
-  padding: 0;
-  text-align: center;
+  overflow: hidden;
 }
 
 #header {
@@ -18,10 +18,13 @@ body {
 }
 
 #scopes-container {
-  width: 90%;
+  width: fit-content;
   margin: 0 auto;
   display: flex;
   flex-direction: column;
+  background-color: transparent;
+  border: none;
+  padding: 0;
 }
 
 canvas {
@@ -36,6 +39,8 @@ canvas {
 
 .buttons {
   margin: 20px 0;
+  display: flex;
+  justify-content: center;
 }
 
 button {
@@ -62,20 +67,16 @@ button:focus {
 }
 
 #messages {
-  width: 90%;
-  margin: 20px auto;
+  width: fit-content;
+  max-width: 90%;
+  margin: 20px auto 0 auto;
   text-align: left;
   color: yellow;
+  padding: 0;
+  border: none;
+  background: transparent;
 }
 
-#messages .roy {
-  color: yellow;
-}
-
-#messages .randy {
-  color: orange;
-}
-
-#messages .user {
-  color: cyan;
-}
+#messages .roy { color: yellow; }
+#messages .randy { color: orange; }
+#messages .user { color: cyan; }
