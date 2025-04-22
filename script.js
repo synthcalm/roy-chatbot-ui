@@ -174,7 +174,28 @@ randyBtn.addEventListener('click', async () => {
     setupUserVisualization(stream);
     mediaRecorder = new MediaRecorder(stream);
     mediaRecorder.ondataavailable = e => { if (e.data.size > 0) audioChunks.push(e.data); };
-    mediaRecorder.onstop = async () => { /* Transcription logic here */ };
+    mediaRecorder.onstop = async () => {
+  const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+  const formData = new FormData();
+  formData.append('audio', audioBlob);
+  formData.append('bot', selectedPersona);
+
+  try {
+    const transcribeRes = await fetch('https://roy-chatbo-backend.onrender.com/api/transcribe', { method: 'POST', body: formData });
+    const transcribeJson = await transcribeRes.json();
+    const userText = transcribeJson.text || 'undefined';
+    addMessage('user', userText);
+    feedbackBtn.classList.add('blinking');
+  } catch (error) {
+    console.error('Transcription failed:', error);
+  } finally {
+    if (selectedPersona === 'randy') {
+      randyBtn.style.backgroundColor = 'orange';
+      randyBtn.style.color = 'black';
+      randyBtn.textContent = 'RANDY';
+    }
+  }
+};
     mediaRecorder.start();
   } catch (error) {
     console.error('Microphone error:', error);
