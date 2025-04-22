@@ -199,6 +199,56 @@ feedbackBtn.addEventListener('click', async () => {
     const userText = transcribeJson.text || 'undefined';
     addMessage('user', userText);
 
+    const thinkingMsg = document.createElement('p');
+    thinkingMsg.className = selectedPersona;
+    thinkingMsg.textContent = `${selectedPersona === 'randy' ? 'Randy' : 'Roy'} thinking`;
+    const dotsSpan = document.createElement('span');
+    dotsSpan.className = 'thinking-dots';
+    thinkingMsg.appendChild(dotsSpan);
+    messagesDiv.appendChild(thinkingMsg);
+    messagesDiv.scrollTop = messagesDiv.scrollHeight;
+
+    const chatRes = await fetch('https://roy-chatbo-backend.onrender.com/api/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message: userText, persona: selectedPersona })
+    });
+    const chatJson = await chatRes.json();
+
+    thinkingMsg.remove();
+    addMessage(selectedPersona, chatJson.text);
+    if (chatJson.audio) playRoyAudio(chatJson.audio);
+  } catch (error) {
+    console.error('Error during feedback:', error);
+  } finally {
+    feedbackBtn.style.backgroundColor = 'black';
+    feedbackBtn.style.color = 'cyan';
+    if (selectedPersona === 'roy') {
+      royBtn.style.backgroundColor = '#00FF00';
+      royBtn.style.color = 'black';
+      royBtn.textContent = 'ROY';
+    } else if (selectedPersona === 'randy') {
+      randyBtn.style.backgroundColor = 'orange';
+      randyBtn.style.color = 'black';
+      randyBtn.textContent = 'RANDY';
+    }
+  }
+});
+  if (!audioChunks.length) return;
+  feedbackBtn.classList.remove('blinking');
+  feedbackBtn.style.backgroundColor = 'red';
+  feedbackBtn.style.color = 'white';
+  const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+  const formData = new FormData();
+  formData.append('audio', audioBlob);
+  formData.append('bot', selectedPersona);
+
+  try {
+    const transcribeRes = await fetch('https://roy-chatbo-backend.onrender.com/api/transcribe', { method: 'POST', body: formData });
+    const transcribeJson = await transcribeRes.json();
+    const userText = transcribeJson.text || 'undefined';
+    addMessage('user', userText);
+
     const chatRes = await fetch('https://roy-chatbo-backend.onrender.com/api/chat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ message: userText, persona: selectedPersona }) });
     const chatJson = await chatRes.json();
     addMessage(selectedPersona, chatJson.text);
