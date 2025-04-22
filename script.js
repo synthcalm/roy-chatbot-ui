@@ -317,10 +317,10 @@ speakBtn.addEventListener('click', async () => {
             const chatRes = await fetch('https://roy-chatbo-backend.onrender.com/api/chat', {
               method: 'POST',
               body: formData,
-            });
+           });
             if (!chatRes.ok) throw new Error(`Chat failed with status: ${chatRes.status}`);
             const chatJson = await chatRes.json();
-            userText = chatJson.text || "undefined";
+             userText = chatJson.text || "undefined";
             // Since /api/chat also returns Roy's response, extract only the user's transcription
             // For now, we'll assume the transcription is correct and Roy's response is separate
             console.log("[CHAT] User text (fallback):", userText);
@@ -440,7 +440,7 @@ document.head.insertAdjacentHTML('beforeend', `
       0% { content: ''; }
       25% { content: '.'; }
       50% { content: '..'; }
-      75% { content: '...'; }
+      75% { content, '...'; }
       100% { content: ''; }
     }
   </style>
