@@ -2,23 +2,29 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Roy Chatbot - SynthCalm Retro Flow</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Roy Chatbot Retro UI</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <div id="scopes-container">
-    <canvas id="userWaveform" width="600" height="120"></canvas>
-    <canvas id="royWaveform" width="600" height="120"></canvas>
+  <div class="container">
+    <div class="info-bar">
+      <span id="date-time"></span>
+      <span id="countdown-timer"></span>
+    </div>
+    <div id="scopes-container">
+      <canvas id="userWaveform" width="500" height="150"></canvas>
+      <canvas id="royWaveform" width="500" height="150"></canvas>
+    </div>
+    <div class="button-bar">
+      <button id="royBtn">ROY</button>
+      <button id="randyBtn">RANDY</button>
+      <button id="speakBtn">SPEAK</button>
+      <button id="saveBtn">SAVE LOG</button>
+      <button id="homeBtn">SYNTHCALM HOME</button>
+    </div>
+    <div id="messages"></div>
   </div>
-
-  <div id="controls">
-    <button id="royBtn">Roy</button>
-    <button id="randyBtn">Randy</button>
-    <button id="speakBtn">SPEAK</button>
-  </div>
-
-  <div id="messages"></div>
-
   <script src="script.js"></script>
 </body>
 </html>
