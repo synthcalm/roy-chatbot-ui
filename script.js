@@ -313,38 +313,41 @@ speakBtn.addEventListener('click', async () => {
                 const transcribeJson = await transcribeRes.json();
                 userText = transcribeJson.text || "undefined";
                 console.log("[TRANSCRIBE] User text:", userText);
-            } catch (transcribeError) {
-                console.warn("[TRANSCRIBE] /api/transcribe failed, falling back to /api/chat:", transcribeError);
-                try {
-                    const chatRes = await fetch('https://roy-chatbo-backend.onrender.com/api/chat', {
-                        method: 'POST',
-                        body: formData,
-                    });
-                    if (!chatRes.ok) throw new Error(`Chat failed with status: ${chatRes.status}`);
-                    const chatJson = await chatRes.json();
-                    userText = chatJson.text || "undefined";
-                    royText = chatJson.response || chatJson.text || "undefined";
-                    audioBase64 = chatJson.audio;
-                    console.log("[CHAT - FALLBACK] User text:", userText);
-                    console.log("[CHAT - FALLBACK] Roy text:", royText);
-                    console.log("[AUDIO - FALLBACK] base64 received:", audioBase64 ? "Yes" : "No");
-                } catch (chatError) {
-                    console.error("[CHAT - FALLBACK] Fallback failed:", chatError);
-                    throw chatError;
+
+                // Step 2: Update the UI with the user's transcription
+                transcribingMessage.textContent = `You: ${userText}`;
+
+                // Step 3: Call /api/chat with a JSON payload to get Roy's response
+                const chatRes = await fetch('https://roy-chatbo-backend.onrender.com/api/chat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        message: userText,
+                        persona: selectedPersona,
+                    }),
+                });
+                if (!chatRes.ok) throw new Error(`Chat failed with status: ${chatRes.status}`);
+                const chatJson = await chatRes.json();
+                royText = chatJson.text || "undefined";
+                audioBase64 = chatJson.audio;
+                console.log("[AUDIO] base64 length:", audioBase64?.length);
+
+                thinkingMessage.remove();
+                addMessage(`${selectedPersona === 'randy' ? 'Randy' : 'Roy'}: ${royText || "undefined"}`, selectedPersona);
+
+                if (audioBase64) {
+                    playRoyAudio(audioBase64);
+                } else {
+                    cleanupRecording();
                 }
-            }
 
-            transcribingMessage.textContent = `You: ${userText}`;
-            thinkingMessage.remove();
-            addMessage(`${selectedPersona === 'randy' ? 'Randy' : 'Roy'}: ${royText || "undefined"}`, selectedPersona);
-
-            if (audioBase64) {
-                // Attempt to play immediately after receiving audio data
-                playRoyAudio(audioBase64);
-            } else {
+            } catch (error) {
+                console.error('Transcription or chat failed:', error);
+                transcribingMessage.textContent = userText ? `You: ${userText}` : 'You: Transcription failed';
+                thinkingMessage.remove();
+                addMessage(`${selectedPersona === 'randy' ? 'Randy' : 'Roy'}: undefined`, selectedPersona);
                 cleanupRecording();
             }
-
         };
 
         mediaRecorder.onerror = (err) => {
