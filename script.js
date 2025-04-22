@@ -122,31 +122,31 @@ royBtn.addEventListener('click', async () => {
     mediaRecorder = new MediaRecorder(stream);
     mediaRecorder.ondataavailable = e => { if (e.data.size > 0) audioChunks.push(e.data); };
     mediaRecorder.onstop = async () => {
-  const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
-  const formData = new FormData();
-  formData.append('audio', audioBlob);
-  formData.append('bot', selectedPersona);
+      const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+      const formData = new FormData();
+      formData.append('audio', audioBlob);
+      formData.append('bot', selectedPersona);
 
-  try {
-    const transcribeRes = await fetch('https://roy-chatbo-backend.onrender.com/api/transcribe', { method: 'POST', body: formData });
-    const transcribeJson = await transcribeRes.json();
-    const userText = transcribeJson.text || 'undefined';
-    addMessage('user', userText);
-    feedbackBtn.classList.add('blinking');
-  } catch (error) {
-    console.error('Transcription failed:', error);
-  } finally {
-    if (selectedPersona === 'roy') {
-      royBtn.style.backgroundColor = '#00FF00';
-      royBtn.style.color = 'black';
-      royBtn.textContent = 'ROY';
-    } else if (selectedPersona === 'randy') {
-      randyBtn.style.backgroundColor = 'orange';
-      randyBtn.style.color = 'black';
-      randyBtn.textContent = 'RANDY';
-    }
-  }
-};
+      try {
+        const transcribeRes = await fetch('https://roy-chatbo-backend.onrender.com/api/transcribe', { method: 'POST', body: formData });
+        const transcribeJson = await transcribeRes.json();
+        const userText = transcribeJson.text || 'undefined';
+        addMessage('user', userText);
+        feedbackBtn.classList.add('blinking');
+      } catch (error) {
+        console.error('Transcription failed:', error);
+      } finally {
+        if (selectedPersona === 'roy') {
+          royBtn.style.backgroundColor = '#00FF00';
+          royBtn.style.color = 'black';
+          royBtn.textContent = 'ROY';
+        } else if (selectedPersona === 'randy') {
+          randyBtn.style.backgroundColor = 'orange';
+          randyBtn.style.color = 'black';
+          randyBtn.textContent = 'RANDY';
+        }
+      }
+    };
     mediaRecorder.start();
   } catch (error) {
     console.error('Microphone error:', error);
@@ -183,6 +183,11 @@ randyBtn.addEventListener('click', async () => {
 });
 
 // Feedback button logic
+feedbackBtn.addEventListener('click', async () => {
+  // Placeholder for feedback logic
+  console.log('Feedback button clicked');
+  // Add your feedback logic here, e.g., sending transcribed text to a server for a response
+});
 
 // Save Log button logic
 saveBtn.addEventListener('click', () => {
@@ -201,5 +206,3 @@ saveBtn.addEventListener('click', () => {
   randyBtn.textContent = 'RANDY';
   feedbackBtn.textContent = 'FEEDBACK';
 });
-feedbackBtn.addEventListener('click', async () => {
-);
