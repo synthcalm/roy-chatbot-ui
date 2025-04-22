@@ -1,8 +1,8 @@
-// Updated script.js with new button logic and auto-scroll behavior
+// FULLY WIRED script.js with updated button logic
 
 const royBtn = document.getElementById('royBtn');
 const randyBtn = document.getElementById('randyBtn');
-const feedbackBtn = document.getElementById('speakBtn');
+const feedbackBtn = document.getElementById('feedbackBtn');
 const saveBtn = document.getElementById('saveBtn');
 const homeBtn = document.getElementById('homeBtn');
 const messagesDiv = document.getElementById('messages');
@@ -13,265 +13,153 @@ const royCtx = royCanvas.getContext('2d');
 const dateTimeSpan = document.getElementById('date-time');
 const countdownTimerSpan = document.getElementById('countdown-timer');
 
-let selectedPersona = null;
 let mediaRecorder, audioChunks = [], isRecording = false;
+let selectedPersona = null;
 let userAudioContext = null;
-let royAudioContext = null;
-let royAudioSource = null;
-let stream = null;
+let userAnalyser = null;
+let userSource = null;
+let userStream = null;
 
-// Date, time, countdown
-function updateDateTime() {
+function updateClock() {
   const now = new Date();
-  const date = `${now.getFullYear()}/${now.getMonth() + 1}/${now.getDate()}`;
-  const time = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-  dateTimeSpan.textContent = `${date} ${time}`;
+  dateTimeSpan.textContent = now.toLocaleString();
 }
-setInterval(updateDateTime, 1000);
-updateDateTime();
+setInterval(updateClock, 1000);
 
 let countdown = 60 * 60;
-function updateCountdown() {
-  const minutes = Math.floor(countdown / 60);
-  const seconds = countdown % 60;
-  countdownTimerSpan.textContent = `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
-  if (countdown > 0) countdown--;
-}
-setInterval(updateCountdown, 1000);
-updateCountdown();
+setInterval(() => {
+  countdown--;
+  const minutes = String(Math.floor(countdown / 60)).padStart(2, '0');
+  const seconds = String(countdown % 60).padStart(2, '0');
+  countdownTimerSpan.textContent = `${minutes}:${seconds}`;
+}, 1000);
 
-// Button color reset
-function resetButtonColors() {
-  royBtn.style.backgroundColor = 'black';
-  royBtn.style.color = 'cyan';
-  randyBtn.style.backgroundColor = 'black';
-  randyBtn.style.color = 'cyan';
-  feedbackBtn.style.backgroundColor = 'black';
-  feedbackBtn.style.color = 'cyan';
-  feedbackBtn.classList.remove('blinking');
-  feedbackBtn.textContent = 'FEEDBACK';
-  isRecording = false;
-}
-
-function addMessage(sender, text) {
-  const msg = document.createElement('p');
-  msg.className = sender;
-  msg.textContent = `${sender === 'user' ? 'You' : sender.charAt(0).toUpperCase() + sender.slice(1)}: ${text}`;
-  messagesDiv.appendChild(msg);
-  messagesDiv.scrollTop = messagesDiv.scrollHeight;
-}
-
-function drawWaveform(ctx, canvas, data, color) {
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-  ctx.beginPath();
-  const sliceWidth = canvas.width / data.length;
-  const centerY = canvas.height / 2;
-  const scale = 50;
-  for (let i = 0; i < data.length; i++) {
-    const normalized = (data[i] / 128.0) - 1;
-    const y = centerY + (normalized * scale);
-    const x = i * sliceWidth;
-    if (i === 0) ctx.moveTo(x, y);
-    else ctx.lineTo(x, y);
+function drawUserWaveform(dataArray) {
+  userCtx.clearRect(0, 0, userCanvas.width, userCanvas.height);
+  userCtx.beginPath();
+  for (let i = 0; i < dataArray.length; i++) {
+    const x = (i / dataArray.length) * userCanvas.width;
+    const y = userCanvas.height / 2 + dataArray[i] - 128;
+    userCtx.lineTo(x, y);
   }
-  ctx.strokeStyle = color;
-  ctx.lineWidth = 2;
-  ctx.stroke();
+  userCtx.strokeStyle = 'yellow';
+  userCtx.stroke();
 }
 
 function setupUserVisualization(stream) {
-  if (userAudioContext && userAudioContext.state !== 'closed') userAudioContext.close();
   userAudioContext = new (window.AudioContext || window.webkitAudioContext)();
-  const source = userAudioContext.createMediaStreamSource(stream);
-  const analyser = userAudioContext.createAnalyser();
-  analyser.fftSize = 2048;
-  const dataArray = new Uint8Array(analyser.frequencyBinCount);
-  source.connect(analyser);
+  userAnalyser = userAudioContext.createAnalyser();
+  userSource = userAudioContext.createMediaStreamSource(stream);
+  userSource.connect(userAnalyser);
+
+  const bufferLength = userAnalyser.frequencyBinCount;
+  const dataArray = new Uint8Array(bufferLength);
+
   function animate() {
-    if (!isRecording) {
-      userCtx.clearRect(0, 0, userCanvas.width, userCanvas.height);
-      return;
-    }
-    analyser.getByteTimeDomainData(dataArray);
-    drawWaveform(userCtx, userCanvas, dataArray, 'yellow');
     requestAnimationFrame(animate);
+    userAnalyser.getByteTimeDomainData(dataArray);
+    drawUserWaveform(dataArray);
   }
   animate();
 }
 
-// ROY button logic
 royBtn.addEventListener('click', async () => {
-  if (isRecording && selectedPersona === 'roy') {
+  if (!isRecording) {
+    selectedPersona = 'roy';
+    royBtn.style.backgroundColor = 'lime';
+    royBtn.textContent = 'STOP';
+    audioChunks = [];
+    userStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    mediaRecorder = new MediaRecorder(userStream);
+    setupUserVisualization(userStream);
+    mediaRecorder.start();
+
+    mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
+    mediaRecorder.onstop = async () => {
+      const blob = new Blob(audioChunks, { type: 'audio/webm' });
+      const formData = new FormData();
+      formData.append('audio', blob);
+      try {
+        const response = await fetch('https://roy-chatbo-backend.onrender.com/api/transcribe', {
+          method: 'POST',
+          body: formData
+        });
+        const data = await response.json();
+        if (data.text) {
+          displayMessage('You', data.text, 'white');
+          thinkingDots();
+          feedbackBtn.classList.add('blinking-red');
+        }
+      } catch (err) {
+        console.error('Transcription failed:', err);
+      }
+    };
+    isRecording = true;
+  } else {
     mediaRecorder.stop();
-    royBtn.style.backgroundColor = 'black';
-    royBtn.style.color = 'cyan';
+    userStream.getTracks().forEach(track => track.stop());
+    royBtn.style.backgroundColor = '';
     royBtn.textContent = 'ROY';
-    feedbackBtn.classList.add('blinking');
-    return;
-  }
-  resetButtonColors();
-  selectedPersona = 'roy';
-  royBtn.style.backgroundColor = '#00FF00'; // Cyber green
-  royBtn.style.color = 'black';
-  royBtn.textContent = 'STOP';
-  try {
-    isRecording = true;
-    audioChunks = [];
-    stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    setupUserVisualization(stream);
-    mediaRecorder = new MediaRecorder(stream);
-    mediaRecorder.ondataavailable = e => { if (e.data.size > 0) audioChunks.push(e.data); };
-    mediaRecorder.onstop = async () => {
-  const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
-  const formData = new FormData();
-  formData.append('audio', audioBlob);
-  formData.append('bot', selectedPersona);
-
-  try {
-    const transcribeRes = await fetch('https://roy-chatbo-backend.onrender.com/api/transcribe', { method: 'POST', body: formData });
-    const transcribeJson = await transcribeRes.json();
-    const userText = transcribeJson.text || 'undefined';
-    addMessage('user', userText);
-    feedbackBtn.classList.add('blinking');
-  } catch (error) {
-    console.error('Transcription failed:', error);
-  } finally {
-    if (selectedPersona === 'roy') {
-      royBtn.style.backgroundColor = '#00FF00';
-      royBtn.style.color = 'black';
-      royBtn.textContent = 'ROY';
-    } else if (selectedPersona === 'randy') {
-      randyBtn.style.backgroundColor = 'orange';
-      randyBtn.style.color = 'black';
-      randyBtn.textContent = 'RANDY';
-    }
-  }
-};
-    mediaRecorder.start();
-  } catch (error) {
-    console.error('Microphone error:', error);
-    alert('Could not access your microphone. Please allow access.');
+    isRecording = false;
   }
 });
 
-// RANDY button logic
-randyBtn.addEventListener('click', async () => {
-  if (isRecording && selectedPersona === 'randy') {
-    mediaRecorder.stop();
-    randyBtn.style.backgroundColor = 'black';
-    randyBtn.style.color = 'cyan';
-    feedbackBtn.classList.add('blinking');
-    return;
-  }
-  resetButtonColors();
-  selectedPersona = 'randy';
-  randyBtn.style.backgroundColor = 'orange';
-  randyBtn.style.color = 'black';
-  try {
-    isRecording = true;
-    audioChunks = [];
-    stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    setupUserVisualization(stream);
-    mediaRecorder = new MediaRecorder(stream);
-    mediaRecorder.ondataavailable = e => { if (e.data.size > 0) audioChunks.push(e.data); };
-    mediaRecorder.onstop = async () => {
-  const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
-  const formData = new FormData();
-  formData.append('audio', audioBlob);
-  formData.append('bot', selectedPersona);
-
-  try {
-    const transcribeRes = await fetch('https://roy-chatbo-backend.onrender.com/api/transcribe', { method: 'POST', body: formData });
-    const transcribeJson = await transcribeRes.json();
-    const userText = transcribeJson.text || 'undefined';
-    addMessage('user', userText);
-    feedbackBtn.classList.add('blinking');
-  } catch (error) {
-    console.error('Transcription failed:', error);
-  } finally {
-    if (selectedPersona === 'randy') {
-      randyBtn.style.backgroundColor = 'orange';
-      randyBtn.style.color = 'black';
-      randyBtn.textContent = 'RANDY';
-    }
-  }
-};
-    mediaRecorder.start();
-  } catch (error) {
-    console.error('Microphone error:', error);
-    alert('Could not access your microphone. Please allow access.');
-  }
-});
-
-// Feedback button logic
-
-// Save Log button logic
-saveBtn.addEventListener('click', () => {
-  const now = new Date();
-  const timestamp = now.toISOString().replace(/[:.]/g, '-');
-  const filename = `${selectedPersona || 'conversation'}-${timestamp}.txt`;
-  const blob = new Blob([messagesDiv.innerText], { type: 'text/plain' });
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = filename;
-  a.click();
-
-  // Reset all buttons to default state
-  resetButtonColors();
-  royBtn.textContent = 'ROY';
-  randyBtn.textContent = 'RANDY';
-  feedbackBtn.textContent = 'FEEDBACK';
-});
 feedbackBtn.addEventListener('click', async () => {
-  if (!audioChunks.length) return;
-  feedbackBtn.classList.remove('blinking');
+  const lastUser = [...messagesDiv.querySelectorAll('.user')].pop();
+  if (!lastUser) return;
+  const text = lastUser.textContent.replace('You: ', '');
+  feedbackBtn.classList.remove('blinking-red');
   feedbackBtn.style.backgroundColor = 'red';
-  feedbackBtn.style.color = 'white';
   feedbackBtn.textContent = 'FEEDBACK';
 
-  const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
-  const formData = new FormData();
-  formData.append('audio', audioBlob);
-  formData.append('bot', selectedPersona);
-
   try {
-    const transcribeRes = await fetch('https://roy-chatbo-backend.onrender.com/api/transcribe', { method: 'POST', body: formData });
-    const transcribeJson = await transcribeRes.json();
-    const userText = transcribeJson.text || 'undefined';
-    addMessage('user', userText);
-
-    const thinkingMsg = document.createElement('p');
-    thinkingMsg.className = selectedPersona;
-    thinkingMsg.textContent = `${selectedPersona === 'randy' ? 'Randy' : 'Roy'} thinking`;
-    const dotsSpan = document.createElement('span');
-    dotsSpan.className = 'thinking-dots';
-    thinkingMsg.appendChild(dotsSpan);
-    messagesDiv.appendChild(thinkingMsg);
-    messagesDiv.scrollTop = messagesDiv.scrollHeight;
-
-    const chatRes = await fetch('https://roy-chatbo-backend.onrender.com/api/chat', {
+    const res = await fetch('https://roy-chatbo-backend.onrender.com/api/chat', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ message: userText, persona: selectedPersona })
+      body: JSON.stringify({ message: text, persona: selectedPersona })
     });
-    const chatJson = await chatRes.json();
-
-    thinkingMsg.remove();
-    addMessage(selectedPersona, chatJson.text);
-    if (chatJson.audio) playRoyAudio(chatJson.audio);
-  } catch (error) {
-    console.error('Error during feedback:', error);
+    const data = await res.json();
+    if (data.text) displayMessage(capitalize(selectedPersona), data.text, 'yellow');
+    if (data.audio) playRoyAudio(data.audio);
+  } catch (err) {
+    console.error('Error during feedback:', err);
   } finally {
-    feedbackBtn.style.backgroundColor = 'black';
-    feedbackBtn.style.color = 'cyan';
-    if (selectedPersona === 'roy') {
-      royBtn.style.backgroundColor = '#00FF00';
-      royBtn.style.color = 'black';
-      royBtn.textContent = 'ROY';
-    } else if (selectedPersona === 'randy') {
-      randyBtn.style.backgroundColor = 'orange';
-      randyBtn.style.color = 'black';
-      randyBtn.textContent = 'RANDY';
-    }
+    feedbackBtn.style.backgroundColor = '';
+    royBtn.style.backgroundColor = 'lime';
+    royBtn.textContent = 'ROY';
   }
 });
+
+function playRoyAudio(base64Audio) {
+  const audio = new Audio(`data:audio/mp3;base64,${base64Audio}`);
+  audio.play();
+}
+
+function thinkingDots() {
+  const msg = document.createElement('div');
+  msg.className = 'roy';
+  msg.textContent = 'Roy thinking';
+  messagesDiv.appendChild(msg);
+  let count = 0;
+  const interval = setInterval(() => {
+    if (count >= 3) count = 0;
+    msg.textContent = 'Roy thinking' + '.'.repeat(count++);
+  }, 500);
+  setTimeout(() => {
+    clearInterval(interval);
+    messagesDiv.removeChild(msg);
+  }, 3000);
+}
+
+function displayMessage(role, text, color) {
+  const msg = document.createElement('div');
+  msg.className = role.toLowerCase();
+  msg.textContent = `${role}: ${text}`;
+  msg.style.color = color;
+  messagesDiv.appendChild(msg);
+  messagesDiv.scrollTop = messagesDiv.scrollHeight;
+}
+
+function capitalize(str) {
+  return str.charAt(0).toUpperCase() + str.slice(1);
+}
