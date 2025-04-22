@@ -1,107 +1,256 @@
-// server.js (no changes needed)
-const express = require('express');
-const cors = require('cors');
-const multer = require('multer');
-const axios = require('axios');
-const fs = require('fs');
-const path = require('path');
-const FormData = require('form-data');
-const ffmpeg = require('fluent-ffmpeg');
-const ffmpegPath = require('ffmpeg-static');
-require('dotenv').config();
+// Updated script.js with new button logic and auto-scroll behavior
 
-ffmpeg.setFfmpegPath(ffmpegPath);
+const royBtn = document.getElementById('royBtn');
+const randyBtn = document.getElementById('randyBtn');
+const feedbackBtn = document.getElementById('speakBtn');
+const saveBtn = document.getElementById('saveBtn');
+const homeBtn = document.getElementById('homeBtn');
+const messagesDiv = document.getElementById('messages');
+const userCanvas = document.getElementById('userWaveform');
+const royCanvas = document.getElementById('royWaveform');
+const userCtx = userCanvas.getContext('2d');
+const royCtx = royCanvas.getContext('2d');
+const dateTimeSpan = document.getElementById('date-time');
+const countdownTimerSpan = document.getElementById('countdown-timer');
 
-const app = express();
-const upload = multer({ dest: 'uploads/' });
-const PORT = process.env.PORT || 3000;
-const ASSEMBLY_API_KEY = process.env.ASSEMBLYAI_API_KEY;
+let selectedPersona = null;
+let mediaRecorder, audioChunks = [], isRecording = false;
+let userAudioContext = null;
+let royAudioContext = null;
+let royAudioSource = null;
+let stream = null;
 
-app.use(cors({
-  origin: ['https://synthcalm.com', 'https://synthcalm.github.io']
-}));
+// Date, time, countdown
+function updateDateTime() {
+  const now = new Date();
+  const date = `${now.getFullYear()}/${now.getMonth() + 1}/${now.getDate()}`;
+  const time = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  dateTimeSpan.textContent = `${date} ${time}`;
+}
+setInterval(updateDateTime, 1000);
+updateDateTime();
 
-app.use(express.json());
+let countdown = 60 * 60;
+function updateCountdown() {
+  const minutes = Math.floor(countdown / 60);
+  const seconds = countdown % 60;
+  countdownTimerSpan.textContent = `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
+  if (countdown > 0) countdown--;
+}
+setInterval(updateCountdown, 1000);
+updateCountdown();
 
-app.post('/api/transcribe', upload.single('audio'), async (req, res) => {
-  if (!req.file) return res.status(400).json({ error: 'No audio file uploaded' });
+// Button color reset
+function resetButtonColors() {
+  royBtn.style.backgroundColor = 'black';
+  royBtn.style.color = 'cyan';
+  randyBtn.style.backgroundColor = 'black';
+  randyBtn.style.color = 'cyan';
+  feedbackBtn.style.backgroundColor = 'black';
+  feedbackBtn.style.color = 'cyan';
+  feedbackBtn.classList.remove('blinking');
+  feedbackBtn.textContent = 'FEEDBACK';
+  isRecording = false;
+}
 
-  const convertedPath = path.join(__dirname, 'uploads', `${req.file.filename}-converted.wav`);
+function addMessage(sender, text) {
+  const msg = document.createElement('p');
+  msg.className = sender;
+  msg.textContent = `${sender === 'user' ? 'You' : sender.charAt(0).toUpperCase() + sender.slice(1)}: ${text}`;
+  messagesDiv.appendChild(msg);
+  messagesDiv.scrollTop = messagesDiv.scrollHeight;
+}
+
+function drawWaveform(ctx, canvas, data, color) {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.beginPath();
+  const sliceWidth = canvas.width / data.length;
+  const centerY = canvas.height / 2;
+  const scale = 50;
+  for (let i = 0; i < data.length; i++) {
+    const normalized = (data[i] / 128.0) - 1;
+    const y = centerY + (normalized * scale);
+    const x = i * sliceWidth;
+    if (i === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  }
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 2;
+  ctx.stroke();
+}
+
+function setupUserVisualization(stream) {
+  if (userAudioContext && userAudioContext.state !== 'closed') userAudioContext.close();
+  userAudioContext = new (window.AudioContext || window.webkitAudioContext)();
+  const source = userAudioContext.createMediaStreamSource(stream);
+  const analyser = userAudioContext.createAnalyser();
+  analyser.fftSize = 2048;
+  const dataArray = new Uint8Array(analyser.frequencyBinCount);
+  source.connect(analyser);
+  function animate() {
+    if (!isRecording) {
+      userCtx.clearRect(0, 0, userCanvas.width, userCanvas.height);
+      return;
+    }
+    analyser.getByteTimeDomainData(dataArray);
+    drawWaveform(userCtx, userCanvas, dataArray, 'yellow');
+    requestAnimationFrame(animate);
+  }
+  animate();
+}
+
+// ROY button logic
+royBtn.addEventListener('click', async () => {
+  if (isRecording && selectedPersona === 'roy') {
+    mediaRecorder.stop();
+    royBtn.style.backgroundColor = 'black';
+    royBtn.style.color = 'cyan';
+    royBtn.textContent = 'ROY';
+    feedbackBtn.classList.add('blinking');
+    return;
+  }
+  resetButtonColors();
+  selectedPersona = 'roy';
+  royBtn.style.backgroundColor = '#00FF00'; // Cyber green
+  royBtn.style.color = 'black';
+  royBtn.textContent = 'STOP';
+  try {
+    isRecording = true;
+    audioChunks = [];
+    stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    setupUserVisualization(stream);
+    mediaRecorder = new MediaRecorder(stream);
+    mediaRecorder.ondataavailable = e => { if (e.data.size > 0) audioChunks.push(e.data); };
+    mediaRecorder.onstop = async () => {
+  const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+  const formData = new FormData();
+  formData.append('audio', audioBlob);
+  formData.append('bot', selectedPersona);
 
   try {
-    await new Promise((resolve, reject) => {
-      ffmpeg(req.file.path)
-        .audioCodec('pcm_s16le')
-        .audioChannels(1)
-        .audioFrequency(16000)
-        .on('end', resolve)
-        .on('error', reject)
-        .save(convertedPath);
-    });
-
-    const audioData = fs.readFileSync(convertedPath);
-    const uploadRes = await axios.post(
-      'https://api.assemblyai.com/v2/upload',
-      audioData,
-      {
-        headers: {
-          'authorization': ASSEMBLY_API_KEY,
-          'content-type': 'audio/wav',
-          'transfer-encoding': 'chunked'
-        }
-      }
-    );
-
-    const audioUrl = uploadRes.data.upload_url;
-
-    const transcriptRes = await axios.post(
-      'https://api.assemblyai.com/v2/transcript',
-      { audio_url: audioUrl },
-      {
-        headers: {
-          authorization: ASSEMBLY_API_KEY,
-          'content-type': 'application/json',
-        }
-      }
-    );
-
-    const transcriptId = transcriptRes.data.id;
-
-    let completed = false;
-    let text = '';
-    while (!completed) {
-      const pollingRes = await axios.get(
-        `https://api.assemblyai.com/v2/transcript/${transcriptId}`,
-        {
-          headers: { authorization: ASSEMBLY_API_KEY }
-        }
-      );
-
-      if (pollingRes.data.status === 'completed') {
-        completed = true;
-        text = pollingRes.data.text;
-      } else if (pollingRes.data.status === 'error') {
-        return res.status(500).json({ error: 'AssemblyAI transcription error' });
-      } else {
-        await new Promise(r => setTimeout(r, 1500));
-      }
-    }
-
-    res.json({ text });
-
-  } catch (err) {
-    console.error('[Transcription Error]', err);
-    res.status(500).json({ error: 'Failed to transcribe audio' });
+    const transcribeRes = await fetch('https://roy-chatbo-backend.onrender.com/api/transcribe', { method: 'POST', body: formData });
+    const transcribeJson = await transcribeRes.json();
+    const userText = transcribeJson.text || 'undefined';
+    addMessage('user', userText);
+    feedbackBtn.classList.add('blinking');
+  } catch (error) {
+    console.error('Transcription failed:', error);
   } finally {
-    fs.unlink(req.file.path, () => {});
-    fs.unlink(convertedPath, () => {});
+    if (selectedPersona === 'roy') {
+      royBtn.style.backgroundColor = '#00FF00';
+      royBtn.style.color = 'black';
+      royBtn.textContent = 'ROY';
+    } else if (selectedPersona === 'randy') {
+      randyBtn.style.backgroundColor = 'orange';
+      randyBtn.style.color = 'black';
+      randyBtn.textContent = 'RANDY';
+    }
+  }
+};
+    mediaRecorder.start();
+  } catch (error) {
+    console.error('Microphone error:', error);
+    alert('Could not access your microphone. Please allow access.');
   }
 });
 
-app.get('/', (req, res) => {
-  res.send('Roy Chatbot Backend Running');
+// RANDY button logic
+randyBtn.addEventListener('click', async () => {
+  if (isRecording && selectedPersona === 'randy') {
+    mediaRecorder.stop();
+    randyBtn.style.backgroundColor = 'black';
+    randyBtn.style.color = 'cyan';
+    feedbackBtn.classList.add('blinking');
+    return;
+  }
+  resetButtonColors();
+  selectedPersona = 'randy';
+  randyBtn.style.backgroundColor = 'orange';
+  randyBtn.style.color = 'black';
+  try {
+    isRecording = true;
+    audioChunks = [];
+    stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    setupUserVisualization(stream);
+    mediaRecorder = new MediaRecorder(stream);
+    mediaRecorder.ondataavailable = e => { if (e.data.size > 0) audioChunks.push(e.data); };
+    mediaRecorder.onstop = async () => { /* Transcription logic here */ };
+    mediaRecorder.start();
+  } catch (error) {
+    console.error('Microphone error:', error);
+    alert('Could not access your microphone. Please allow access.');
+  }
 });
 
-app.listen(PORT, () => {
-  console.log(`Server listening on port ${PORT}`);
+// Feedback button logic
+
+// Save Log button logic
+saveBtn.addEventListener('click', () => {
+  const now = new Date();
+  const timestamp = now.toISOString().replace(/[:.]/g, '-');
+  const filename = `${selectedPersona || 'conversation'}-${timestamp}.txt`;
+  const blob = new Blob([messagesDiv.innerText], { type: 'text/plain' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = filename;
+  a.click();
+
+  // Reset all buttons to default state
+  resetButtonColors();
+  royBtn.textContent = 'ROY';
+  randyBtn.textContent = 'RANDY';
+  feedbackBtn.textContent = 'FEEDBACK';
+});
+feedbackBtn.addEventListener('click', async () => {
+  if (!audioChunks.length) return;
+  feedbackBtn.classList.remove('blinking');
+  feedbackBtn.style.backgroundColor = 'red';
+  feedbackBtn.style.color = 'white';
+  feedbackBtn.textContent = 'FEEDBACK';
+
+  const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+  const formData = new FormData();
+  formData.append('audio', audioBlob);
+  formData.append('bot', selectedPersona);
+
+  try {
+    const transcribeRes = await fetch('https://roy-chatbo-backend.onrender.com/api/transcribe', { method: 'POST', body: formData });
+    const transcribeJson = await transcribeRes.json();
+    const userText = transcribeJson.text || 'undefined';
+    addMessage('user', userText);
+
+    const thinkingMsg = document.createElement('p');
+    thinkingMsg.className = selectedPersona;
+    thinkingMsg.textContent = `${selectedPersona === 'randy' ? 'Randy' : 'Roy'} thinking`;
+    const dotsSpan = document.createElement('span');
+    dotsSpan.className = 'thinking-dots';
+    thinkingMsg.appendChild(dotsSpan);
+    messagesDiv.appendChild(thinkingMsg);
+    messagesDiv.scrollTop = messagesDiv.scrollHeight;
+
+    const chatRes = await fetch('https://roy-chatbo-backend.onrender.com/api/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message: userText, persona: selectedPersona })
+    });
+    const chatJson = await chatRes.json();
+
+    thinkingMsg.remove();
+    addMessage(selectedPersona, chatJson.text);
+    if (chatJson.audio) playRoyAudio(chatJson.audio);
+  } catch (error) {
+    console.error('Error during feedback:', error);
+  } finally {
+    feedbackBtn.style.backgroundColor = 'black';
+    feedbackBtn.style.color = 'cyan';
+    if (selectedPersona === 'roy') {
+      royBtn.style.backgroundColor = '#00FF00';
+      royBtn.style.color = 'black';
+      royBtn.textContent = 'ROY';
+    } else if (selectedPersona === 'randy') {
+      randyBtn.style.backgroundColor = 'orange';
+      randyBtn.style.color = 'black';
+      randyBtn.textContent = 'RANDY';
+    }
+  }
 });
