@@ -1,104 +1,72 @@
-/* Updated style.css with user text color white, longer textbox, auto-scroll, and proper alignment */
+/* SynthCalm Retro Neon Style */
 
 body {
-  margin: 0;
-  padding: 0;
   background-color: black;
   color: cyan;
   font-family: 'Courier New', monospace;
-  overflow: hidden;
+  margin: 0;
+  padding: 0;
+  text-align: center;
 }
 
-#header {
-  display: flex;
-  justify-content: space-between;
-  padding: 10px;
-  font-family: 'Courier New', monospace;
-  font-size: 18px;
-  width: 100%;
-  max-width: 900px;
-  margin: 0 auto;
+#date-time, #countdown-timer {
+  display: inline-block;
+  margin: 10px;
+  font-size: 1.2em;
 }
 
 #scopes-container {
   display: flex;
-  flex-direction: column;
-  background-color: transparent;
+  justify-content: center;
+  margin: 20px 0;
   border: none;
-  padding: 0;
-  width: 100%;
-  max-width: 900px;
-  margin: 0 auto;
 }
 
 canvas {
-  width: 100%;
-  height: 150px;
-  background-color: black;
-  background-image: linear-gradient(to right, rgba(255, 255, 0, 0.2) 1px, transparent 1px),
-                    linear-gradient(to bottom, rgba(255, 255, 0, 0.2) 1px, transparent 1px);
-  background-size: 20px 20px;
+  width: 400px;
+  height: 100px;
+  background-color: transparent;
   border: none;
+  background-image: linear-gradient(to right, rgba(255, 255, 0, 0.3) 1px, transparent 1px),
+                    linear-gradient(to bottom, rgba(255, 255, 0, 0.3) 1px, transparent 1px);
+  background-size: 20px 20px;
+  margin: 0 5px;
 }
 
-.buttons {
-  margin: 20px 0;
+#button-bar {
   display: flex;
   justify-content: center;
-  width: 100%;
-  max-width: 900px;
-  margin: 20px auto;
+  gap: 10px;
+  margin: 20px 0;
 }
 
 button {
+  font-family: 'Courier New', monospace;
+  font-size: 1.2em;
+  color: cyan;
   background-color: black;
   border: 1px solid cyan;
-  color: cyan;
   padding: 10px 20px;
-  margin: 0 5px;
-  font-family: 'Courier New', monospace;
-  font-size: 16px;
   cursor: pointer;
 }
 
-button.blinking {
-  animation: blink 1s infinite;
+button.blinking-red {
+  animation: blink-red 1s infinite;
 }
 
-@keyframes blink {
-  50% { opacity: 0.5; }
-}
-
-button:focus {
-  outline: none;
+@keyframes blink-red {
+  0% { background-color: red; color: white; }
+  50% { background-color: black; color: red; }
+  100% { background-color: red; color: white; }
 }
 
 #messages {
-  width: 100%;
-  max-width: 900px;
-  margin: 20px auto 0 auto;
+  max-width: 80%;
+  margin: 0 auto;
   text-align: left;
-  color: yellow;
-  padding: 0;
-  border: none;
-  background: transparent;
-  overflow-y: auto;
-  max-height: 300px;
+  color: cyan;
 }
 
-#messages .roy { color: yellow; }
-#messages .randy { color: orange; }
-#messages .user { color: white; }
-
-#text-input {
-  width: 90%;
-  max-width: 900px;
-  margin: 20px auto;
-  display: block;
-  font-family: 'Courier New', monospace;
-  font-size: 16px;
-  padding: 10px;
-  border: 1px solid cyan;
-  background-color: black;
-  color: white;
-}
+.user { color: white; }
+.roy { color: yellow; }
+.randy { color: orange; }
