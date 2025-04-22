@@ -2,39 +2,29 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Roy Audio Test (Direct Transcription)</title>
+  <title>Roy Chatbot - Natural Flow</title>
   <style>
-    body { 
-      background: #000; 
-      color: #0ff; 
-      font-family: 'Courier New', monospace; 
-      text-align: center; 
-      padding: 50px; 
-    }
-    h2 { color: #fff; }
-    button { 
-      margin: 10px; 
-      padding: 10px 20px; 
-      font-size: 16px; 
-      background: black; 
-      color: cyan; 
-      border: 1px solid cyan; 
-      cursor: pointer; 
-    }
+    body { background: #000; color: cyan; font-family: 'Courier New', monospace; text-align: center; padding: 20px; }
+    button { margin: 10px; padding: 10px 20px; font-size: 16px; background: black; color: cyan; border: 1px solid cyan; cursor: pointer; }
     button:disabled { opacity: 0.5; cursor: not-allowed; }
-    audio { margin-top: 20px; }
-    #result { color: yellow; margin-top: 20px; font-size: 18px; }
+    .active { background-color: green; color: white; border-color: green; }
+    .thinking-dots::after { content: ''; animation: thinking-dots 1.4s infinite steps(4, end); }
+    @keyframes thinking-dots { 0% { content: ''; } 25% { content: '.'; } 50% { content: '..'; } 75% { content: '...'; } 100% { content: ''; } }
   </style>
 </head>
 <body>
-  <h2>🎤 Roy Audio Test (Bypass Hostinger, Direct Transcription Test)</h2>
-  <button id="recordBtn">🎙️ Start Recording</button>
-  <button id="stopBtn" disabled>🛑 Stop & Transcribe</button>
+  <h2>🧠 Roy & Randy Natural Flow Chatbot</h2>
+  <div>
+    <button id="royBtn">Roy</button>
+    <button id="randyBtn">Randy</button>
+  </div>
+  <button id="speakBtn" disabled>SPEAK</button>
 
-  <p><strong>Transcription Result:</strong></p>
+  <h3>Transcript:</h3>
   <div id="result">(waiting...)</div>
 
-  <p><strong>Playback:</strong></p>
+  <h3>Roy/Randy Response:</h3>
+  <div id="reply">(waiting...)</div>
   <audio id="audioPlayback" controls style="display:none;"></audio>
 
   <script src="script.js"></script>
