@@ -2,18 +2,33 @@ body {
   background-color: black;
   color: cyan;
   font-family: 'Courier New', monospace;
-  text-align: center;
   margin: 0;
   padding: 0;
+  text-align: center;
+}
+
+.container {
+  width: 90%;
+  margin: 0 auto;
+  padding-top: 20px;
+}
+
+.info-bar {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 10px;
+  padding: 0 20px;
+  color: cyan;
+  font-size: 14px;
 }
 
 #scopes-container {
   display: flex;
   flex-direction: column;
   align-items: center;
-  margin-top: 20px;
   border: 2px solid cyan;
   padding: 10px;
+  margin-bottom: 20px;
 }
 
 canvas {
@@ -22,8 +37,11 @@ canvas {
   margin: 5px;
 }
 
-#controls {
-  margin-top: 20px;
+.button-bar {
+  margin-top: 10px;
+  display: flex;
+  justify-content: center;
+  gap: 10px;
 }
 
 button {
@@ -33,7 +51,6 @@ button {
   padding: 10px 20px;
   font-size: 16px;
   cursor: pointer;
-  margin: 0 10px;
   transition: 0.3s;
 }
 
