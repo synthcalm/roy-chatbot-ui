@@ -273,6 +273,8 @@ speakBtn.addEventListener('click', async () => {
         };
 
         mediaRecorder.onstop = async () => {
+            console.log("[FLOW] mediaRecorder.onstop triggered"); // ADDED LINE
+
             console.log("[MIC] Recording stopped");
             speakBtn.textContent = 'SPEAK';
             speakBtn.classList.remove('blinking');
@@ -314,10 +316,10 @@ speakBtn.addEventListener('click', async () => {
                 userText = transcribeJson.text || "undefined";
                 console.log("[TRANSCRIBE] User text:", userText);
 
-                // Step 2: Update the UI with the user's transcription
                 transcribingMessage.textContent = `You: ${userText}`;
+                console.log("[FLOW] User text updated in UI:", userText); // ADDED LINE
 
-                // Step 3: Call /api/chat with a JSON payload to get Roy's response
+                console.log("[FLOW] Attempting to fetch /api/chat"); // ADDED LINE
                 const chatRes = await fetch('https://roy-chatbo-backend.onrender.com/api/chat', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -326,6 +328,7 @@ speakBtn.addEventListener('click', async () => {
                         persona: selectedPersona,
                     }),
                 });
+                console.log("[FLOW] /api/chat request completed"); // ADDED LINE
                 if (!chatRes.ok) throw new Error(`Chat failed with status: ${chatRes.status}`);
                 const chatJson = await chatRes.json();
                 royText = chatJson.text || "undefined";
