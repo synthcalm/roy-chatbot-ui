@@ -1,7 +1,10 @@
-// script.js (updated for natural flow and retro UI)
+// script.js (integrated with original design and new behavior)
+
 const royBtn = document.getElementById('royBtn');
 const randyBtn = document.getElementById('randyBtn');
 const speakBtn = document.getElementById('speakBtn');
+const saveBtn = document.getElementById('saveBtn');
+const homeBtn = document.getElementById('homeBtn');
 const messagesDiv = document.getElementById('messages');
 const userCanvas = document.getElementById('userWaveform');
 const royCanvas = document.getElementById('royWaveform');
@@ -15,12 +18,19 @@ let royAudioContext = null;
 let royAudioSource = null;
 let stream = null;
 
-function initButtonStyles() {
-  royBtn.style.border = '1px solid cyan';
-  randyBtn.style.border = '1px solid cyan';
+function resetButtonColors() {
+  royBtn.style.backgroundColor = 'black';
+  royBtn.style.color = 'cyan';
+  randyBtn.style.backgroundColor = 'black';
+  randyBtn.style.color = 'cyan';
   speakBtn.style.backgroundColor = 'black';
   speakBtn.style.color = 'cyan';
   speakBtn.style.border = '1px solid cyan';
+  speakBtn.textContent = 'SPEAK';
+  speakBtn.classList.remove('blinking');
+  isRecording = false;
+  userCtx.clearRect(0, 0, userCanvas.width, userCanvas.height);
+  royCtx.clearRect(0, 0, royCanvas.width, royCanvas.height);
 }
 
 function addMessage(text, sender) {
@@ -104,5 +114,5 @@ function playRoyAudio(base64Audio) {
   audioEl.load();
 }
 
-// Persona selection and recording logic remain unchanged from the working version.
-// The visual style, waveform drawing, and button interactions have been restored to your preferred retro neon look.
+// Button event listeners for persona selection and speech logic
+// Continue from here to complete the integration...
