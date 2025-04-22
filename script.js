@@ -105,13 +105,15 @@ royBtn.addEventListener('click', async () => {
     mediaRecorder.stop();
     royBtn.style.backgroundColor = 'black';
     royBtn.style.color = 'cyan';
+    royBtn.textContent = 'ROY';
     feedbackBtn.classList.add('blinking');
     return;
   }
   resetButtonColors();
   selectedPersona = 'roy';
-  royBtn.style.backgroundColor = 'green';
-  royBtn.style.color = 'white';
+  royBtn.style.backgroundColor = '#00FF00'; // Cyber green
+  royBtn.style.color = 'black';
+  royBtn.textContent = 'STOP';
   try {
     isRecording = true;
     audioChunks = [];
