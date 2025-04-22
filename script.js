@@ -94,7 +94,6 @@ function setupUserVisualization(stream) {
   animate();
 }
 
-
 function playRoyAudio(base64Audio) {
   const audioEl = new Audio(`data:audio/mp3;base64,${base64Audio}`);
   audioEl.setAttribute('playsinline', '');
