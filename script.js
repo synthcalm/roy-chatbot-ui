@@ -136,18 +136,32 @@ royBtn.addEventListener('click', async () => {
       botMsg.textContent = 'Roy: ...';
       botMsg.className = 'roy';
       messagesDiv.appendChild(botMsg);
-      const tRes = await fetch('https://roy-chatbo-backend.onrender.com/api/transcribe', { method: 'POST', body: formData });
-      const tData = await tRes.json();
-      userMsg.textContent = 'You: ' + tData.text;
-      const cRes = await fetch('https://roy-chatbo-backend.onrender.com/api/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: tData.text, persona: 'roy' })
-      });
-      const cData = await cRes.json();
-      botMsg.textContent = 'Roy: ' + cData.text;
-      if (cData.audio) playRoyAudio(cData.audio);
-      else playBtn.style.display = 'none';
+
+      try {
+        const tRes = await fetch('https://roy-chatbo-backend.onrender.com/api/transcribe', { method: 'POST', body: formData });
+        const tData = await tRes.json();
+        console.log('[iOS DEBUG] Transcription response:', tData);
+        userMsg.textContent = 'You: ' + (tData.text || '(transcription failed)');
+
+        const cRes = await fetch('https://roy-chatbo-backend.onrender.com/api/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message: tData.text, persona: 'roy' })
+        });
+        const cData = await cRes.json();
+        console.log('[iOS DEBUG] Chat response:', cData);
+        botMsg.textContent = 'Roy: ' + (cData.text || '(no reply)');
+
+        if (cData.audio) playRoyAudio(cData.audio);
+        else playBtn.style.display = 'none';
+
+      } catch (error) {
+        console.error('[Roy Error] Transcribe or chat failed:', error);
+        userMsg.textContent = 'You: (network error)';
+        botMsg.textContent = 'Roy: (no reply)';
+        playBtn.style.display = 'none';
+      }
+
       isRecording = false;
     };
     mediaRecorder.start();
