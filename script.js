@@ -98,7 +98,6 @@ function playRoyAudio(base64Audio) {
   const audioEl = new Audio(`data:audio/mp3;base64,${base64Audio}`);
   audioEl.setAttribute('playsinline', '');
 
-  // Close any old context
   if (royAudioContext && royAudioContext.state !== 'closed') {
     try {
       if (royAudioSource) royAudioSource.disconnect();
@@ -130,7 +129,6 @@ function playRoyAudio(base64Audio) {
 
       animate();
 
-      // ⬇️ Required for iOS Safari audio playback
       royAudioContext.resume().then(() => {
         audioEl.play().catch(err => {
           console.warn('Audio play() failed:', err);
@@ -155,8 +153,6 @@ function playRoyAudio(base64Audio) {
 
   audioEl.load();
 }
-
-  }
 
   royAudioContext = new (window.AudioContext || window.webkitAudioContext)();
 
