@@ -1,17 +1,19 @@
 body {
-  font-family: 'Courier New', monospace;
-  margin: 0;
   background-color: black;
-  color: #0ff;
+  background-image: linear-gradient(rgba(255,255,255,0.1) 1px, transparent 1px),
+                    linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px);
+  background-size: 20px 20px;
+  color: yellow;
+  font-family: 'Courier New', Courier, monospace;
+  margin: 0;
+  padding: 10px;
   overflow-x: hidden;
 }
 
-#date-time,
-#countdown-timer {
-  font-size: 14px;
-  color: cyan;
-  position: absolute;
-  top: 5px;
+#date-time, #countdown-timer {
+  position: fixed;
+  top: 10px;
+  font-size: 1.2rem; /* Increased for better readability */
 }
 
 #date-time {
@@ -24,55 +26,118 @@ body {
 
 canvas {
   display: block;
-  width: 100%;
+  width: 90%;
+  max-width: 900px;
   height: 200px;
+  margin: 0 auto;
   background-color: transparent;
   background-image: linear-gradient(to right, rgba(255,255,0,0.1) 1px, transparent 1px),
                     linear-gradient(to bottom, rgba(255,255,0,0.1) 1px, transparent 1px);
   background-size: 20px 20px;
 }
 
+#buttons {
+  text-align: center;
+  margin: 20px 0;
+}
+
 button {
-  font-family: 'Courier New', monospace;
-  background: transparent;
-  color: cyan;
-  border: 1px solid cyan;
-  padding: 8px 16px;
+  padding: 15px 25px; /* Increased padding for larger touch targets */
   margin: 5px;
+  font-size: 1.5rem; /* Larger font size for buttons */
+  font-family: 'Courier New', Courier, monospace;
+  border: 2px solid cyan;
+  background-color: transparent;
+  color: cyan;
   cursor: pointer;
-  font-size: 14px;
-  transition: background-color 0.3s, color 0.3s;
 }
 
 button:hover {
-  background-color: cyan;
+  background-color: rgba(0, 255, 255, 0.1);
+}
+
+#royBtn {
+  border-color: lime;
+  color: lime;
+}
+
+#royBtn:hover {
+  background-color: rgba(0, 255, 0, 0.1);
+}
+
+#royBtn.active {
+  background-color: lime;
   color: black;
 }
 
-button.blinking-red {
-  animation: blink-red 1s infinite;
+#randyBtn {
+  border-color: magenta;
+  color: magenta;
 }
 
-@keyframes blink-red {
-  0% { background-color: red; }
-  50% { background-color: black; }
-  100% { background-color: red; }
+#randyBtn:hover {
+  background-color: rgba(255, 0, 255, 0.1);
+}
+
+#randyBtn.active {
+  background-color: magenta;
+  color: black;
+}
+
+#feedbackBtn {
+  border-color: red;
+  color: red;
+}
+
+#feedbackBtn:hover {
+  background-color: rgba(255, 0, 0, 0.1);
+}
+
+#feedbackBtn.blinking-red {
+  background-color: red;
+  color: black;
+  animation: blink 1s infinite;
+}
+
+@keyframes blink {
+  50% { opacity: 0.5; }
 }
 
 #messages {
-  margin: 20px auto;
-  width: 90%;
   max-width: 900px;
-  font-size: 14px;
-  color: white;
-  overflow-y: auto;
-  min-height: 150px;
+  margin: 0 auto;
+  font-size: 1.3rem; /* Increased font size for chat messages */
+  line-height: 1.5;
 }
 
 .user {
-  color: white;
+  color: yellow;
 }
 
 .roy {
-  color: yellow;
+  color: magenta;
+}
+
+.randy {
+  color: cyan;
+}
+
+/* Media query for smaller screens (like iPhone) */
+@media (max-width: 600px) {
+  #date-time, #countdown-timer {
+    font-size: 1rem;
+  }
+
+  canvas {
+    height: 150px; /* Slightly smaller height for mobile */
+  }
+
+  button {
+    padding: 12px 20px;
+    font-size: 1.2rem; /* Still large enough for touch */
+  }
+
+  #messages {
+    font-size: 1.1rem; /* Adjusted for mobile readability */
+  }
 }
