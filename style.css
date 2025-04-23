@@ -1,25 +1,158 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Roy Chatbot</title>
-  <link rel="icon" type="image/x-icon" href="/favicon.ico">
-  <link rel="stylesheet" href="style.css">
-</head>
-<body>
-  <span id="date-time"></span>
-  <span id="countdown-timer"></span>
-  <canvas id="userWaveform"></canvas>
-  <canvas id="royWaveform"></canvas>
-  <div id="buttons">
-    <button id="royBtn">ROY</button>
-    <button id="randyBtn">RANDY</button>
-    <button id="feedbackBtn">FEEDBACK</button>
-    <button id="saveBtn">SAVE LOG</button>
-    <button id="homeBtn">SYNTHCALM HOME</button>
-  </div>
-  <div id="messages"></div>
-  <script src="script.js"></script>
-</body>
-</html>
+body {
+  background-color: black;
+  background-image: linear-gradient(rgba(255,255,255,0.1) 1px, transparent 1px),
+                    linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px);
+  background-size: 20px 20px;
+  color: yellow;
+  font-family: 'Courier New', Courier, monospace;
+  margin: 0;
+  padding: 10px;
+  overflow-x: hidden;
+}
+
+#date-time, #countdown-timer {
+  position: fixed;
+  top: 10px;
+  font-size: 1.2rem;
+}
+
+#date-time {
+  left: 10px;
+}
+
+#countdown-timer {
+  right: 10px;
+}
+
+canvas {
+  display: block;
+  width: 90%;
+  max-width: 900px;
+  height: 200px;
+  margin: 0 auto;
+  background-color: transparent;
+  background-image: linear-gradient(to right, rgba(255,255,0,0.1) 1px, transparent 1px),
+                    linear-gradient(to bottom, rgba(255,255,0,0.1) 1px, transparent 1px);
+  background-size: 20px 20px;
+}
+
+#buttons {
+  text-align: center;
+  margin: 20px 0;
+}
+
+button {
+  padding: 15px 25px;
+  margin: 5px;
+  font-size: 1.5rem;
+  font-family: 'Courier New', Courier, monospace;
+  background-color: transparent;
+  cursor: pointer;
+}
+
+/* Individual button defaults */
+#royBtn {
+  border: 2px solid lime;
+  color: lime;
+}
+
+#royBtn:hover {
+  background-color: rgba(0, 255, 0, 0.1);
+}
+
+#royBtn.pre-engage, #royBtn.engaged {
+  border-color: lime;
+  background-color: lime;
+  color: black;
+}
+
+#royBtn.engaged {
+  animation: blink 1s infinite;
+}
+
+#randyBtn {
+  border: 2px solid magenta;
+  color: magenta;
+}
+
+#randyBtn:hover {
+  background-color: rgba(255, 0, 255, 0.1);
+}
+
+#randyBtn.pre-engage, #randyBtn.engaged {
+  border-color: magenta;
+  background-color: magenta;
+  color: black;
+}
+
+#randyBtn.engaged {
+  animation: blink 1s infinite;
+}
+
+#feedbackBtn {
+  border: 2px solid red;
+  color: red;
+}
+
+#feedbackBtn:hover {
+  background-color: rgba(255, 0, 0, 0.1);
+}
+
+#feedbackBtn.engaged {
+  border-color: red;
+  background-color: red;
+  color: black; /* Keeping black font for consistency with previous design */
+  animation: blink 1s infinite;
+}
+
+#saveBtn, #homeBtn {
+  border: 2px solid cyan;
+  color: cyan;
+}
+
+#saveBtn:hover, #homeBtn:hover {
+  background-color: rgba(0, 255, 255, 0.1);
+}
+
+@keyframes blink {
+  50% { opacity: 0.5; }
+}
+
+#messages {
+  max-width: 900px;
+  margin: 0 auto;
+  font-size: 1.3rem;
+  line-height: 1.5;
+}
+
+.user {
+  color: yellow;
+}
+
+.roy {
+  color: magenta;
+}
+
+.randy {
+  color: cyan;
+}
+
+/* Media query for smaller screens (like iPhone) */
+@media (max-width: 600px) {
+  #date-time, #countdown-timer {
+    font-size: 1rem;
+  }
+
+  canvas {
+    height: 150px;
+  }
+
+  button {
+    padding: 12px 20px;
+    font-size: 1.2rem;
+  }
+
+  #messages {
+    font-size: 1.1rem;
+  }
+}
