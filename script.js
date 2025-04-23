@@ -194,8 +194,6 @@ feedbackBtn?.addEventListener('click', () => {
     });
   }
 });
-  }
-});
 
 document.getElementById('saveBtn')?.addEventListener('click', () => {
   const messages = document.getElementById('messages');
