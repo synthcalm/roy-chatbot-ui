@@ -163,16 +163,17 @@ async function sendToRoy() {
 }
 
 const royBtn = document.getElementById('royBtn');
-royBtn?.addEventListener('mousedown', () => {
+
+function handleStart() {
   if (royState === 'idle') {
     royState = 'engaged';
     royBtn.classList.add('engaged');
     royBtn.textContent = 'STOP';
     startRecording();
   }
-});
+}
 
-royBtn?.addEventListener('mouseup', () => {
+function handleStop() {
   if (royState === 'engaged') {
     royState = 'idle';
     royBtn.classList.remove('engaged');
@@ -180,7 +181,13 @@ royBtn?.addEventListener('mouseup', () => {
     stopRecording();
     sendToRoy();
   }
-});
+}
+
+royBtn?.addEventListener('mousedown', handleStart);
+royBtn?.addEventListener('mouseup', handleStop);
+// Add touch support for iPhone/iPad Safari
+royBtn?.addEventListener('touchstart', (e) => { e.preventDefault(); handleStart(); });
+royBtn?.addEventListener('touchend', (e) => { e.preventDefault(); handleStop(); });
 
 const feedbackBtn = document.getElementById('feedbackBtn');
 feedbackBtn?.addEventListener('click', () => {
