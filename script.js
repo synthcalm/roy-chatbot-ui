@@ -184,8 +184,6 @@ royBtn?.addEventListener('mouseup', () => {
 });
 
 // Feedback button no longer needed with hold-to-speak logic
-  }
-});
 
 document.getElementById('saveBtn')?.addEventListener('click', () => {
   const messages = document.getElementById('messages');
