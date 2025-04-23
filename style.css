@@ -8,8 +8,8 @@ body {
 }
 
 #grid-area {
-  background-image: linear-gradient(rgba(255, 255, 0, 0.5) 1px, transparent 1px),
-                    linear-gradient(90deg, rgba(255, 255, 0, 0.5) 1px, transparent 1px);
+  background-image: linear-gradient(rgba(0, 255, 255, 0.5) 1px, transparent 1px),
+                    linear-gradient(90deg, rgba(0, 255, 255, 0.5) 1px, transparent 1px);
   background-size: 20px 20px;
   height: calc(100vh - 450px);
 }
@@ -43,8 +43,8 @@ canvas {
   height: 200px;
   margin: 0 auto;
   background-color: transparent;
-  background-image: linear-gradient(to right, rgba(255,255,0,0.1) 1px, transparent 1px),
-                    linear-gradient(to bottom, rgba(255,255,0,0.1) 1px, transparent 1px);
+  background-image: linear-gradient(to right, rgba(0, 255, 255, 0.1) 1px, transparent 1px),
+                    linear-gradient(to bottom, rgba(0, 255, 255, 0.1) 1px, transparent 1px);
   background-size: 20px 20px;
 }
 
@@ -61,15 +61,12 @@ button {
   font-family: 'Courier New', Courier, monospace;
   background-color: transparent;
   cursor: pointer;
-}
-
-#royBtn {
-  border: 2px solid lime;
-  color: lime;
+  border: 2px solid cyan;
+  color: cyan;
 }
 
 #royBtn:hover {
-  background-color: rgba(0, 255, 0, 0.1);
+  background-color: rgba(0, 255, 255, 0.1);
 }
 
 #royBtn.pre-engage, #royBtn.engaged {
@@ -82,13 +79,8 @@ button {
   animation: blink 1s infinite;
 }
 
-#randyBtn {
-  border: 2px solid magenta;
-  color: magenta;
-}
-
 #randyBtn:hover {
-  background-color: rgba(255, 0, 255, 0.1);
+  background-color: rgba(0, 255, 255, 0.1);
 }
 
 #randyBtn.pre-engage, #randyBtn.engaged {
@@ -101,13 +93,8 @@ button {
   animation: blink 1s infinite;
 }
 
-#feedbackBtn {
-  border: 2px solid red;
-  color: red;
-}
-
 #feedbackBtn:hover {
-  background-color: rgba(255, 0, 0, 0.1);
+  background-color: rgba(0, 255, 255, 0.1);
 }
 
 #feedbackBtn.engaged {
@@ -115,11 +102,6 @@ button {
   background-color: red;
   color: white;
   animation: blink 1s infinite;
-}
-
-#saveBtn, #homeBtn {
-  border: 2px solid cyan;
-  color: cyan;
 }
 
 #saveBtn:hover, #homeBtn:hover {
@@ -132,9 +114,12 @@ button {
 
 #messages {
   width: 900px;
+  height: 200px;
   margin: 0 auto;
   font-size: 1.3rem;
   line-height: 1.5;
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
 .user {
@@ -187,5 +172,6 @@ button {
   #messages {
     width: 90%;
     font-size: 1.1rem;
+    height: 150px;
   }
 }
