@@ -1,3 +1,5 @@
+// === script.js (fully updated: pause/resume, GPT-3.5 brain, Roy Batty 15%, volume fix) ===
+
 let royState = 'idle';
 let randyState = 'idle';
 let feedbackState = 'idle';
@@ -7,7 +9,7 @@ let userWaveformCtx, royWaveformCtx;
 let analyser, dataArray, source;
 let userAudioContext, royAudioContext;
 let recognition;
-let currentUtterance = '';  // Holds ongoing speech across pauses
+let currentUtterance = '';
 
 function updateDateTime() {
   const dateTimeDiv = document.getElementById('date-time');
@@ -60,13 +62,23 @@ function animateUserWaveform() {
   requestAnimationFrame(animateUserWaveform);
 }
 
+let royAudioContext = null;
 function animateRoyWaveform(audio) {
+  if (royAudioContext) {
+    royAudioContext.close();
+    royAudioContext = null;
+  }
   royAudioContext = new AudioContext();
   const analyser = royAudioContext.createAnalyser();
   const dataArray = new Uint8Array(analyser.fftSize);
   const source = royAudioContext.createMediaElementSource(audio);
-  source.connect(analyser);
+  const gainNode = royAudioContext.createGain();
+  gainNode.gain.value = 2.5;
+
+  source.connect(gainNode);
+  gainNode.connect(analyser);
   analyser.connect(royAudioContext.destination);
+
   audio.onplay = () => {
     function draw() {
       if (audio.paused) return royAudioContext.close();
@@ -142,15 +154,6 @@ async function sendToRoy() {
     scrollMessages();
     if (data.audio) {
       const royAudio = new Audio(data.audio);
-      royAudio.volume = 1.0;  // Safety set to 1.0 (default)
-      
-      const royAudioContext = new AudioContext();
-      const source = royAudioContext.createMediaElementSource(royAudio);
-      const gainNode = royAudioContext.createGain();
-      gainNode.gain.value = 4.5;  // Boost Roy's voice volume (adjust if needed)
-
-      source.connect(gainNode);
-      gainNode.connect(royAudioContext.destination);
       animateRoyWaveform(royAudio);
     }
   } catch (err) {
@@ -188,7 +191,8 @@ document.getElementById('feedbackBtn')?.addEventListener('click', () => {
 
 document.getElementById('saveBtn')?.addEventListener('click', () => {
   const messages = document.getElementById('messages');
-  const text = Array.from(messages.querySelectorAll('div')).map(div => div.textContent).join('\n');
+  const text = Array.from(messages.querySelectorAll('div')).map(div => div.textContent).join('
+');
   const blob = new Blob([text], { type: 'text/plain' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
