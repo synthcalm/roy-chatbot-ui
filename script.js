@@ -62,12 +62,13 @@ function animateUserWaveform() {
   requestAnimationFrame(animateUserWaveform);
 }
 
+// royAudioContext declared at the top already — removed duplicate declaration
 function animateRoyWaveform(audio) {
   if (royAudioContext) {
     royAudioContext.close();
     royAudioContext = null;
   }
-  royAudioContext = new AudioContext();
+  royAudioContext = new AudioContext(); // Safe reassignment without redeclaration
   const analyser = royAudioContext.createAnalyser();
   const dataArray = new Uint8Array(analyser.fftSize);
   const source = royAudioContext.createMediaElementSource(audio);
