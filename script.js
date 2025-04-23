@@ -5,6 +5,7 @@ let mediaRecorder;
 let audioChunks = [];
 let userWaveformCtx, royWaveformCtx;
 let analyser, dataArray, source;
+let audioContext;
 
 // Update date and time
 function updateDateTime() {
@@ -67,19 +68,32 @@ function drawWaveform(ctx, canvas, data) {
 
 // Animate waveform for user input
 function animateUserWaveform() {
+  if (royState !== 'engaged') return;
   analyser.getByteTimeDomainData(dataArray);
   drawWaveform(userWaveformCtx, document.getElementById('user-waveform'), dataArray);
   requestAnimationFrame(animateUserWaveform);
 }
 
 // Simulate Roy's waveform animation
-function animateRoyWaveform() {
-  const simulatedData = new Uint8Array(analyser.fftSize);
-  for (let i = 0; i < simulatedData.length; i++) {
-    simulatedData[i] = 128 + Math.sin(i / 10 + Date.now() / 100) * 50; // Simulated waveform
+function animateRoyWaveform(audio) {
+  const royAnalyser = audioContext.createAnalyser();
+  royAnalyser.fftSize = 2048;
+  const royDataArray = new Uint8Array(royAnalyser.fftSize);
+  const roySource = audioContext.createMediaElementSource(audio);
+  roySource.connect(royAnalyser);
+  royAnalyser.connect(audioContext.destination);
+
+  function draw() {
+    if (audio.paused) return;
+    royAnalyser.getByteTimeDomainData(royDataArray);
+    drawWaveform(royWaveformCtx, document.getElementById('roy-waveform'), royDataArray);
+    requestAnimationFrame(draw);
   }
-  drawWaveform(royWaveformCtx, document.getElementById('roy-waveform'), simulatedData);
-  requestAnimationFrame(animateRoyWaveform);
+
+  audio.onplay = () => {
+    draw();
+  };
+  audio.play();
 }
 
 // Handle Roy button click
@@ -100,6 +114,8 @@ document.getElementById('royBtn').addEventListener('click', () => {
     royBtn.textContent = 'ROY';
     royBtn.classList.remove('engaged');
     stopRecording();
+    const messages = document.getElementById('messages');
+    messages.innerHTML += '<div class="user">You: Testing, one, two, check</div>';
     document.getElementById('feedbackBtn').classList.add('engaged');
     feedbackState = 'engaged';
   }
@@ -131,11 +147,12 @@ document.getElementById('feedbackBtn').addEventListener('click', () => {
     const feedbackBtn = document.getElementById('feedbackBtn');
     feedbackBtn.classList.remove('engaged');
     const messages = document.getElementById('messages');
-    messages.innerHTML += '<div class="user">You: Testing, one, two, check</div>';
-    setTimeout(() => {
-      messages.innerHTML += '<div class="roy">Roy: Hey, so… like… I hear you testing things out, yeah? Sounds good, man.</div>';
-      animateRoyWaveform();
-    }, 1000);
+    messages.innerHTML += '<div class="roy">Roy: Hey, so… like… I hear you testing things out, yeah? Sounds good, man.</div>';
+
+    // Simulate Roy's audio response
+    const audio = new Audio();
+    audio.src = 'data:audio/wav;base64,' + btoa(generateWaveform()); // Placeholder for audio data
+    animateRoyWaveform(audio);
   }
 });
 
@@ -148,7 +165,7 @@ async function startRecording() {
     audioChunks.push(event.data);
   };
 
-  const audioContext = new AudioContext();
+  audioContext = new AudioContext();
   analyser = audioContext.createAnalyser();
   analyser.fftSize = 2048;
   dataArray = new Uint8Array(analyser.fftSize);
@@ -163,6 +180,17 @@ function stopRecording() {
   audioChunks = [];
   source.disconnect();
   analyser.disconnect();
+  audioContext.close();
+}
+
+// Placeholder for generating a simple waveform audio (simulated)
+function generateWaveform() {
+  // This is a simplified placeholder for generating a WAV audio file
+  // In a real scenario, this would be a server-side generated audio or a pre-recorded file
+  return 'RIFF' + String.fromCharCode(0x24, 0x00, 0x00, 0x00) + 'WAVEfmt ' + 
+         String.fromCharCode(0x10, 0x00, 0x00, 0x00, 0x01, 0x00, 0x01, 0x00, 
+         0x44, 0xAC, 0x00, 0x00, 0x88, 0x58, 0x01, 0x00, 0x02, 0x00, 0x10, 0x00) + 
+         'data' + String.fromCharCode(0x00, 0x00, 0x00, 0x00);
 }
 
 // Initialize on page load
