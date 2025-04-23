@@ -12,6 +12,10 @@ let userTranscript = ''; // Store user speech
 // Update date and time
 function updateDateTime() {
   const dateTimeDiv = document.getElementById('date-time');
+  if (!dateTimeDiv) {
+    console.error('date-time element not found');
+    return;
+  }
   const now = new Date();
   dateTimeDiv.textContent = now.toLocaleString();
 }
@@ -19,6 +23,10 @@ function updateDateTime() {
 // Update countdown timer
 function updateCountdownTimer() {
   const countdownDiv = document.getElementById('countdown-timer');
+  if (!countdownDiv) {
+    console.error('countdown-timer element not found');
+    return;
+  }
   let timeLeft = 60 * 60; // 60 minutes in seconds
   setInterval(() => {
     const minutes = Math.floor(timeLeft / 60);
@@ -33,6 +41,10 @@ function updateCountdownTimer() {
 function initWaveforms() {
   const userWaveform = document.getElementById('user-waveform');
   const royWaveform = document.getElementById('roy-waveform');
+  if (!userWaveform || !royWaveform) {
+    console.error('Waveform canvases not found');
+    return;
+  }
   userWaveformCtx = userWaveform.getContext('2d');
   royWaveformCtx = royWaveform.getContext('2d');
 
@@ -60,7 +72,6 @@ function drawWaveform(ctx, canvas, data) {
   for (let i = 0; i < data.length; i++) {
     const v = data[i] / 128.0;
     const y = midY + (v * midY);
-
     if (i === 0) ctx.moveTo(x, y);
     else ctx.lineTo(x, y);
     x += sliceWidth;
@@ -109,6 +120,10 @@ function animateRoyWaveform(audio) {
 // Scroll messages upward as new messages are added
 function scrollMessages() {
   const messages = document.getElementById('messages');
+  if (!messages) {
+    console.error('messages element not found');
+    return;
+  }
   messages.scrollTop = messages.scrollHeight;
 }
 
@@ -117,13 +132,13 @@ function initSpeechRecognition() {
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (!SpeechRecognition) {
     console.error('Speech Recognition API not supported in this browser.');
-    alert('Speech recognition is not supported. Please use a compatible browser like Chrome or Safari.');
+    alert('Speech recognition is not supported. Please use Chrome or Safari.');
     return;
   }
 
   recognition = new SpeechRecognition();
-  recognition.continuous = true; // Enable continuous recognition
-  recognition.interimResults = true; // Show partial results
+  recognition.continuous = true;
+  recognition.interimResults = true;
   recognition.lang = 'en-US';
 
   recognition.onresult = (event) => {
@@ -141,15 +156,21 @@ function initSpeechRecognition() {
 
     userTranscript = finalTranscript + interimTranscript;
     const messages = document.getElementById('messages');
-    messages.innerHTML = `<div class="user">You: ${userTranscript || '...'}</div>`;
-    scrollMessages();
+    if (messages) {
+      messages.innerHTML = `<div class="user">You: ${userTranscript || '...'}</div>`;
+      scrollMessages();
+    } else {
+      console.error('messages element not found');
+    }
     console.log('Transcribed:', userTranscript);
   };
 
   recognition.onerror = (event) => {
     console.error('Speech recognition error:', event.error);
     if (['no-speech', 'network'].includes(event.error)) {
-      recognition.start(); // Retry on transient errors
+      setTimeout(() => {
+        if (royState === 'engaged') recognition.start();
+      }, 1000); // Delay to avoid rapid restarts
     } else {
       alert('Speech recognition failed: ' + event.error);
     }
@@ -158,157 +179,4 @@ function initSpeechRecognition() {
   recognition.onend = () => {
     console.log('Speech recognition ended');
     if (royState === 'engaged') {
-      recognition.start(); // Restart if still recording
-    }
-  };
-}
-
-// Handle Roy button click
-document.getElementById('royBtn').addEventListener('click', () => {
-  const royBtn = document.getElementById('royBtn');
-  if (royState === 'idle') {
-    royState = 'pre-engage';
-    royBtn.textContent = 'START';
-    royBtn.classList.add('pre-engage');
-  } else if (royState === 'pre-engage') {
-    royState = 'engaged';
-    royBtn.textContent = 'STOP';
-    royBtn.classList.remove('pre-engage');
-    royBtn.classList.add('engaged');
-    startRecording();
-  } else if (royState === 'engaged') {
-    royState = 'idle';
-    royBtn.textContent = 'ROY';
-    royBtn.classList.remove('engaged');
-    stopRecording();
-    const messages = document.getElementById('messages');
-    messages.innerHTML = `<div class="user">You: ${userTranscript || 'Are you there?'}</div>`;
-    scrollMessages();
-    document.getElementById('feedbackBtn').classList.add('engaged');
-    feedbackState = 'engaged';
-  }
-});
-
-// Handle Randy button click
-document.getElementById('randyBtn').addEventListener('click', () => {
-  const randyBtn = document.getElementById('randyBtn');
-  if (randyState === 'idle') {
-    randyState = 'pre-engage';
-    randyBtn.textContent = 'START';
-    randyBtn.classList.add('pre-engage');
-  } else if (randyState === 'pre-engage') {
-    randyState = 'engaged';
-    randyBtn.textContent = 'STOP';
-    randyBtn.classList.remove('pre-engage');
-    randyBtn.classList.add('engaged');
-    // TODO: Implement Randy recording logic
-  } else if (randyState === 'engaged') {
-    randyState = 'idle';
-    randyBtn.textContent = 'RANDY';
-    randyBtn.classList.remove('engaged');
-    // TODO: Implement Randy stop logic
-  }
-});
-
-// Handle Feedback button click
-document.getElementById('feedbackBtn').addEventListener('click', async () => {
-  if (feedbackState === 'engaged') {
-    feedbackState = 'idle';
-    const feedbackBtn = document.getElementById('feedbackBtn');
-    feedbackBtn.classList.remove('engaged');
-    const messages = document.getElementById('messages');
-
-    try {
-      // Send30] Send transcription to backend for Roy's response
-      const response = await fetch('https://roy-chatbo-backend.onrender.com/api/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: userTranscript || 'Are you there?' })
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error: ${response.status}`);
-      }
-
-      const data = await response.json();
-      messages.innerHTML += `<div class="roy">Roy: ${data.text}</div>`;
-      scrollMessages();
-
-      // Play audio if provided
-      if (data.audio) {
-        const audio = new Audio(data.audio); // Base64 audio
-        audio.playsInline = true;
-        animateRoyWaveform(audio);
-      } else {
-        console.warn('No audio data received');
-      }
-    } catch (err) {
-      console.error('Backend request error:', err);
-      messages.innerHTML += '<div class="roy">Roy: Sorry, I’m having trouble responding right now.</div>';
-      scrollMessages();
-    }
-  }
-});
-
-// Start recording
-async function startRecording() {
-  try {
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    mediaRecorder = new MediaRecorder(stream);
-    mediaRecorder.start();
-    mediaRecorder.ondataavailable = (event) => {
-      audioChunks.push(event.data);
-    };
-
-    userAudioContext = new AudioContext();
-    analyser = userAudioContext.createAnalyser();
-    analyser.fftSize = 2048;
-    dataArray = new Uint8Array(analyser.fftSize);
-    source = userAudioContext.createMediaStreamSource(stream);
-    source.connect(analyser);
-    animateUserWaveform();
-
-    // Start speech recognition
-    recognition.start();
-  } catch (err) {
-    console.error('Error starting recording:', err);
-    alert('Failed to access microphone. Please check permissions.');
-  }
-}
-
-// Stop recording
-function stopRecording() {
-  if (mediaRecorder && mediaRecorder.state !== 'inactive') {
-    mediaRecorder.stop();
-  }
-  audioChunks = [];
-  if (source && analyser) {
-    source.disconnect();
-    analyser.disconnect();
-  }
-  if (userAudioContext) {
-    userAudioContext.close();
-  }
-  if (recognition) {
-    recognition.stop();
-  }
-}
-
-// Initialize on page load
-window.onload = function() {
-  updateDateTime();
-  updateCountdownTimer();
-  initWaveforms();
-  initSpeechRecognition();
-
-  // Check microphone permission for iOS
-  navigator.mediaDevices.getUserMedia({ audio: true })
-    .then((stream) => {
-      console.log('Microphone access granted');
-      stream.getTracks().forEach(track => track.stop());
-    })
-    .catch((err) => {
-      console.error('Microphone access denied:', err);
-      alert('Please allow microphone access in browser settings.');
-    });
-};
+      setTimeout(() => recognition.start(), 1000); // Delay for stability
