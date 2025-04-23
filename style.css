@@ -7,16 +7,16 @@ body {
   overflow-x: hidden;
 }
 
-#content-area {
-  background-color: black;
-  min-height: 100vh;
-}
-
 #grid-area {
   background-image: linear-gradient(rgba(255, 255, 0, 0.5) 1px, transparent 1px),
                     linear-gradient(90deg, rgba(255, 255, 0, 0.5) 1px, transparent 1px);
   background-size: 20px 20px;
-  padding: 0;
+  height: calc(100vh - 450px);
+}
+
+#content-area {
+  background-color: black;
+  min-height: calc(100vh - (100vh - 450px));
 }
 
 #date-time, #countdown-timer {
@@ -160,6 +160,14 @@ button {
 
   #countdown-timer {
     right: 5%;
+  }
+
+  #grid-area {
+    height: calc(100vh - 350px);
+  }
+
+  #content-area {
+    min-height: calc(100vh - (100vh - 350px));
   }
 
   canvas {
