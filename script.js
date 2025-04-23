@@ -73,7 +73,7 @@ function animateRoyWaveform(audio) {
   const dataArray = new Uint8Array(analyser.fftSize);
   const source = royAudioContext.createMediaElementSource(audio);
   const gainNode = royAudioContext.createGain();
-  gainNode.gain.value = 2.5;  // Volume boost
+  gainNode.gain.value = 4.5;  // Volume boost
 
   source.connect(gainNode);
   gainNode.connect(analyser);
