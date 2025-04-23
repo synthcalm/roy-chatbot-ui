@@ -7,12 +7,16 @@ body {
   overflow-x: hidden;
 }
 
+#content-area {
+  background-color: black;
+  min-height: 100vh;
+}
+
 #grid-area {
   background-image: linear-gradient(rgba(255, 255, 0, 0.5) 1px, transparent 1px),
                     linear-gradient(90deg, rgba(255, 255, 0, 0.5) 1px, transparent 1px);
   background-size: 20px 20px;
-  padding-top: 60px;
-  min-height: calc(100vh - 60px);
+  padding: 0;
 }
 
 #date-time, #countdown-timer {
@@ -25,15 +29,11 @@ body {
 }
 
 #date-time {
-  left: 50%;
-  transform: translateX(-50%);
-  margin-left: -450px;
+  left: 10px;
 }
 
 #countdown-timer {
-  right: 50%;
-  transform: translateX(50%);
-  margin-right: -450px;
+  right: 10px;
 }
 
 canvas {
@@ -49,8 +49,9 @@ canvas {
 }
 
 #buttons {
+  width: 900px;
   text-align: center;
-  margin: 20px 0;
+  margin: 20px auto;
 }
 
 button {
@@ -130,7 +131,7 @@ button {
 }
 
 #messages {
-  max-width: 900px;
+  width: 900px;
   margin: 0 auto;
   font-size: 1.3rem;
   line-height: 1.5;
@@ -154,15 +155,20 @@ button {
   }
 
   #date-time {
-    margin-left: -42%;
+    left: 5%;
   }
 
   #countdown-timer {
-    margin-right: -42%;
+    right: 5%;
   }
 
   canvas {
     height: 150px;
+  }
+
+  #buttons {
+    width: 100%;
+    margin: 20px 0;
   }
 
   button {
@@ -171,6 +177,7 @@ button {
   }
 
   #messages {
+    width: 90%;
     font-size: 1.1rem;
   }
 }
