@@ -4,6 +4,7 @@ let feedbackState = 'idle'; // idle, engaged
 let mediaRecorder;
 let audioChunks = [];
 let userWaveformCtx, royWaveformCtx;
+let analyser, dataArray, source;
 
 // Update date and time
 function updateDateTime() {
@@ -38,26 +39,47 @@ function initWaveforms() {
   royWaveform.height = royWaveform.offsetHeight;
 
   userWaveformCtx.strokeStyle = 'yellow';
-  royWaveformCtx.strokeStyle = 'yellow';
+  royWaveformCtx.strokeStyle = 'magenta';
   userWaveformCtx.lineWidth = 2;
   royWaveformCtx.lineWidth = 2;
 }
 
-// Draw waveform (placeholder for audio visualization)
-function drawWaveform(ctx, canvas) {
+// Draw waveform based on audio data
+function drawWaveform(ctx, canvas, data) {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   ctx.beginPath();
   const width = canvas.width;
   const height = canvas.height;
   const midY = height / 2;
+  const sliceWidth = width / data.length;
+
   let x = 0;
-  for (let i = 0; i < width; i++) {
-    const y = midY + Math.sin(x) * (height / 4);
-    if (i === 0) ctx.moveTo(i, y);
-    else ctx.lineTo(i, y);
-    x += 0.1;
+  for (let i = 0; i < data.length; i++) {
+    const v = data[i] / 128.0;
+    const y = midY + (v * midY);
+
+    if (i === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+    x += sliceWidth;
   }
   ctx.stroke();
+}
+
+// Animate waveform for user input
+function animateUserWaveform() {
+  analyser.getByteTimeDomainData(dataArray);
+  drawWaveform(userWaveformCtx, document.getElementById('user-waveform'), dataArray);
+  requestAnimationFrame(animateUserWaveform);
+}
+
+// Simulate Roy's waveform animation
+function animateRoyWaveform() {
+  const simulatedData = new Uint8Array(analyser.fftSize);
+  for (let i = 0; i < simulatedData.length; i++) {
+    simulatedData[i] = 128 + Math.sin(i / 10 + Date.now() / 100) * 50; // Simulated waveform
+  }
+  drawWaveform(royWaveformCtx, document.getElementById('roy-waveform'), simulatedData);
+  requestAnimationFrame(animateRoyWaveform);
 }
 
 // Handle Roy button click
@@ -73,7 +95,6 @@ document.getElementById('royBtn').addEventListener('click', () => {
     royBtn.classList.remove('pre-engage');
     royBtn.classList.add('engaged');
     startRecording();
-    drawWaveform(userWaveformCtx, document.getElementById('user-waveform'));
   } else if (royState === 'engaged') {
     royState = 'idle';
     royBtn.textContent = 'ROY';
@@ -113,12 +134,12 @@ document.getElementById('feedbackBtn').addEventListener('click', () => {
     messages.innerHTML += '<div class="user">You: Testing, one, two, check</div>';
     setTimeout(() => {
       messages.innerHTML += '<div class="roy">Roy: Hey, so… like… I hear you testing things out, yeah? Sounds good, man.</div>';
-      drawWaveform(royWaveformCtx, document.getElementById('roy-waveform'));
+      animateRoyWaveform();
     }, 1000);
   }
 });
 
-// Start recording (placeholder)
+// Start recording
 async function startRecording() {
   const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
   mediaRecorder = new MediaRecorder(stream);
@@ -126,12 +147,22 @@ async function startRecording() {
   mediaRecorder.ondataavailable = (event) => {
     audioChunks.push(event.data);
   };
+
+  const audioContext = new AudioContext();
+  analyser = audioContext.createAnalyser();
+  analyser.fftSize = 2048;
+  dataArray = new Uint8Array(analyser.fftSize);
+  source = audioContext.createMediaStreamSource(stream);
+  source.connect(analyser);
+  animateUserWaveform();
 }
 
-// Stop recording (placeholder)
+// Stop recording
 function stopRecording() {
   mediaRecorder.stop();
   audioChunks = [];
+  source.disconnect();
+  analyser.disconnect();
 }
 
 // Initialize on page load
