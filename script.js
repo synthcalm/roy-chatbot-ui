@@ -234,7 +234,4 @@ window.onload = function () {
   updateCountdownTimer();
   initWaveforms();
   initSpeechRecognition();
-  navigator.mediaDevices.getUserMedia({ audio: true })
-    .then((stream) => stream.getTracks().forEach(track => track.stop()))
-    .catch((err) => alert('Please allow microphone access in browser settings.'));
 };
