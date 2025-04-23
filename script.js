@@ -184,6 +184,8 @@ royBtn?.addEventListener('mouseup', () => {
 });
 
 // Feedback button no longer needed with hold-to-speak logic
+  }
+});
 
 document.getElementById('saveBtn')?.addEventListener('click', () => {
   const messages = document.getElementById('messages');
@@ -234,4 +236,7 @@ window.onload = function () {
   updateCountdownTimer();
   initWaveforms();
   initSpeechRecognition();
+  navigator.mediaDevices.getUserMedia({ audio: true })
+    .then((stream) => stream.getTracks().forEach(track => track.stop()))
+    .catch((err) => alert('Please allow microphone access in browser settings.'));
 };
