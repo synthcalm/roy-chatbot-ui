@@ -6,6 +6,8 @@ let audioChunks = [];
 let userWaveformCtx, royWaveformCtx;
 let analyser, dataArray, source;
 let userAudioContext, royAudioContext;
+let recognition; // For speech recognition
+let userTranscript = ''; // Store user speech
 
 // Update date and time
 function updateDateTime() {
@@ -109,6 +111,33 @@ function scrollMessages() {
   messages.scrollTop = messages.scrollHeight;
 }
 
+// Initialize speech recognition
+function initSpeechRecognition() {
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SpeechRecognition) {
+    console.error('Speech Recognition API not supported in this browser.');
+    return;
+  }
+
+  recognition = new SpeechRecognition();
+  recognition.continuous = false;
+  recognition.interimResults = false;
+  recognition.lang = 'en-US';
+
+  recognition.onresult = (event) => {
+    userTranscript = event.results[0][0].transcript.trim();
+    console.log('Transcribed:', userTranscript);
+  };
+
+  recognition.onerror = (event) => {
+    console.error('Speech recognition error:', event.error);
+  };
+
+  recognition.onend = () => {
+    console.log('Speech recognition ended');
+  };
+}
+
 // Handle Roy button click
 document.getElementById('royBtn').addEventListener('click', () => {
   const royBtn = document.getElementById('royBtn');
@@ -128,7 +157,7 @@ document.getElementById('royBtn').addEventListener('click', () => {
     royBtn.classList.remove('engaged');
     stopRecording();
     const messages = document.getElementById('messages');
-    messages.innerHTML += '<div class="user">You: Testing, one, two, check</div>';
+    messages.innerHTML += `<div class="user">You: ${userTranscript || 'Are you there?'}</div>`;
     scrollMessages();
     document.getElementById('feedbackBtn').classList.add('engaged');
     feedbackState = 'engaged';
@@ -161,44 +190,60 @@ document.getElementById('feedbackBtn').addEventListener('click', () => {
     const feedbackBtn = document.getElementById('feedbackBtn');
     feedbackBtn.classList.remove('engaged');
     const messages = document.getElementById('messages');
-    messages.innerHTML += '<div class="roy">Roy: Hey, so… like… I hear you testing things out, yeah? Sounds good, man.</div>';
+    messages.innerHTML += '<div class="roy">Roy: Hey, so… like… I hear you, yeah? I’m right here for you, man.</div>';
     scrollMessages();
 
-    // Simulate Roy's audio response with a simple sine wave
-    const audio = new Audio(generateSineWaveAudio());
+    // Generate Roy's audio response
+    const audio = new Audio(generateSpeechLikeAudio());
     animateRoyWaveform(audio);
   }
 });
 
 // Start recording
 async function startRecording() {
-  const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-  mediaRecorder = new MediaRecorder(stream);
-  mediaRecorder.start();
-  mediaRecorder.ondataavailable = (event) => {
-    audioChunks.push(event.data);
-  };
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    mediaRecorder = new MediaRecorder(stream);
+    mediaRecorder.start();
+    mediaRecorder.ondataavailable = (event) => {
+      audioChunks.push(event.data);
+    };
 
-  userAudioContext = new AudioContext();
-  analyser = userAudioContext.createAnalyser();
-  analyser.fftSize = 2048;
-  dataArray = new Uint8Array(analyser.fftSize);
-  source = userAudioContext.createMediaStreamSource(stream);
-  source.connect(analyser);
-  animateUserWaveform();
+    userAudioContext = new AudioContext();
+    analyser = userAudioContext.createAnalyser();
+    analyser.fftSize = 2048;
+    dataArray = new Uint8Array(analyser.fftSize);
+    source = userAudioContext.createMediaStreamSource(stream);
+    source.connect(analyser);
+    animateUserWaveform();
+
+    // Start speech recognition
+    recognition.start();
+  } catch (err) {
+    console.error('Error starting recording:', err);
+  }
 }
 
 // Stop recording
 function stopRecording() {
-  mediaRecorder.stop();
+  if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+    mediaRecorder.stop();
+  }
   audioChunks = [];
-  source.disconnect();
-  analyser.disconnect();
-  userAudioContext.close();
+  if (source && analyser) {
+    source.disconnect();
+    analyser.disconnect();
+  }
+  if (userAudioContext) {
+    userAudioContext.close();
+  }
+  if (recognition) {
+    recognition.stop();
+  }
 }
 
-// Generate a simple sine wave audio for Roy's response
-function generateSineWaveAudio() {
+// Generate a speech-like audio for Roy's response
+function generateSpeechLikeAudio() {
   const sampleRate = 44100;
   const duration = 3; // 3 seconds
   const numSamples = sampleRate * duration;
@@ -230,12 +275,21 @@ function generateSineWaveAudio() {
   writeString(view, 36, 'data');
   view.setUint32(40, dataSize, true);
 
-  // Generate sine wave
-  const frequency = 440; // A4 note
+  // Generate a speech-like waveform by combining multiple frequencies
+  let t = 0;
   for (let i = 0; i < numSamples; i++) {
-    const sample = Math.sin(2 * Math.PI * frequency * (i / sampleRate)) * 0.5;
+    // Simulate formants (speech-like frequencies: 500Hz, 1500Hz, 2500Hz)
+    const formant1 = Math.sin(2 * Math.PI * 500 * t) * 0.4;  // Low frequency (vowel-like)
+    const formant2 = Math.sin(2 * Math.PI * 1500 * t) * 0.3; // Mid frequency
+    const formant3 = Math.sin(2 * Math.PI * 2500 * t) * 0.1; // High frequency (consonant-like)
+
+    // Modulate amplitude to simulate speech envelope
+    const envelope = Math.sin(Math.PI * (i / numSamples)) * 0.8; // Fade in and out
+    const sample = (formant1 + formant2 + formant3) * envelope;
+
     const sampleValue = Math.round(sample * 32767);
     view.setInt16(44 + i * 2, sampleValue, true);
+    t += 1 / sampleRate;
   }
 
   const blob = new Blob([buffer], { type: 'audio/wav' });
@@ -254,4 +308,5 @@ window.onload = function() {
   updateDateTime();
   updateCountdownTimer();
   initWaveforms();
+  initSpeechRecognition();
 };
