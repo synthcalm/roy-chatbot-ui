@@ -1,316 +1,142 @@
-const royBtn = document.getElementById('royBtn');
-const randyBtn = document.getElementById('randyBtn');
-const feedbackBtn = document.getElementById('feedbackBtn');
-const saveBtn = document.getElementById('saveBtn');
-const homeBtn = document.getElementById('homeBtn');
-const messagesDiv = document.getElementById('messages');
-const userCanvas = document.getElementById('userWaveform');
-const royCanvas = document.getElementById('royWaveform');
-const userCtx = userCanvas.getContext('2d');
-const royCtx = royCanvas.getContext('2d');
-const dateTimeSpan = document.getElementById('date-time');
-const countdownTimerSpan = document.getElementById('countdown-timer');
+let royState = 'idle'; // idle, pre-engage, engaged
+let randyState = 'idle'; // idle, pre-engage, engaged
+let feedbackState = 'idle'; // idle, engaged
+let mediaRecorder;
+let audioChunks = [];
+let userWaveformCtx, royWaveformCtx;
 
-let mediaRecorder, audioChunks = [], isRecording = false;
-let selectedPersona = null;
-let userAudioContext = null;
-let userAnalyser = null;
-let userSource = null;
-let userStream = null;
-let royState = 'default'; // default, pre-engage, engaged
-let randyState = 'default'; // default, pre-engage, engaged
-
-// Update clock and timer
-function updateClock() {
+// Update date and time
+function updateDateTime() {
+  const dateTimeDiv = document.getElementById('date-time');
   const now = new Date();
-  dateTimeSpan.textContent = now.toLocaleString();
+  dateTimeDiv.textContent = now.toLocaleString();
 }
-setInterval(updateClock, 1000);
 
-let countdown = 60 * 60;
-setInterval(() => {
-  countdown--;
-  const minutes = String(Math.floor(countdown / 60)).padStart(2, '0');
-  const seconds = String(countdown % 60).padStart(2, '0');
-  countdownTimerSpan.textContent = `${minutes}:${seconds}`;
-}, 1000);
+// Update countdown timer
+function updateCountdownTimer() {
+  const countdownDiv = document.getElementById('countdown-timer');
+  let timeLeft = 60 * 60; // 60 minutes in seconds
+  setInterval(() => {
+    const minutes = Math.floor(timeLeft / 60);
+    const seconds = timeLeft % 60;
+    countdownDiv.textContent = `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
+    timeLeft--;
+    if (timeLeft < 0) timeLeft = 60 * 60;
+  }, 1000);
+}
 
-// Draw waveform for both user and Roy
-function drawWaveform(ctx, canvas, dataArray, color) {
+// Initialize waveforms
+function initWaveforms() {
+  const userWaveform = document.getElementById('user-waveform');
+  const royWaveform = document.getElementById('roy-waveform');
+  userWaveformCtx = userWaveform.getContext('2d');
+  royWaveformCtx = royWaveform.getContext('2d');
+
+  userWaveform.width = userWaveform.offsetWidth;
+  userWaveform.height = userWaveform.offsetHeight;
+  royWaveform.width = royWaveform.offsetWidth;
+  royWaveform.height = royWaveform.offsetHeight;
+
+  userWaveformCtx.strokeStyle = 'yellow';
+  royWaveformCtx.strokeStyle = 'yellow';
+  userWaveformCtx.lineWidth = 2;
+  royWaveformCtx.lineWidth = 2;
+}
+
+// Draw waveform (placeholder for audio visualization)
+function drawWaveform(ctx, canvas) {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   ctx.beginPath();
-  for (let i = 0; i < dataArray.length; i++) {
-    const x = (i / dataArray.length) * canvas.width;
-    const y = canvas.height / 2 + (dataArray[i] - 128) * (canvas.height / 256);
-    if (i === 0) {
-      ctx.moveTo(x, y);
-    } else {
-      ctx.lineTo(x, y);
-    }
+  const width = canvas.width;
+  const height = canvas.height;
+  const midY = height / 2;
+  let x = 0;
+  for (let i = 0; i < width; i++) {
+    const y = midY + Math.sin(x) * (height / 4);
+    if (i === 0) ctx.moveTo(i, y);
+    else ctx.lineTo(i, y);
+    x += 0.1;
   }
-  ctx.strokeStyle = color;
   ctx.stroke();
 }
 
-// Set up user waveform visualization
-function setupUserVisualization(stream) {
-  try {
-    userAudioContext = new (window.AudioContext || window.webkitAudioContext)();
-    if (userAudioContext.state === 'suspended') {
-      userAudioContext.resume();
-    }
-
-    userAnalyser = userAudioContext.createAnalyser();
-    userSource = userAudioContext.createMediaStreamSource(stream);
-    userSource.connect(userAnalyser);
-
-    userCanvas.width = userCanvas.offsetWidth || 900;
-    userCanvas.height = 200;
-
-    const dataArray = new Uint8Array(userAnalyser.frequencyBinCount);
-    function animate() {
-      if (!isRecording) return;
-      requestAnimationFrame(animate);
-      userAnalyser.getByteTimeDomainData(dataArray);
-      drawWaveform(userCtx, userCanvas, dataArray, 'yellow');
-    }
-    animate();
-  } catch (err) {
-    addOrUpdateMessage('Error: Could not set up waveform. Try again or check your browser settings.', 'roy');
-  }
-}
-
-// Play Roy's audio and show waveform
-function playRoyAudio(base64Audio) {
-  const audio = new Audio(`data:audio/mp3;base64,${base64Audio}`);
-  const royAudioContext = new (window.AudioContext || window.webkitAudioContext)();
-  if (royAudioContext.state === 'suspended') {
-    royAudioContext.resume();
-  }
-
-  const royAudioSource = royAudioContext.createMediaElementSource(audio);
-  const analyser = royAudioContext.createAnalyser();
-  royAudioSource.connect(analyser);
-  analyser.connect(royAudioContext.destination);
-
-  royCanvas.width = royCanvas.offsetWidth || 900;
-  royCanvas.height = 200;
-
-  const dataArray = new Uint8Array(analyser.frequencyBinCount);
-  function animate() {
-    requestAnimationFrame(animate);
-    analyser.getByteTimeDomainData(dataArray);
-    drawWaveform(royCtx, royCanvas, dataArray, 'magenta');
-  }
-  animate();
-  audio.play();
-}
-
-// Add or update message in chat
-function addOrUpdateMessage(text, sender, isThinking = false) {
-  let msg;
-  if (isThinking) {
-    msg = [...messagesDiv.querySelectorAll('.roy')].pop();
-    if (msg && msg.textContent.includes('Roy thinking...')) {
-      msg.textContent = `Roy: ${text}`;
-    } else {
-      msg = document.createElement('p');
-      msg.className = sender;
-      msg.textContent = `Roy: ${text}`;
-      messagesDiv.appendChild(msg);
-    }
-  } else {
-    msg = document.createElement('p');
-    msg.className = sender;
-    msg.textContent = text;
-    messagesDiv.appendChild(msg);
-  }
-  messagesDiv.scrollTop = messagesDiv.scrollHeight;
-}
-
-// Display Roy's greeting when app opens
-window.addEventListener('load', () => {
-  const greeting = document.createElement('p');
-  greeting.className = 'roy';
-  greeting.textContent = "Roy: Hey, man… I’m Roy, your chill companion here to listen. Whenever you’re ready, just hit the ROY button and let’s talk, yeah?";
-  messagesDiv.appendChild(greeting);
-  messagesDiv.scrollTop = messagesDiv.scrollHeight;
-});
-
-// ROY button event listener
-royBtn.addEventListener('click', async () => {
-  if (royState === 'default') {
-    // Move to pre-engage state
+// Handle Roy button click
+document.getElementById('royBtn').addEventListener('click', () => {
+  const royBtn = document.getElementById('royBtn');
+  if (royState === 'idle') {
     royState = 'pre-engage';
     royBtn.textContent = 'START';
     royBtn.classList.add('pre-engage');
-    selectedPersona = 'roy';
-    // Reset Randy to default if it was in pre-engage or engaged
-    if (randyState !== 'default') {
-      randyState = 'default';
-      randyBtn.textContent = 'RANDY';
-      randyBtn.classList.remove('pre-engage', 'engaged');
-    }
   } else if (royState === 'pre-engage') {
-    // Move to engaged state (start recording)
     royState = 'engaged';
     royBtn.textContent = 'STOP';
     royBtn.classList.remove('pre-engage');
     royBtn.classList.add('engaged');
-    audioChunks = [];
-    try {
-      userStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      mediaRecorder = new MediaRecorder(userStream);
-      isRecording = true;
-      setupUserVisualization(userStream);
-      mediaRecorder.start();
-      mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
-      mediaRecorder.onstop = async () => {
-        const blob = new Blob(audioChunks, { type: 'audio/webm' });
-        const formData = new FormData();
-        formData.append('audio', blob);
-        try {
-          const response = await fetch('https://roy-chatbo-backend.onrender.com/api/transcribe', { method: 'POST', body: formData });
-          const data = await response.json();
-          if (data.text) {
-            addOrUpdateMessage(`You: ${data.text}`, 'user');
-            addOrUpdateMessage('Roy thinking...', 'roy');
-            feedbackBtn.classList.add('engaged');
-          }
-        } catch (err) {
-          addOrUpdateMessage('Error: Transcription failed.', 'roy');
-        }
-      };
-    } catch (err) {
-      addOrUpdateMessage('Error: Could not access microphone. Check permissions or try a different browser.', 'roy');
-      royState = 'pre-engage';
-      royBtn.textContent = 'START';
-      royBtn.classList.remove('engaged');
-      royBtn.classList.add('pre-engage');
-      isRecording = false;
-    }
+    startRecording();
+    drawWaveform(userWaveformCtx, document.getElementById('user-waveform'));
   } else if (royState === 'engaged') {
-    // Move back to pre-engage state (stop recording)
-    mediaRecorder.stop();
-    userStream.getTracks().forEach(track => track.stop());
-    royState = 'pre-engage';
-    royBtn.textContent = 'START';
+    royState = 'idle';
+    royBtn.textContent = 'ROY';
     royBtn.classList.remove('engaged');
-    royBtn.classList.add('pre-engage');
-    isRecording = false;
+    stopRecording();
+    document.getElementById('feedbackBtn').classList.add('engaged');
+    feedbackState = 'engaged';
   }
 });
 
-// RANDY button event listener
-randyBtn.addEventListener('click', async () => {
-  if (randyState === 'default') {
-    // Move to pre-engage state
+// Handle Randy button click
+document.getElementById('randyBtn').addEventListener('click', () => {
+  const randyBtn = document.getElementById('randyBtn');
+  if (randyState === 'idle') {
     randyState = 'pre-engage';
     randyBtn.textContent = 'START';
     randyBtn.classList.add('pre-engage');
-    selectedPersona = 'randy';
-    // Reset Roy to default if it was in pre-engage or engaged
-    if (royState !== 'default') {
-      royState = 'default';
-      royBtn.textContent = 'ROY';
-      royBtn.classList.remove('pre-engage', 'engaged');
-    }
   } else if (randyState === 'pre-engage') {
-    // Move to engaged state (start recording)
     randyState = 'engaged';
     randyBtn.textContent = 'STOP';
     randyBtn.classList.remove('pre-engage');
     randyBtn.classList.add('engaged');
-    audioChunks = [];
-    try {
-      userStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      mediaRecorder = new MediaRecorder(userStream);
-      isRecording = true;
-      setupUserVisualization(userStream);
-      mediaRecorder.start();
-      mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
-      mediaRecorder.onstop = async () => {
-        const blob = new Blob(audioChunks, { type: 'audio/webm' });
-        const formData = new FormData();
-        formData.append('audio', blob);
-        try {
-          const response = await fetch('https://roy-chatbo-backend.onrender.com/api/transcribe', { method: 'POST', body: formData });
-          const data = await response.json();
-          if (data.text) {
-            addOrUpdateMessage(`You: ${data.text}`, 'user');
-            addOrUpdateMessage('Randy thinking...', 'randy');
-            feedbackBtn.classList.add('engaged');
-          }
-        } catch (err) {
-          addOrUpdateMessage('Error: Transcription failed.', 'randy');
-        }
-      };
-    } catch (err) {
-      addOrUpdateMessage('Error: Could not access microphone. Check permissions or try a different browser.', 'randy');
-      randyState = 'pre-engage';
-      randyBtn.textContent = 'START';
-      randyBtn.classList.remove('engaged');
-      randyBtn.classList.add('pre-engage');
-      isRecording = false;
-    }
   } else if (randyState === 'engaged') {
-    // Move back to pre-engage state (stop recording)
-    mediaRecorder.stop();
-    userStream.getTracks().forEach(track => track.stop());
-    randyState = 'pre-engage';
-    randyBtn.textContent = 'START';
+    randyState = 'idle';
+    randyBtn.textContent = 'RANDY';
     randyBtn.classList.remove('engaged');
-    randyBtn.classList.add('pre-engage');
-    isRecording = false;
   }
 });
 
-// FEEDBACK button event listener
-feedbackBtn.addEventListener('click', async () => {
-  const lastUserMsg = [...messagesDiv.querySelectorAll('.user')].pop();
-  if (!lastUserMsg) return;
-  const text = lastUserMsg.textContent.replace('You: ', '');
-  feedbackBtn.classList.remove('engaged');
-  try {
-    const res = await fetch('https://roy-chatbo-backend.onrender.com/api/chat', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ message: text, persona: selectedPersona })
-    });
-    const data = await res.json();
-    if (data.text) addOrUpdateMessage(data.text, selectedPersona, true);
-    if (data.audio) playRoyAudio(data.audio);
-  } catch (err) {
-    addOrUpdateMessage('Error: Could not respond.', selectedPersona);
-  } finally {
-    // Reset FEEDBACK button to default state
+// Handle Feedback button click
+document.getElementById('feedbackBtn').addEventListener('click', () => {
+  if (feedbackState === 'engaged') {
+    feedbackState = 'idle';
+    const feedbackBtn = document.getElementById('feedbackBtn');
     feedbackBtn.classList.remove('engaged');
-    // Reset ROY or RANDY to pre-engage state
-    if (selectedPersona === 'roy') {
-      royState = 'pre-engage';
-      royBtn.textContent = 'START';
-      royBtn.classList.remove('engaged');
-      royBtn.classList.add('pre-engage');
-    } else if (selectedPersona === 'randy') {
-      randyState = 'pre-engage';
-      randyBtn.textContent = 'START';
-      randyBtn.classList.remove('engaged');
-      randyBtn.classList.add('pre-engage');
-    }
+    const messages = document.getElementById('messages');
+    messages.innerHTML += '<div class="user">You: Testing, one, two, check</div>';
+    setTimeout(() => {
+      messages.innerHTML += '<div class="roy">Roy: Hey, so… like… I hear you testing things out, yeah? Sounds good, man.</div>';
+      drawWaveform(royWaveformCtx, document.getElementById('roy-waveform'));
+    }, 1000);
   }
 });
 
-// SAVE LOG button
-saveBtn.addEventListener('click', () => {
-  const blob = new Blob([messagesDiv.innerText], { type: 'text/plain' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = 'conversation-log.txt';
-  a.click();
-});
+// Start recording (placeholder)
+async function startRecording() {
+  const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  mediaRecorder = new MediaRecorder(stream);
+  mediaRecorder.start();
+  mediaRecorder.ondataavailable = (event) => {
+    audioChunks.push(event.data);
+  };
+}
 
-// HOME button
-homeBtn.addEventListener('click', () => {
-  window.location.href = 'https://synthcalm.com';
-});
+// Stop recording (placeholder)
+function stopRecording() {
+  mediaRecorder.stop();
+  audioChunks = [];
+}
+
+// Initialize on page load
+window.onload = function() {
+  updateDateTime();
+  updateCountdownTimer();
+  initWaveforms();
+};
