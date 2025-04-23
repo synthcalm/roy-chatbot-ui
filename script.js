@@ -17,6 +17,8 @@ let userAudioContext = null;
 let userAnalyser = null;
 let userSource = null;
 let userStream = null;
+let royState = 'default'; // default, pre-engage, engaged
+let randyState = 'default'; // default, pre-engage, engaged
 
 // Update clock and timer
 function updateClock() {
@@ -137,10 +139,24 @@ window.addEventListener('load', () => {
 
 // ROY button event listener
 royBtn.addEventListener('click', async () => {
-  if (!isRecording) {
+  if (royState === 'default') {
+    // Move to pre-engage state
+    royState = 'pre-engage';
+    royBtn.textContent = 'START';
+    royBtn.classList.add('pre-engage');
     selectedPersona = 'roy';
-    royBtn.style.backgroundColor = 'lime';
+    // Reset Randy to default if it was in pre-engage or engaged
+    if (randyState !== 'default') {
+      randyState = 'default';
+      randyBtn.textContent = 'RANDY';
+      randyBtn.classList.remove('pre-engage', 'engaged');
+    }
+  } else if (royState === 'pre-engage') {
+    // Move to engaged state (start recording)
+    royState = 'engaged';
     royBtn.textContent = 'STOP';
+    royBtn.classList.remove('pre-engage');
+    royBtn.classList.add('engaged');
     audioChunks = [];
     try {
       userStream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -159,7 +175,7 @@ royBtn.addEventListener('click', async () => {
           if (data.text) {
             addOrUpdateMessage(`You: ${data.text}`, 'user');
             addOrUpdateMessage('Roy thinking...', 'roy');
-            feedbackBtn.classList.add('blinking-red');
+            feedbackBtn.classList.add('engaged');
           }
         } catch (err) {
           addOrUpdateMessage('Error: Transcription failed.', 'roy');
@@ -167,15 +183,84 @@ royBtn.addEventListener('click', async () => {
       };
     } catch (err) {
       addOrUpdateMessage('Error: Could not access microphone. Check permissions or try a different browser.', 'roy');
-      royBtn.style.backgroundColor = '';
-      royBtn.textContent = 'ROY';
+      royState = 'pre-engage';
+      royBtn.textContent = 'START';
+      royBtn.classList.remove('engaged');
+      royBtn.classList.add('pre-engage');
       isRecording = false;
     }
-  } else {
+  } else if (royState === 'engaged') {
+    // Move back to pre-engage state (stop recording)
     mediaRecorder.stop();
     userStream.getTracks().forEach(track => track.stop());
-    royBtn.style.backgroundColor = '';
-    royBtn.textContent = 'ROY';
+    royState = 'pre-engage';
+    royBtn.textContent = 'START';
+    royBtn.classList.remove('engaged');
+    royBtn.classList.add('pre-engage');
+    isRecording = false;
+  }
+});
+
+// RANDY button event listener
+randyBtn.addEventListener('click', async () => {
+  if (randyState === 'default') {
+    // Move to pre-engage state
+    randyState = 'pre-engage';
+    randyBtn.textContent = 'START';
+    randyBtn.classList.add('pre-engage');
+    selectedPersona = 'randy';
+    // Reset Roy to default if it was in pre-engage or engaged
+    if (royState !== 'default') {
+      royState = 'default';
+      royBtn.textContent = 'ROY';
+      royBtn.classList.remove('pre-engage', 'engaged');
+    }
+  } else if (randyState === 'pre-engage') {
+    // Move to engaged state (start recording)
+    randyState = 'engaged';
+    randyBtn.textContent = 'STOP';
+    randyBtn.classList.remove('pre-engage');
+    randyBtn.classList.add('engaged');
+    audioChunks = [];
+    try {
+      userStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      mediaRecorder = new MediaRecorder(userStream);
+      isRecording = true;
+      setupUserVisualization(userStream);
+      mediaRecorder.start();
+      mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
+      mediaRecorder.onstop = async () => {
+        const blob = new Blob(audioChunks, { type: 'audio/webm' });
+        const formData = new FormData();
+        formData.append('audio', blob);
+        try {
+          const response = await fetch('https://roy-chatbo-backend.onrender.com/api/transcribe', { method: 'POST', body: formData });
+          const data = await response.json();
+          if (data.text) {
+            addOrUpdateMessage(`You: ${data.text}`, 'user');
+            addOrUpdateMessage('Randy thinking...', 'randy');
+            feedbackBtn.classList.add('engaged');
+          }
+        } catch (err) {
+          addOrUpdateMessage('Error: Transcription failed.', 'randy');
+        }
+      };
+    } catch (err) {
+      addOrUpdateMessage('Error: Could not access microphone. Check permissions or try a different browser.', 'randy');
+      randyState = 'pre-engage';
+      randyBtn.textContent = 'START';
+      randyBtn.classList.remove('engaged');
+      randyBtn.classList.add('pre-engage');
+      isRecording = false;
+    }
+  } else if (randyState === 'engaged') {
+    // Move back to pre-engage state (stop recording)
+    mediaRecorder.stop();
+    userStream.getTracks().forEach(track => track.stop());
+    randyState = 'pre-engage';
+    randyBtn.textContent = 'START';
+    randyBtn.classList.remove('engaged');
+    randyBtn.classList.add('pre-engage');
     isRecording = false;
   }
 });
@@ -185,8 +270,7 @@ feedbackBtn.addEventListener('click', async () => {
   const lastUserMsg = [...messagesDiv.querySelectorAll('.user')].pop();
   if (!lastUserMsg) return;
   const text = lastUserMsg.textContent.replace('You: ', '');
-  feedbackBtn.classList.remove('blinking-red');
-  feedbackBtn.style.backgroundColor = 'red';
+  feedbackBtn.classList.remove('engaged');
   try {
     const res = await fetch('https://roy-chatbo-backend.onrender.com/api/chat', {
       method: 'POST',
@@ -194,14 +278,25 @@ feedbackBtn.addEventListener('click', async () => {
       body: JSON.stringify({ message: text, persona: selectedPersona })
     });
     const data = await res.json();
-    if (data.text) addOrUpdateMessage(data.text, 'roy', true);
+    if (data.text) addOrUpdateMessage(data.text, selectedPersona, true);
     if (data.audio) playRoyAudio(data.audio);
   } catch (err) {
-    addOrUpdateMessage('Error: Roy could not respond.', 'roy');
+    addOrUpdateMessage('Error: Could not respond.', selectedPersona);
   } finally {
-    feedbackBtn.style.backgroundColor = '';
-    royBtn.style.backgroundColor = 'lime';
-    royBtn.textContent = 'ROY';
+    // Reset FEEDBACK button to default state
+    feedbackBtn.classList.remove('engaged');
+    // Reset ROY or RANDY to pre-engage state
+    if (selectedPersona === 'roy') {
+      royState = 'pre-engage';
+      royBtn.textContent = 'START';
+      royBtn.classList.remove('engaged');
+      royBtn.classList.add('pre-engage');
+    } else if (selectedPersona === 'randy') {
+      randyState = 'pre-engage';
+      randyBtn.textContent = 'START';
+      randyBtn.classList.remove('engaged');
+      randyBtn.classList.add('pre-engage');
+    }
   }
 });
 
