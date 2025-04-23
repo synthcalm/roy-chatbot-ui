@@ -140,7 +140,19 @@ async function sendToRoy() {
     const data = await response.json();
     messages.innerHTML += `<div class="roy">Roy: ${data.text}</div>`;
     scrollMessages();
-    if (data.audio) animateRoyWaveform(new Audio(data.audio));
+    if (data.audio) {
+      const royAudio = new Audio(data.audio);
+      royAudio.volume = 1.0;  // Safety set to 1.0 (default)
+      
+      const royAudioContext = new AudioContext();
+      const source = royAudioContext.createMediaElementSource(royAudio);
+      const gainNode = royAudioContext.createGain();
+      gainNode.gain.value = 2.5;  // Boost Roy's voice volume (adjust if needed)
+
+      source.connect(gainNode);
+      gainNode.connect(royAudioContext.destination);
+      animateRoyWaveform(royAudio);
+    }
   } catch (err) {
     console.error('Backend request error:', err);
     messages.innerHTML += '<div class="roy">Roy: Sorry, I’m having trouble responding right now.</div>';
