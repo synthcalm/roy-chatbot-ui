@@ -191,8 +191,6 @@ feedbackBtn?.addEventListener('click', () => {
     sendToRoy().finally(() => {
       feedbackState = 'idle';
       feedbackBtn.classList.remove('engaged');
-    });
-  }
 });
 
 document.getElementById('saveBtn')?.addEventListener('click', () => {
