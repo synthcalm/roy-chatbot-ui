@@ -62,7 +62,6 @@ function animateUserWaveform() {
   requestAnimationFrame(animateUserWaveform);
 }
 
-let royAudioContext = null;
 function animateRoyWaveform(audio) {
   if (royAudioContext) {
     royAudioContext.close();
