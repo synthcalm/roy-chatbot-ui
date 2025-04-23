@@ -1,4 +1,4 @@
-// === script.js (fully updated: pause/resume, GPT-3.5 brain, Roy Batty 15%, volume fix) ===
+// === script.js (restored full working version: Speak/Stop/Feedback, volume fix, Safari-compatible) ===
 
 let royState = 'idle';
 let randyState = 'idle';
@@ -62,18 +62,17 @@ function animateUserWaveform() {
   requestAnimationFrame(animateUserWaveform);
 }
 
-// royAudioContext declared at the top already — removed duplicate declaration
 function animateRoyWaveform(audio) {
   if (royAudioContext) {
     royAudioContext.close();
     royAudioContext = null;
   }
-  royAudioContext = new AudioContext(); // Safe reassignment without redeclaration
+  royAudioContext = new AudioContext();
   const analyser = royAudioContext.createAnalyser();
   const dataArray = new Uint8Array(analyser.fftSize);
   const source = royAudioContext.createMediaElementSource(audio);
   const gainNode = royAudioContext.createGain();
-  gainNode.gain.value = 4.5;  // Volume boost
+  gainNode.gain.value = 4.5;
 
   source.connect(gainNode);
   gainNode.connect(analyser);
@@ -191,6 +190,8 @@ feedbackBtn?.addEventListener('click', () => {
     sendToRoy().finally(() => {
       feedbackState = 'idle';
       feedbackBtn.classList.remove('engaged');
+    });
+  }
 });
 
 document.getElementById('saveBtn')?.addEventListener('click', () => {
@@ -242,7 +243,4 @@ window.onload = function () {
   updateCountdownTimer();
   initWaveforms();
   initSpeechRecognition();
-  navigator.mediaDevices.getUserMedia({ audio: true })
-    .then((stream) => stream.getTracks().forEach(track => track.stop()))
-    .catch((err) => alert('Please allow microphone access in browser settings.'));
 };
