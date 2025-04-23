@@ -170,7 +170,7 @@ function initSpeechRecognition() {
     if (['no-speech', 'network'].includes(event.error)) {
       setTimeout(() => {
         if (royState === 'engaged') recognition.start();
-      }, 1000); // Delay to avoid rapid restarts
+      }, 1000);
     } else {
       alert('Speech recognition failed: ' + event.error);
     }
@@ -179,4 +179,198 @@ function initSpeechRecognition() {
   recognition.onend = () => {
     console.log('Speech recognition ended');
     if (royState === 'engaged') {
-      setTimeout(() => recognition.start(), 1000); // Delay for stability
+      setTimeout(() => recognition.start(), 1000);
+    }
+  };
+}
+
+// Handle Roy button click
+document.getElementById('royBtn')?.addEventListener('click', () => {
+  const royBtn = document.getElementById('royBtn');
+  if (!royBtn) {
+    console.error('royBtn not found');
+    return;
+  }
+  if (royState === 'idle') {
+    royState = 'pre-engage';
+    royBtn.textContent = 'START';
+    royBtn.classList.add('pre-engage');
+  } else if (royState === 'pre-engage') {
+    royState = 'engaged';
+    royBtn.textContent = 'STOP';
+    royBtn.classList.remove('pre-engage');
+    royBtn.classList.add('engaged');
+    startRecording();
+  } else if (royState === 'engaged') {
+    royState = 'idle';
+    royBtn.textContent = 'ROY';
+    royBtn.classList.remove('engaged');
+    stopRecording();
+    const messages = document.getElementById('messages');
+    if (messages) {
+      messages.innerHTML = `<div class="user">You: ${userTranscript || 'Are you there?'}</div>`;
+      scrollMessages();
+    }
+    const feedbackBtn = document.getElementById('feedbackBtn');
+    if (feedbackBtn) {
+      feedbackBtn.classList.add('engaged');
+      feedbackState = 'engaged';
+    }
+  }
+});
+
+// Handle Randy button click
+document.getElementById('randyBtn')?.addEventListener('click', () => {
+  const randyBtn = document.getElementById('randyBtn');
+  if (!randyBtn) {
+    console.error('randyBtn not found');
+    return;
+  }
+  if (randyState === 'idle') {
+    randyState = 'pre-engage';
+    randyBtn.textContent = 'START';
+    randyBtn.classList.add('pre-engage');
+  } else if (randyState === 'pre-engage') {
+    randyState = 'engaged';
+    randyBtn.textContent = 'STOP';
+    randyBtn.classList.remove('pre-engage');
+    randyBtn.classList.add('engaged');
+    // TODO: Implement Randy recording logic
+  } else if (randyState === 'engaged') {
+    randyState = 'idle';
+    randyBtn.textContent = 'RANDY';
+    randyBtn.classList.remove('engaged');
+    // TODO: Implement Randy stop logic
+  }
+});
+
+// Handle Feedback button click
+document.getElementById('feedbackBtn')?.addEventListener('click', async () => {
+  const feedbackBtn = document.getElementById('feedbackBtn');
+  if (!feedbackBtn) {
+    console.error('feedbackBtn not found');
+    return;
+  }
+  if (feedbackState === 'engaged') {
+    feedbackState = 'idle';
+    feedbackBtn.classList.remove('engaged');
+    const messages = document.getElementById('messages');
+    if (!messages) {
+      console.error('messages element not found');
+      return;
+    }
+
+    try {
+      const response = await fetch('https://roy-chatbo-backend.onrender.com/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: userTranscript || 'Are you there?', persona: 'roy' })
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error: ${response.status}`);
+      }
+
+      const data = await response.json();
+      messages.innerHTML += `<div class="roy">Roy: ${data.text}</div>`;
+      scrollMessages();
+
+      if (data.audio) {
+        const audio = new Audio(data.audio);
+        audio.playsInline = true;
+        animateRoyWaveform(audio);
+      } else {
+        console.warn('No audio data received');
+      }
+    } catch (err) {
+      console.error('Backend request error:', err);
+      messages.innerHTML += '<div class="roy">Roy: Sorry, I’m having trouble responding right now.</div>';
+      scrollMessages();
+    }
+  }
+});
+
+// Handle Save Log button click
+document.getElementById('saveBtn')?.addEventListener('click', () => {
+  const messages = document.getElementById('messages');
+  if (!messages) {
+    console.error('messages element not found');
+    alert('Cannot save log: Chat area not found.');
+    return;
+  }
+  const text = Array.from(messages.querySelectorAll('div')).map(div => div.textContent).join('\n');
+  const blob = new Blob([text], { type: 'text/plain' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `synthcalm_chat_${new Date().toISOString().replace(/[:.]/g, '-')}.txt`;
+  a.click();
+  URL.revokeObjectURL(url);
+});
+
+// Handle Home button click
+document.getElementById('homeBtn')?.addEventListener('click', () => {
+  window.location.href = 'https://synthcalm.com';
+});
+
+// Start recording
+async function startRecording() {
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    mediaRecorder = new MediaRecorder(stream);
+    mediaRecorder.start();
+    mediaRecorder.ondataavailable = (event) => {
+      audioChunks.push(event.data);
+    };
+
+    userAudioContext = new AudioContext();
+    analyser = userAudioContext.createAnalyser();
+    analyser.fftSize = 2048;
+    dataArray = new Uint8Array(analyser.fftSize);
+    source = userAudioContext.createMediaStreamSource(stream);
+    source.connect(analyser);
+    animateUserWaveform();
+
+    recognition.start();
+  } catch (err) {
+    console.error('Error starting recording:', err);
+    alert('Failed to access microphone. Please check permissions.');
+  }
+}
+
+// Stop recording
+function stopRecording() {
+  if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+    mediaRecorder.stop();
+  }
+  audioChunks = [];
+  if (source && analyser) {
+    source.disconnect();
+    analyser.disconnect();
+  }
+  if (userAudioContext) {
+    userAudioContext.close();
+  }
+  if (recognition) {
+    recognition.stop();
+  }
+}
+
+// Initialize on page load
+window.onload = function() {
+  updateDateTime();
+  updateCountdownTimer();
+  initWaveforms();
+  initSpeechRecognition();
+
+  // Check microphone permission
+  navigator.mediaDevices.getUserMedia({ audio: true })
+    .then((stream) => {
+      console.log('Microphone access granted');
+      stream.getTracks().forEach(track => track.stop());
+    })
+    .catch((err) => {
+      console.error('Microphone access denied:', err);
+      alert('Please allow microphone access in browser settings.');
+    });
+};
