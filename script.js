@@ -73,7 +73,7 @@ function animateRoyWaveform(audio) {
   const dataArray = new Uint8Array(analyser.fftSize);
   const source = royAudioContext.createMediaElementSource(audio);
   const gainNode = royAudioContext.createGain();
-  gainNode.gain.value = 2.5;
+  gainNode.gain.value = 2.5;  // Volume boost
 
   source.connect(gainNode);
   gainNode.connect(analyser);
@@ -191,8 +191,7 @@ document.getElementById('feedbackBtn')?.addEventListener('click', () => {
 
 document.getElementById('saveBtn')?.addEventListener('click', () => {
   const messages = document.getElementById('messages');
-  const text = Array.from(messages.querySelectorAll('div')).map(div => div.textContent).join('
-');
+  const text = Array.from(messages.querySelectorAll('div')).map(div => div.textContent).join('\n');
   const blob = new Blob([text], { type: 'text/plain' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
