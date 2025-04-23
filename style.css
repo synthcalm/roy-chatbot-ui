@@ -1,63 +1,54 @@
 body {
   background-color: black;
-  color: yellow;
+  color: white;
   font-family: 'Courier New', Courier, monospace;
   margin: 0;
   padding: 10px;
   overflow-x: hidden;
 }
 
-#grid-area {
-  background-image: linear-gradient(rgba(0, 255, 255, 0.5) 1px, transparent 1px),
-                    linear-gradient(90deg, rgba(0, 255, 255, 0.5) 1px, transparent 1px);
-  background-size: 20px 20px;
-  height: calc(100vh - 450px);
-}
-
-#content-area {
-  background-color: black;
-  min-height: calc(100vh - (100vh - 450px));
-}
-
-#date-time, #countdown-timer {
-  position: fixed;
-  top: 10px;
+#date-time {
+  position: relative;
   font-size: 1.2rem;
   color: yellow;
-  background-color: black;
-  z-index: 1;
-}
-
-#date-time {
-  left: 10px;
+  text-align: left;
+  margin-bottom: 10px;
 }
 
 #countdown-timer {
-  right: 10px;
+  position: relative;
+  font-size: 1.2rem;
+  color: yellow;
+  text-align: right;
+  margin-bottom: 10px;
+}
+
+#grid-area {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: 20px;
 }
 
 canvas {
   display: block;
   width: 90%;
   max-width: 900px;
-  height: 200px;
-  margin: 0 auto;
+  height: 100px;
+  margin: 10px auto;
   background-color: transparent;
-  background-image: linear-gradient(to right, rgba(0, 255, 255, 0.1) 1px, transparent 1px),
-                    linear-gradient(to bottom, rgba(0, 255, 255, 0.1) 1px, transparent 1px);
-  background-size: 20px 20px;
 }
 
 #buttons {
-  width: 900px;
   text-align: center;
   margin: 20px auto;
+  max-width: 900px;
 }
 
 button {
-  padding: 15px 25px;
+  padding: 10px 20px;
   margin: 5px;
-  font-size: 1.5rem;
+  font-size: 1.2rem;
   font-family: 'Courier New', Courier, monospace;
   background-color: transparent;
   cursor: pointer;
@@ -65,61 +56,54 @@ button {
   color: cyan;
 }
 
-#royBtn:hover {
+button:hover {
   background-color: rgba(0, 255, 255, 0.1);
 }
 
-#royBtn.pre-engage, #royBtn.engaged {
-  border-color: lime;
-  background-color: lime;
-  color: black;
+#royBtn.pre-engage, #randyBtn.pre-engage {
+  animation: pulse 1.5s infinite;
 }
 
 #royBtn.engaged {
-  animation: blink 1s infinite;
-}
-
-#randyBtn:hover {
-  background-color: rgba(0, 255, 255, 0.1);
-}
-
-#randyBtn.pre-engage, #randyBtn.engaged {
-  border-color: #FFC107;
-  background-color: #FFC107;
-  color: black;
-}
-
-#randyBtn.engaged {
-  animation: blink 1s infinite;
-}
-
-#feedbackBtn:hover {
-  background-color: rgba(0, 255, 255, 0.1);
-}
-
-#feedbackBtn.engaged {
-  border-color: red;
+  border: 2px solid red;
   background-color: red;
   color: white;
   animation: blink 1s infinite;
+}
+
+#randyBtn.engaged {
+  border: 2px solid red;
+  background-color: red;
+  color: white;
+  animation: blink 1s infinite;
+}
+
+#feedbackBtn.engaged {
+  border: 2px solid red;
+  background-color: red;
+  color: white;
+  animation: blink 1s infinite;
+}
+
+#saveBtn, #homeBtn {
+  border: 2px solid cyan;
+  color: cyan;
 }
 
 #saveBtn:hover, #homeBtn:hover {
   background-color: rgba(0, 255, 255, 0.1);
 }
 
-@keyframes blink {
-  50% { opacity: 0.5; }
-}
-
 #messages {
-  width: 900px;
+  width: 90%;
+  max-width: 900px;
   height: 200px;
   margin: 0 auto;
   font-size: 1.3rem;
   line-height: 1.5;
   overflow-y: auto;
   overflow-x: hidden;
+  color: white;
 }
 
 .user {
@@ -131,7 +115,17 @@ button {
 }
 
 .randy {
-  color: cyan;
+  color: pink;
+}
+
+@keyframes pulse {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+  100% { transform: scale(1); }
+}
+
+@keyframes blink {
+  50% { opacity: 0.5; }
 }
 
 @media (max-width: 600px) {
@@ -139,39 +133,22 @@ button {
     font-size: 1rem;
   }
 
-  #date-time {
-    left: 5%;
-  }
-
-  #countdown-timer {
-    right: 5%;
-  }
-
-  #grid-area {
-    height: calc(100vh - 350px);
-  }
-
-  #content-area {
-    min-height: calc(100vh - (100vh - 350px));
-  }
-
   canvas {
-    height: 150px;
+    height: 80px;
   }
 
   #buttons {
     width: 100%;
-    margin: 20px 0;
   }
 
   button {
-    padding: 12px 20px;
-    font-size: 1.2rem;
+    padding: 8px 15px;
+    font-size: 1rem;
   }
 
   #messages {
-    width: 90%;
-    font-size: 1.1rem;
+    width: 95%;
     height: 150px;
+    font-size: 1.1rem;
   }
 }
