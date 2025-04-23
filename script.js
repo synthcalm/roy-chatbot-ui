@@ -147,7 +147,7 @@ async function sendToRoy() {
       const royAudioContext = new AudioContext();
       const source = royAudioContext.createMediaElementSource(royAudio);
       const gainNode = royAudioContext.createGain();
-      gainNode.gain.value = 2.5;  // Boost Roy's voice volume (adjust if needed)
+      gainNode.gain.value = 4.5;  // Boost Roy's voice volume (adjust if needed)
 
       source.connect(gainNode);
       gainNode.connect(royAudioContext.destination);
