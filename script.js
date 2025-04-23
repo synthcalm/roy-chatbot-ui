@@ -5,7 +5,7 @@ let mediaRecorder;
 let audioChunks = [];
 let userWaveformCtx, royWaveformCtx;
 let analyser, dataArray, source;
-let audioContext;
+let userAudioContext, royAudioContext;
 
 // Update date and time
 function updateDateTime() {
@@ -76,15 +76,19 @@ function animateUserWaveform() {
 
 // Animate Roy's waveform synchronized with audio
 function animateRoyWaveform(audio) {
-  const royAnalyser = audioContext.createAnalyser();
+  royAudioContext = new AudioContext();
+  const royAnalyser = royAudioContext.createAnalyser();
   royAnalyser.fftSize = 2048;
   const royDataArray = new Uint8Array(royAnalyser.fftSize);
-  const roySource = audioContext.createMediaElementSource(audio);
+  const roySource = royAudioContext.createMediaElementSource(audio);
   roySource.connect(royAnalyser);
-  royAnalyser.connect(audioContext.destination);
+  royAnalyser.connect(royAudioContext.destination);
 
   function draw() {
-    if (audio.paused) return;
+    if (audio.paused) {
+      royAudioContext.close();
+      return;
+    }
     royAnalyser.getByteTimeDomainData(royDataArray);
     drawWaveform(royWaveformCtx, document.getElementById('roy-waveform'), royDataArray);
     requestAnimationFrame(draw);
@@ -93,7 +97,10 @@ function animateRoyWaveform(audio) {
   audio.onplay = () => {
     draw();
   };
-  audio.play();
+  audio.onerror = () => {
+    console.error('Error playing Roy audio');
+  };
+  audio.play().catch(err => console.error('Audio play failed:', err));
 }
 
 // Scroll messages upward as new messages are added
@@ -157,9 +164,8 @@ document.getElementById('feedbackBtn').addEventListener('click', () => {
     messages.innerHTML += '<div class="roy">Roy: Hey, so… like… I hear you testing things out, yeah? Sounds good, man.</div>';
     scrollMessages();
 
-    // Simulate Roy's audio response
-    const audio = new Audio();
-    audio.src = 'data:audio/wav;base64,' + btoa(generateWaveform()); // Placeholder for audio data
+    // Simulate Roy's audio response with a simple sine wave
+    const audio = new Audio(generateSineWaveAudio());
     animateRoyWaveform(audio);
   }
 });
@@ -173,11 +179,11 @@ async function startRecording() {
     audioChunks.push(event.data);
   };
 
-  audioContext = new AudioContext();
-  analyser = audioContext.createAnalyser();
+  userAudioContext = new AudioContext();
+  analyser = userAudioContext.createAnalyser();
   analyser.fftSize = 2048;
   dataArray = new Uint8Array(analyser.fftSize);
-  source = audioContext.createMediaStreamSource(stream);
+  source = userAudioContext.createMediaStreamSource(stream);
   source.connect(analyser);
   animateUserWaveform();
 }
@@ -188,17 +194,59 @@ function stopRecording() {
   audioChunks = [];
   source.disconnect();
   analyser.disconnect();
-  audioContext.close();
+  userAudioContext.close();
 }
 
-// Placeholder for generating a simple waveform audio (simulated)
-function generateWaveform() {
-  // This is a simplified placeholder for generating a WAV audio file
-  // In a real scenario, this would be a server-side generated audio or a pre-recorded file
-  return 'RIFF' + String.fromCharCode(0x24, 0x00, 0x00, 0x00) + 'WAVEfmt ' + 
-         String.fromCharCode(0x10, 0x00, 0x00, 0x00, 0x01, 0x00, 0x01, 0x00, 
-         0x44, 0xAC, 0x00, 0x00, 0x88, 0x58, 0x01, 0x00, 0x02, 0x00, 0x10, 0x00) + 
-         'data' + String.fromCharCode(0x00, 0x00, 0x00, 0x00);
+// Generate a simple sine wave audio for Roy's response
+function generateSineWaveAudio() {
+  const sampleRate = 44100;
+  const duration = 3; // 3 seconds
+  const numSamples = sampleRate * duration;
+  const numChannels = 1;
+  const bytesPerSample = 2;
+  const blockAlign = numChannels * bytesPerSample;
+  const byteRate = sampleRate * blockAlign;
+  const dataSize = numSamples * blockAlign;
+
+  const buffer = new ArrayBuffer(44 + dataSize);
+  const view = new DataView(buffer);
+
+  // RIFF header
+  writeString(view, 0, 'RIFF');
+  view.setUint32(4, 36 + dataSize, true);
+  writeString(view, 8, 'WAVE');
+
+  // fmt subchunk
+  writeString(view, 12, 'fmt ');
+  view.setUint32(16, 16, true); // Subchunk size
+  view.setUint16(20, 1, true); // Audio format (PCM)
+  view.setUint16(22, numChannels, true);
+  view.setUint32(24, sampleRate, true);
+  view.setUint32(28, byteRate, true);
+  view.setUint16(32, blockAlign, true);
+  view.setUint16(34, 16, true); // Bits per sample
+
+  // data subchunk
+  writeString(view, 36, 'data');
+  view.setUint32(40, dataSize, true);
+
+  // Generate sine wave
+  const frequency = 440; // A4 note
+  for (let i = 0; i < numSamples; i++) {
+    const sample = Math.sin(2 * Math.PI * frequency * (i / sampleRate)) * 0.5;
+    const sampleValue = Math.round(sample * 32767);
+    view.setInt16(44 + i * 2, sampleValue, true);
+  }
+
+  const blob = new Blob([buffer], { type: 'audio/wav' });
+  return URL.createObjectURL(blob);
+}
+
+// Helper to write string to DataView
+function writeString(view, offset, string) {
+  for (let i = 0; i < string.length; i++) {
+    view.setUint8(offset + i, string.charCodeAt(i));
+  }
 }
 
 // Initialize on page load
