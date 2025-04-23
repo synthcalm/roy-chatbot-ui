@@ -1,4 +1,4 @@
-let royState = 'idle'; // idle, pre-engage, engaged
+let royState = 'idle'; // idle, engaged
 let randyState = 'idle'; // idle, pre-engage, engaged
 let feedbackState = 'idle'; // idle, engaged
 let mediaRecorder;
@@ -7,7 +7,9 @@ let userWaveformCtx, royWaveformCtx;
 let analyser, dataArray, source;
 let userAudioContext, royAudioContext;
 let recognition; // For speech recognition
-let userTranscript = ''; // Store user speech
+let userTranscript = ''; // Current final transcription
+let interimTranscript = ''; // Current interim transcription
+let conversationHistory = []; // Store conversation for context
 
 // Update date and time
 function updateDateTime() {
@@ -117,14 +119,14 @@ function animateRoyWaveform(audio) {
   audio.play().catch(err => console.error('Audio play failed:', err));
 }
 
-// Scroll messages upward as new messages are added
+// Scroll messages upward smoothly
 function scrollMessages() {
   const messages = document.getElementById('messages');
   if (!messages) {
     console.error('messages element not found');
     return;
   }
-  messages.scrollTop = messages.scrollHeight;
+  messages.scroll({ top: messages.scrollHeight, behavior: 'smooth' });
 }
 
 // Initialize speech recognition
@@ -142,8 +144,8 @@ function initSpeechRecognition() {
   recognition.lang = 'en-US';
 
   recognition.onresult = (event) => {
-    let interimTranscript = '';
-    let finalTranscript = '';
+    let finalTranscript = userTranscript; // Preserve existing final
+    interimTranscript = '';
 
     for (let i = event.resultIndex; i < event.results.length; i++) {
       const transcript = event.results[i][0].transcript;
@@ -154,23 +156,35 @@ function initSpeechRecognition() {
       }
     }
 
-    userTranscript = finalTranscript + interimTranscript;
+    userTranscript = finalTranscript;
+    const displayText = userTranscript + interimTranscript;
     const messages = document.getElementById('messages');
     if (messages) {
-      messages.innerHTML = `<div class="user">You: ${userTranscript || '...'}</div>`;
+      const lastMessage = messages.querySelector('.user:last-child');
+      if (lastMessage) {
+        lastMessage.innerHTML = `You: ${displayText || '...'}`;
+      } else {
+        messages.innerHTML += `<div class="user">You: ${displayText || '...'}</div>`;
+      }
       scrollMessages();
     } else {
       console.error('messages element not found');
     }
-    console.log('Transcribed:', userTranscript);
+    console.log('Transcribed:', displayText);
   };
 
   recognition.onerror = (event) => {
     console.error('Speech recognition error:', event.error);
-    if (['no-speech', 'network'].includes(event.error)) {
+    if (['no-speech', 'network', 'audio-capture'].includes(event.error)) {
       setTimeout(() => {
-        if (royState === 'engaged') recognition.start();
-      }, 1000);
+        if (royState === 'engaged' && recognition) {
+          try {
+            recognition.start();
+          } catch (err) {
+            console.error('Failed to restart recognition:', err);
+          }
+        }
+      }, 2000); // Increased delay for stability
     } else {
       alert('Speech recognition failed: ' + event.error);
     }
@@ -178,28 +192,31 @@ function initSpeechRecognition() {
 
   recognition.onend = () => {
     console.log('Speech recognition ended');
-    if (royState === 'engaged') {
-      setTimeout(() => recognition.start(), 1000);
+    if (royState === 'engaged' && recognition) {
+      setTimeout(() => {
+        try {
+          recognition.start();
+        } catch (err) {
+          console.error('Failed to restart recognition:', err);
+        }
+      }, 2000); // Increased delay
     }
   };
 }
 
 // Handle Roy button click
-document.getElementById('royBtn')?.addEventListener('click', () => {
+document.getElementById('royBtn')?.addEventListener('click', async () => {
   const royBtn = document.getElementById('royBtn');
   if (!royBtn) {
     console.error('royBtn not found');
     return;
   }
   if (royState === 'idle') {
-    royState = 'pre-engage';
-    royBtn.textContent = 'START';
-    royBtn.classList.add('pre-engage');
-  } else if (royState === 'pre-engage') {
     royState = 'engaged';
-    royBtn.textContent = 'STOP';
-    royBtn.classList.remove('pre-engage');
+    royBtn.textContent = 'LISTENING';
     royBtn.classList.add('engaged');
+    userTranscript = '';
+    interimTranscript = '';
     startRecording();
   } else if (royState === 'engaged') {
     royState = 'idle';
@@ -207,9 +224,15 @@ document.getElementById('royBtn')?.addEventListener('click', () => {
     royBtn.classList.remove('engaged');
     stopRecording();
     const messages = document.getElementById('messages');
-    if (messages) {
-      messages.innerHTML = `<div class="user">You: ${userTranscript || 'Are you there?'}</div>`;
+    if (messages && userTranscript) {
+      const lastMessage = messages.querySelector('.user:last-child');
+      if (lastMessage) {
+        lastMessage.innerHTML = `You: ${userTranscript.trim() || 'Are you there?'}`;
+      } else {
+        messages.innerHTML += `<div class="user">You: ${userTranscript.trim() || 'Are you there?'}</div>`;
+      }
       scrollMessages();
+      await triggerRoyResponse();
     }
     const feedbackBtn = document.getElementById('feedbackBtn');
     if (feedbackBtn) {
@@ -244,7 +267,7 @@ document.getElementById('randyBtn')?.addEventListener('click', () => {
   }
 });
 
-// Handle Feedback button click
+// Handle Feedback button click (optional)
 document.getElementById('feedbackBtn')?.addEventListener('click', async () => {
   const feedbackBtn = document.getElementById('feedbackBtn');
   if (!feedbackBtn) {
@@ -254,41 +277,55 @@ document.getElementById('feedbackBtn')?.addEventListener('click', async () => {
   if (feedbackState === 'engaged') {
     feedbackState = 'idle';
     feedbackBtn.classList.remove('engaged');
-    const messages = document.getElementById('messages');
-    if (!messages) {
-      console.error('messages element not found');
-      return;
-    }
-
-    try {
-      const response = await fetch('https://roy-chatbo-backend.onrender.com/api/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: userTranscript || 'Are you there?', persona: 'roy' })
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error: ${response.status}`);
-      }
-
-      const data = await response.json();
-      messages.innerHTML += `<div class="roy">Roy: ${data.text}</div>`;
-      scrollMessages();
-
-      if (data.audio) {
-        const audio = new Audio(data.audio);
-        audio.playsInline = true;
-        animateRoyWaveform(audio);
-      } else {
-        console.warn('No audio data received');
-      }
-    } catch (err) {
-      console.error('Backend request error:', err);
-      messages.innerHTML += '<div class="roy">Roy: Sorry, I’m having trouble responding right now.</div>';
-      scrollMessages();
-    }
+    await triggerRoyResponse();
   }
 });
+
+// Trigger Roy's response
+async function triggerRoyResponse() {
+  const messages = document.getElementById('messages');
+  if (!messages) {
+    console.error('messages element not found');
+    return;
+  }
+
+  try {
+    const response = await fetch('https://roy-chatbo-backend.onrender.com/api/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        message: userTranscript.trim() || 'Are you there?',
+        persona: 'roy',
+        history: conversationHistory
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error: ${response.status}`);
+    }
+
+    const data = await response.json();
+    console.log('Roy response:', data.text); // Debug response
+    messages.innerHTML += `<div class="roy">Roy: ${data.text}</div>`;
+    conversationHistory.push(
+      { role: 'user', content: userTranscript.trim() },
+      { role: 'assistant', content: data.text }
+    );
+    scrollMessages();
+
+    if (data.audio) {
+      const audio = new Audio(data.audio);
+      audio.playsInline = true;
+      animateRoyWaveform(audio);
+    } else {
+      console.warn('No audio data received');
+    }
+  } catch (err) {
+    console.error('Backend request error:', err);
+    messages.innerHTML += '<div class="roy">Roy: Sorry, I’m having trouble responding right now.</div>';
+    scrollMessages();
+  }
+}
 
 // Handle Save Log button click
 document.getElementById('saveBtn')?.addEventListener('click', () => {
