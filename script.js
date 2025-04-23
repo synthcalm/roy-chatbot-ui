@@ -168,7 +168,7 @@ royBtn?.addEventListener('mousedown', () => {
   if (royState === 'idle') {
     royState = 'engaged';
     royBtn.classList.add('engaged');
-    royBtn.textContent = 'SPEAKING';
+    royBtn.textContent = 'STOP';
     startRecording();
   }
 });
@@ -177,13 +177,23 @@ royBtn?.addEventListener('mouseup', () => {
   if (royState === 'engaged') {
     royState = 'idle';
     royBtn.classList.remove('engaged');
-    royBtn.textContent = 'ROY';
+    royBtn.textContent = 'SPEAK';
     stopRecording();
     sendToRoy();
   }
 });
 
-// Feedback button no longer needed with hold-to-speak logic
+const feedbackBtn = document.getElementById('feedbackBtn');
+feedbackBtn?.addEventListener('click', () => {
+  if (feedbackState === 'idle') {
+    feedbackState = 'engaged';
+    feedbackBtn.classList.add('engaged');
+    sendToRoy().finally(() => {
+      feedbackState = 'idle';
+      feedbackBtn.classList.remove('engaged');
+    });
+  }
+});
   }
 });
 
