@@ -1,8 +1,5 @@
 body {
   background-color: black;
-  background-image: linear-gradient(rgba(255, 255, 0, 0.5) 1px, transparent 1px),
-                    linear-gradient(90deg, rgba(255, 255, 0, 0.5) 1px, transparent 1px);
-  background-size: 20px 20px;
   color: yellow;
   font-family: 'Courier New', Courier, monospace;
   margin: 0;
@@ -10,18 +7,34 @@ body {
   overflow-x: hidden;
 }
 
+#grid-area {
+  background-image: linear-gradient(rgba(255, 255, 0, 0.5) 1px, transparent 1px),
+                    linear-gradient(90deg, rgba(255, 255, 0, 0.5) 1px, transparent 1px);
+  background-size: 20px 20px;
+  padding-top: 60px; /* Space for the info bar */
+  min-height: calc(100vh - 60px); /* Ensure grid covers the content area */
+}
+
 #date-time, #countdown-timer {
   position: fixed;
   top: 10px;
   font-size: 1.2rem;
+  background-color: black; /* Solid black background for info bar */
+  z-index: 1; /* Ensure it stays above the grid */
 }
 
+/* Align date with left edge of ROY button and textbox */
 #date-time {
-  left: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  margin-left: -450px; /* Half of max-width 900px to align with left edge */
 }
 
+/* Align countdown timer with right edge of SYNTHCALM HOME button and textbox */
 #countdown-timer {
-  right: 10px;
+  right: 50%;
+  transform: translateX(50%);
+  margin-right: -450px; /* Half of max-width 900px to align with right edge */
 }
 
 canvas {
@@ -46,14 +59,18 @@ button {
   margin: 5px;
   font-size: 1.5rem;
   font-family: 'Courier New', Courier, monospace;
-  border: 2px solid cyan;
   background-color: transparent;
-  color: cyan;
   cursor: pointer;
 }
 
-button:hover {
-  background-color: rgba(0, 255, 255, 0.1);
+/* Individual button defaults */
+#royBtn {
+  border: 2px solid lime;
+  color: lime;
+}
+
+#royBtn:hover {
+  background-color: rgba(0, 255, 0, 0.1);
 }
 
 #royBtn.pre-engage, #royBtn.engaged {
@@ -66,6 +83,15 @@ button:hover {
   animation: blink 1s infinite;
 }
 
+#randyBtn {
+  border: 2px solid magenta;
+  color: magenta;
+}
+
+#randyBtn:hover {
+  background-color: rgba(255, 0, 255, 0.1);
+}
+
 #randyBtn.pre-engage, #randyBtn.engaged {
   border-color: #FFC107; /* Amber */
   background-color: #FFC107;
@@ -76,11 +102,29 @@ button:hover {
   animation: blink 1s infinite;
 }
 
+#feedbackBtn {
+  border: 2px solid red;
+  color: red;
+}
+
+#feedbackBtn:hover {
+  background-color: rgba(255, 0, 0, 0.1);
+}
+
 #feedbackBtn.engaged {
   border-color: red;
   background-color: red;
   color: white;
   animation: blink 1s infinite;
+}
+
+#saveBtn, #homeBtn {
+  border: 2px solid cyan;
+  color: cyan;
+}
+
+#saveBtn:hover, #homeBtn:hover {
+  background-color: rgba(0, 255, 255, 0.1);
 }
 
 @keyframes blink {
@@ -95,11 +139,11 @@ button:hover {
 }
 
 .user {
-  color: yellow;
+  color: white;
 }
 
 .roy {
-  color: magenta;
+  color: yellow;
 }
 
 .randy {
@@ -110,6 +154,14 @@ button:hover {
 @media (max-width: 600px) {
   #date-time, #countdown-timer {
     font-size: 1rem;
+  }
+
+  #date-time {
+    margin-left: -42%; /* Adjust for smaller screen width */
+  }
+
+  #countdown-timer {
+    margin-right: -42%;
   }
 
   canvas {
