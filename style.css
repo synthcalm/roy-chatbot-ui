@@ -11,30 +11,29 @@ body {
   background-image: linear-gradient(rgba(255, 255, 0, 0.5) 1px, transparent 1px),
                     linear-gradient(90deg, rgba(255, 255, 0, 0.5) 1px, transparent 1px);
   background-size: 20px 20px;
-  padding-top: 60px; /* Space for the info bar */
-  min-height: calc(100vh - 60px); /* Ensure grid covers the content area */
+  padding-top: 60px;
+  min-height: calc(100vh - 60px);
 }
 
 #date-time, #countdown-timer {
   position: fixed;
   top: 10px;
   font-size: 1.2rem;
-  background-color: black; /* Solid black background for info bar */
-  z-index: 1; /* Ensure it stays above the grid */
+  color: yellow;
+  background-color: black;
+  z-index: 1;
 }
 
-/* Align date with left edge of ROY button and textbox */
 #date-time {
   left: 50%;
   transform: translateX(-50%);
-  margin-left: -450px; /* Half of max-width 900px to align with left edge */
+  margin-left: -450px;
 }
 
-/* Align countdown timer with right edge of SYNTHCALM HOME button and textbox */
 #countdown-timer {
   right: 50%;
   transform: translateX(50%);
-  margin-right: -450px; /* Half of max-width 900px to align with right edge */
+  margin-right: -450px;
 }
 
 canvas {
@@ -63,7 +62,6 @@ button {
   cursor: pointer;
 }
 
-/* Individual button defaults */
 #royBtn {
   border: 2px solid lime;
   color: lime;
@@ -93,7 +91,7 @@ button {
 }
 
 #randyBtn.pre-engage, #randyBtn.engaged {
-  border-color: #FFC107; /* Amber */
+  border-color: #FFC107;
   background-color: #FFC107;
   color: black;
 }
@@ -150,14 +148,13 @@ button {
   color: cyan;
 }
 
-/* Media query for smaller screens (like iPhone) */
 @media (max-width: 600px) {
   #date-time, #countdown-timer {
     font-size: 1rem;
   }
 
   #date-time {
-    margin-left: -42%; /* Adjust for smaller screen width */
+    margin-left: -42%;
   }
 
   #countdown-timer {
