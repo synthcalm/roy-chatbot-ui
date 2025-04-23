@@ -74,7 +74,7 @@ function animateUserWaveform() {
   requestAnimationFrame(animateUserWaveform);
 }
 
-// Simulate Roy's waveform animation
+// Animate Roy's waveform synchronized with audio
 function animateRoyWaveform(audio) {
   const royAnalyser = audioContext.createAnalyser();
   royAnalyser.fftSize = 2048;
@@ -94,6 +94,12 @@ function animateRoyWaveform(audio) {
     draw();
   };
   audio.play();
+}
+
+// Scroll messages upward as new messages are added
+function scrollMessages() {
+  const messages = document.getElementById('messages');
+  messages.scrollTop = messages.scrollHeight;
 }
 
 // Handle Roy button click
@@ -116,6 +122,7 @@ document.getElementById('royBtn').addEventListener('click', () => {
     stopRecording();
     const messages = document.getElementById('messages');
     messages.innerHTML += '<div class="user">You: Testing, one, two, check</div>';
+    scrollMessages();
     document.getElementById('feedbackBtn').classList.add('engaged');
     feedbackState = 'engaged';
   }
@@ -148,6 +155,7 @@ document.getElementById('feedbackBtn').addEventListener('click', () => {
     feedbackBtn.classList.remove('engaged');
     const messages = document.getElementById('messages');
     messages.innerHTML += '<div class="roy">Roy: Hey, so… like… I hear you testing things out, yeah? Sounds good, man.</div>';
+    scrollMessages();
 
     // Simulate Roy's audio response
     const audio = new Audio();
