@@ -1,4 +1,4 @@
-// === script.js (Complete Version: Tap-to-toggle Desktop / Press-and-hold iOS, Working Thinking Dots, Date-Time, Audio Waveforms) ===
+// === script.js (Complete Working Version: Fixed Info Bar, Responsive Buttons, Press-and-hold iOS, Tap Desktop, Waveform, Thinking Dots) ===
 
 let royState = 'idle';
 let mediaRecorder;
@@ -122,44 +122,6 @@ function initSpeechRecognition() {
   };
 }
 
-// === Event listeners: Tap-to-toggle for desktop, Press-and-hold for iOS ===
-const royBtn = document.getElementById('royBtn');
-function isIOS() { return /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream; }
-if (isIOS()) {
-  royBtn?.addEventListener('touchstart', (e) => { e.preventDefault(); handleStart(); });
-  royBtn?.addEventListener('touchend', (e) => { e.preventDefault(); handleStop(); });
-} else {
-  royBtn?.addEventListener('click', () => { if (royState === 'idle') handleStart(); else handleStop(); });
-}
-
-const feedbackBtn = document.getElementById('feedbackBtn');
-feedbackBtn?.addEventListener('click', () => {
-  if (feedbackState === 'idle') {
-    feedbackState = 'engaged';
-    feedbackBtn.classList.add('engaged');
-    sendToRoy().finally(() => {
-      feedbackState = 'idle';
-      feedbackBtn.classList.remove('engaged');
-    });
-  }
-});
-
-document.getElementById('saveBtn')?.addEventListener('click', () => {
-  const messages = document.getElementById('messages');
-  const text = Array.from(messages.querySelectorAll('div')).map(div => div.textContent).join('\n');
-  const blob = new Blob([text], { type: 'text/plain' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `synthcalm_chat_${new Date().toISOString().replace(/[:.]/g, '-')}.txt`;
-  a.click();
-  URL.revokeObjectURL(url);
-});
-
-document.getElementById('homeBtn')?.addEventListener('click', () => {
-  window.location.href = 'https://synthcalm.com';
-});
-
 function showThinkingDots() {
   const messages = document.getElementById('messages');
   const thinkingDiv = document.createElement('div');
@@ -209,6 +171,17 @@ async function sendToRoy() {
   }
 }
 
+function commitUtterance() {
+  const messages = document.getElementById('messages');
+  const interimDiv = document.getElementById('interim');
+  if (interimDiv) interimDiv.remove();
+  if (currentUtterance.trim()) {
+    messages.innerHTML += `<div class="user">You: ${currentUtterance.trim()}</div>`;
+    scrollMessages();
+    currentUtterance = '';
+  }
+}
+
 function handleStart() {
   if (royState === 'idle') {
     royState = 'engaged';
@@ -228,37 +201,50 @@ function handleStop() {
   }
 }
 
-async function startRecording() {
-  try {
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    mediaRecorder = new MediaRecorder(stream);
-    mediaRecorder.start();
-    mediaRecorder.ondataavailable = (e) => audioChunks.push(e.data);
-    userAudioContext = new AudioContext();
-    analyser = userAudioContext.createAnalyser();
-    dataArray = new Uint8Array(analyser.fftSize);
-    source = userAudioContext.createMediaStreamSource(stream);
-    source.connect(analyser);
-    animateUserWaveform();
-    recognition.start();
-  } catch (err) {
-    console.error('Error starting recording:', err);
-    alert('Failed to access microphone. Check permissions.');
+const royBtn = document.getElementById('royBtn');
+function isIOS() { return /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream; }
+if (isIOS()) {
+  royBtn?.addEventListener('touchstart', (e) => { e.preventDefault(); handleStart(); });
+  royBtn?.addEventListener('touchend', (e) => { e.preventDefault(); handleStop(); });
+} else {
+  royBtn?.addEventListener('click', () => { if (royState === 'idle') handleStart(); else handleStop(); });
+}
+
+const feedbackBtn = document.getElementById('feedbackBtn');
+feedbackBtn?.addEventListener('click', () => {
+  if (feedbackState === 'idle') {
+    feedbackState = 'engaged';
+    feedbackBtn.classList.add('engaged');
+    sendToRoy().finally(() => {
+      feedbackState = 'idle';
+      feedbackBtn.classList.remove('engaged');
+    });
   }
-}
+});
 
-function stopRecording() {
-  if (mediaRecorder && mediaRecorder.state !== 'inactive') mediaRecorder.stop();
-  audioChunks = [];
-  source?.disconnect();
-  analyser?.disconnect();
-  userAudioContext?.close();
-  recognition?.stop();
-}
+document.getElementById('saveBtn')?.addEventListener('click', () => {
+  const messages = document.getElementById('messages');
+  const text = Array.from(messages.querySelectorAll('div')).map(div => div.textContent).join('\n');
+  const blob = new Blob([text], { type: 'text/plain' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `synthcalm_chat_${new Date().toISOString().replace(/[:.]/g, '-')}.txt`;
+  a.click();
+  URL.revokeObjectURL(url);
+});
 
-window.onload = function () {
-  updateDateTime();
-  updateCountdownTimer();
-  initWaveforms();
-  initSpeechRecognition();
-};
+document.getElementById('homeBtn')?.addEventListener('click', () => {
+  window.location.href = 'https://synthcalm.com';
+});
+
+document.addEventListener('DOMContentLoaded', () => {
+  try {
+    updateDateTime();
+    updateCountdownTimer();
+    initWaveforms();
+    initSpeechRecognition();
+  } catch (err) {
+    console.error('Initialization error:', err);
+  }
+});
