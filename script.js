@@ -1,6 +1,6 @@
-// === script.js (COMPLETE FINAL VERSION: Full Logic, iOS Feedback Blink, Random Roy, Dynamic Waveform) ===
+// === script.js (COMPLETE FINAL VERSION CONTINUED) ===
 
-// [Existing code remains unchanged above this point]
+// Previous functions remain unchanged above this point
 
 async function sendToRoy() {
   commitUtterance();
@@ -92,10 +92,6 @@ function handleStop() {
 }
 
 const royBtn = document.getElementById('royBtn');
-function isIOS() {
-  return /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
-}
-
 if (isIOS()) {
   royBtn?.addEventListener('touchstart', (e) => { e.preventDefault(); handleStart(); });
   royBtn?.addEventListener('touchend', (e) => { e.preventDefault(); handleStop(); });
