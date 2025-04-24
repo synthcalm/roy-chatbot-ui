@@ -1,4 +1,4 @@
-// === script.js (COMPLETE SCRIPT FOR ROY CHATBOT - COPY/PASTE READY) ===
+// === script.js (FULL WORKING SCRIPT: Roy Chatbot with Waveforms, Speech, Thinking Dots, iOS/Desktop Compatible) ===
 
 let royState = 'idle';
 let feedbackState = 'idle';
@@ -38,14 +38,14 @@ function initWaveforms() {
   royWaveform.height = royWaveform.offsetHeight;
   userWaveformCtx.strokeStyle = 'yellow';
   royWaveformCtx.strokeStyle = 'magenta';
-  userWaveformCtx.lineWidth = 2;
+  userWaveformCtx.lineWidth = 4;
   royWaveformCtx.lineWidth = 2;
 }
 
 function initSpeechRecognition() {
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (!SpeechRecognition) {
-    alert('Speech recognition not supported in this browser.');
+    alert('Speech recognition not supported.');
     return;
   }
   recognition = new SpeechRecognition();
@@ -102,6 +102,53 @@ function stopRecording() {
   if (analyser) analyser.disconnect();
   if (userAudioContext) userAudioContext.close();
   recognition.stop();
+}
+
+function animateUserWaveform() {
+  if (royState !== 'engaged') return;
+  analyser.getByteTimeDomainData(dataArray);
+  drawWaveform(userWaveformCtx, document.getElementById('user-waveform'), dataArray);
+  requestAnimationFrame(animateUserWaveform);
+}
+
+function animateRoyWaveform(audio) {
+  if (royAudioContext && royAudioContext.state !== 'closed') {
+    royAudioContext.close();
+  }
+  royAudioContext = new AudioContext();
+  const analyser = royAudioContext.createAnalyser();
+  const dataArray = new Uint8Array(analyser.fftSize);
+  const source = royAudioContext.createMediaElementSource(audio);
+  const gainNode = royAudioContext.createGain();
+  gainNode.gain.value = 2.0;
+
+  source.connect(gainNode);
+  gainNode.connect(analyser);
+  analyser.connect(royAudioContext.destination);
+
+  audio.onplay = () => {
+    function draw() {
+      if (audio.paused) return royAudioContext.close();
+      analyser.getByteTimeDomainData(dataArray);
+      drawWaveform(royWaveformCtx, document.getElementById('roy-waveform'), dataArray);
+      requestAnimationFrame(draw);
+    }
+    draw();
+  };
+  audio.play().catch(console.error);
+}
+
+function drawWaveform(ctx, canvas, data) {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.beginPath();
+  const sliceWidth = canvas.width / data.length;
+  let x = 0;
+  data.forEach((v, i) => {
+    const y = canvas.height / 2 + (v / 128.0 - 1) * (canvas.height / 2);
+    i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    x += sliceWidth;
+  });
+  ctx.stroke();
 }
 
 function scrollMessages() {
@@ -169,26 +216,6 @@ async function sendToRoy() {
   }
 }
 
-function animateUserWaveform() {
-  if (royState !== 'engaged') return;
-  analyser.getByteTimeDomainData(dataArray);
-  drawWaveform(userWaveformCtx, document.getElementById('user-waveform'), dataArray);
-  requestAnimationFrame(animateUserWaveform);
-}
-
-function drawWaveform(ctx, canvas, data) {
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-  ctx.beginPath();
-  const sliceWidth = canvas.width / data.length;
-  let x = 0;
-  data.forEach((v, i) => {
-    const y = canvas.height / 2 + (v / 128.0 - 1) * (canvas.height / 2);
-    i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
-    x += sliceWidth;
-  });
-  ctx.stroke();
-}
-
 function handleStart() {
   if (royState === 'idle') {
     royState = 'engaged';
@@ -209,7 +236,10 @@ function handleStop() {
 }
 
 const royBtn = document.getElementById('royBtn');
-function isIOS() { return /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream; }
+function isIOS() {
+  return /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+}
+
 if (isIOS()) {
   royBtn?.addEventListener('touchstart', (e) => { e.preventDefault(); handleStart(); });
   royBtn?.addEventListener('touchend', (e) => { e.preventDefault(); handleStop(); });
