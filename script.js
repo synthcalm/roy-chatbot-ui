@@ -62,9 +62,12 @@ function initWaveforms() {
   userWaveformCtx = userWaveform.getContext('2d');
   royWaveformCtx = royWaveform.getContext('2d');
   userWaveform.width = userWaveform.offsetWidth;
+  userWaveform.height = 100; // Force fixed height
+  royWaveform.width = royWaveform.offsetWidth;
+  royWaveform.height = 100; // Force fixed height
   userWaveform.height = userWaveform.offsetHeight;
   royWaveform.width = royWaveform.offsetWidth;
-  royWaveform.height = royWaveform.offsetHeight;
+  royWaveform.height = 100;
   userWaveformCtx.strokeStyle = 'yellow';
   royWaveformCtx.strokeStyle = 'magenta';
   userWaveformCtx.lineWidth = 6;
