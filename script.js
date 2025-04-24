@@ -1,4 +1,4 @@
-// === script.js (FULL WORKING SCRIPT: Roy Chatbot with Waveforms, Speech, Thinking Dots, iOS/Desktop Compatible) ===
+// === script.js (Revised: Stronger User Waveform, Roy Chatbot Fully Working) ===
 
 let royState = 'idle';
 let feedbackState = 'idle';
@@ -38,7 +38,7 @@ function initWaveforms() {
   royWaveform.height = royWaveform.offsetHeight;
   userWaveformCtx.strokeStyle = 'yellow';
   royWaveformCtx.strokeStyle = 'magenta';
-  userWaveformCtx.lineWidth = 4;
+  userWaveformCtx.lineWidth = 6; // Boosted line width for stronger user waveform
   royWaveformCtx.lineWidth = 2;
 }
 
