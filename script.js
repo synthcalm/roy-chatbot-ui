@@ -1,4 +1,4 @@
-// === script.js (restored full working version: Speak/Stop/Feedback, volume fix, Safari-compatible) ===
+// === script.js (fixed POST request: removed persona, matching backend) ===
 
 let royState = 'idle';
 let randyState = 'idle';
@@ -142,15 +142,30 @@ async function sendToRoy() {
   commitUtterance();
   const messages = document.getElementById('messages');
   const lastUserMsg = Array.from(messages.querySelectorAll('.user')).pop()?.textContent.replace('You: ', '') || '';
+
+  if (!lastUserMsg.trim()) {
+    console.error('No message to send to Roy.');
+    return;
+  }
+
   try {
     const response = await fetch('https://roy-chatbo-backend.onrender.com/api/chat', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ message: lastUserMsg, persona: 'roy' }),
+      body: JSON.stringify({ message: lastUserMsg })  // ✅ FIXED: Only send "message"
     });
+
+    if (!response.ok) {
+      console.error('Roy API error:', response.status);
+      messages.innerHTML += '<div class="roy">Roy: Sorry, I couldn’t process that.</div>';
+      scrollMessages();
+      return;
+    }
+
     const data = await response.json();
     messages.innerHTML += `<div class="roy">Roy: ${data.text}</div>`;
     scrollMessages();
+
     if (data.audio) {
       const royAudio = new Audio(data.audio);
       animateRoyWaveform(royAudio);
