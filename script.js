@@ -1,4 +1,4 @@
-// === script.js (fixed POST request: removed persona, matching backend) ===
+// === script.js (patched: Roy thinking dots + AudioContext fix) ===
 
 let royState = 'idle';
 let randyState = 'idle';
@@ -10,6 +10,7 @@ let analyser, dataArray, source;
 let userAudioContext, royAudioContext;
 let recognition;
 let currentUtterance = '';
+let thinkingInterval;
 
 function updateDateTime() {
   const dateTimeDiv = document.getElementById('date-time');
@@ -63,7 +64,7 @@ function animateUserWaveform() {
 }
 
 function animateRoyWaveform(audio) {
-  if (royAudioContext) {
+  if (royAudioContext && royAudioContext.state !== 'closed') {
     royAudioContext.close();
     royAudioContext = null;
   }
@@ -138,6 +139,27 @@ function commitUtterance() {
   }
 }
 
+function showThinkingDots() {
+  const messages = document.getElementById('messages');
+  const thinkingDiv = document.createElement('div');
+  thinkingDiv.id = 'thinking';
+  thinkingDiv.classList.add('roy');
+  thinkingDiv.textContent = 'Roy: thinking';
+  messages.appendChild(thinkingDiv);
+  scrollMessages();
+  let dots = '';
+  thinkingInterval = setInterval(() => {
+    dots = dots.length >= 3 ? '' : dots + '.';
+    thinkingDiv.textContent = `Roy: thinking${dots}`;
+  }, 500);
+}
+
+function stopThinkingDots() {
+  clearInterval(thinkingInterval);
+  const thinkingDiv = document.getElementById('thinking');
+  if (thinkingDiv) thinkingDiv.remove();
+}
+
 async function sendToRoy() {
   commitUtterance();
   const messages = document.getElementById('messages');
@@ -148,21 +170,25 @@ async function sendToRoy() {
     return;
   }
 
+  showThinkingDots(); // Start thinking dots while waiting
+
   try {
     const response = await fetch('https://roy-chatbo-backend.onrender.com/api/chat', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ message: lastUserMsg })  // ✅ FIXED: Only send "message"
+      body: JSON.stringify({ message: lastUserMsg })
     });
 
     if (!response.ok) {
       console.error('Roy API error:', response.status);
+      stopThinkingDots();
       messages.innerHTML += '<div class="roy">Roy: Sorry, I couldn’t process that.</div>';
       scrollMessages();
       return;
     }
 
     const data = await response.json();
+    stopThinkingDots(); // Stop thinking dots when response is ready
     messages.innerHTML += `<div class="roy">Roy: ${data.text}</div>`;
     scrollMessages();
 
@@ -172,6 +198,7 @@ async function sendToRoy() {
     }
   } catch (err) {
     console.error('Backend request error:', err);
+    stopThinkingDots();
     messages.innerHTML += '<div class="roy">Roy: Sorry, I’m having trouble responding right now.</div>';
     scrollMessages();
   }
@@ -200,7 +227,6 @@ function handleStop() {
 
 royBtn?.addEventListener('mousedown', handleStart);
 royBtn?.addEventListener('mouseup', handleStop);
-// Add touch support for iPhone/iPad Safari
 royBtn?.addEventListener('touchstart', (e) => { e.preventDefault(); handleStart(); });
 royBtn?.addEventListener('touchend', (e) => { e.preventDefault(); handleStop(); });
 
