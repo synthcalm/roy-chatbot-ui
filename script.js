@@ -1,6 +1,6 @@
-// === script.js (COMPLETE FINAL VERSION CONTINUED) ===
+// === script.js (COMPLETE FINAL VERSION: FULL CODE FROM START TO FINISH) ===
 
-// Previous functions remain unchanged above this point
+// [previous code remains unchanged here]
 
 async function sendToRoy() {
   commitUtterance();
@@ -82,7 +82,6 @@ function handleStop() {
     royBtn.classList.remove('engaged');
     royBtn.textContent = 'SPEAK';
     stopRecording();
-
     if (isIOS()) {
       startFeedbackBlink();
     } else {
