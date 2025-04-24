@@ -1,6 +1,7 @@
 // === script.js (Complete Working Version with Recording, Waveform, Press-and-Hold iOS, Tap Desktop, Thinking Dots, Info Bar) ===
 
 let royState = 'idle';
+let feedbackState = 'idle';
 let mediaRecorder;
 let audioChunks = [];
 let userWaveformCtx, royWaveformCtx;
