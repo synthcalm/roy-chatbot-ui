@@ -1,4 +1,4 @@
-// === script.js (Complete Working Version with Recording, Waveform, Press-and-Hold iOS, Tap Desktop, Thinking Dots, Info Bar) ===
+// === script.js (COMPLETE SCRIPT FOR ROY CHATBOT - COPY/PASTE READY) ===
 
 let royState = 'idle';
 let feedbackState = 'idle';
@@ -42,24 +42,39 @@ function initWaveforms() {
   royWaveformCtx.lineWidth = 2;
 }
 
-function drawWaveform(ctx, canvas, data) {
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-  ctx.beginPath();
-  const sliceWidth = canvas.width / data.length;
-  let x = 0;
-  data.forEach((v, i) => {
-    const y = canvas.height / 2 + (v / 128.0 - 1) * (canvas.height / 2);
-    i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
-    x += sliceWidth;
-  });
-  ctx.stroke();
-}
+function initSpeechRecognition() {
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SpeechRecognition) {
+    alert('Speech recognition not supported in this browser.');
+    return;
+  }
+  recognition = new SpeechRecognition();
+  recognition.continuous = true;
+  recognition.interimResults = true;
+  recognition.lang = 'en-US';
 
-function animateUserWaveform() {
-  if (royState !== 'engaged') return;
-  analyser.getByteTimeDomainData(dataArray);
-  drawWaveform(userWaveformCtx, document.getElementById('user-waveform'), dataArray);
-  requestAnimationFrame(animateUserWaveform);
+  recognition.onresult = (event) => {
+    let interim = '', final = '';
+    for (let i = event.resultIndex; i < event.results.length; i++) {
+      const transcript = event.results[i][0].transcript;
+      event.results[i].isFinal ? final += transcript + ' ' : interim += transcript;
+    }
+    if (final.trim()) currentUtterance += final.trim() + ' ';
+    const messages = document.getElementById('messages');
+    const interimDiv = document.getElementById('interim');
+    const fullLine = currentUtterance + interim;
+    if (interimDiv) {
+      interimDiv.textContent = `You: ${fullLine.trim()}`;
+    } else {
+      messages.innerHTML += `<div id="interim" class="user">You: ${fullLine.trim()}</div>`;
+    }
+    scrollMessages();
+  };
+
+  recognition.onerror = (e) => console.error('Speech recognition error:', e);
+  recognition.onend = () => {
+    if (royState === 'engaged') recognition.start();
+  };
 }
 
 function startRecording() {
@@ -89,6 +104,11 @@ function stopRecording() {
   recognition.stop();
 }
 
+function scrollMessages() {
+  const messages = document.getElementById('messages');
+  messages.scrollTop = messages.scrollHeight;
+}
+
 function commitUtterance() {
   const messages = document.getElementById('messages');
   const interimDiv = document.getElementById('interim');
@@ -98,11 +118,6 @@ function commitUtterance() {
     scrollMessages();
     currentUtterance = '';
   }
-}
-
-function scrollMessages() {
-  const messages = document.getElementById('messages');
-  messages.scrollTop = messages.scrollHeight;
 }
 
 function showThinkingDots() {
@@ -152,6 +167,26 @@ async function sendToRoy() {
     messages.innerHTML += '<div class="roy">Roy: Sorry, I’m having trouble responding right now.</div>';
     scrollMessages();
   }
+}
+
+function animateUserWaveform() {
+  if (royState !== 'engaged') return;
+  analyser.getByteTimeDomainData(dataArray);
+  drawWaveform(userWaveformCtx, document.getElementById('user-waveform'), dataArray);
+  requestAnimationFrame(animateUserWaveform);
+}
+
+function drawWaveform(ctx, canvas, data) {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.beginPath();
+  const sliceWidth = canvas.width / data.length;
+  let x = 0;
+  data.forEach((v, i) => {
+    const y = canvas.height / 2 + (v / 128.0 - 1) * (canvas.height / 2);
+    i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    x += sliceWidth;
+  });
+  ctx.stroke();
 }
 
 function handleStart() {
