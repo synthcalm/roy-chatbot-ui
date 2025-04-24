@@ -1,4 +1,4 @@
-// === script.js (Complete Working Version: Fixed Info Bar, Responsive Buttons, Press-and-hold iOS, Tap Desktop, Waveform, Thinking Dots) ===
+// === script.js (Complete Working Version with Recording, Waveform, Press-and-Hold iOS, Tap Desktop, Thinking Dots, Info Bar) ===
 
 let royState = 'idle';
 let mediaRecorder;
@@ -61,65 +61,47 @@ function animateUserWaveform() {
   requestAnimationFrame(animateUserWaveform);
 }
 
-function animateRoyWaveform(audio) {
-  if (royAudioContext && royAudioContext.state !== 'closed') {
-    royAudioContext.close();
-    royAudioContext = null;
+function startRecording() {
+  navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
+    mediaRecorder = new MediaRecorder(stream);
+    mediaRecorder.start();
+    mediaRecorder.ondataavailable = (e) => audioChunks.push(e.data);
+    userAudioContext = new AudioContext();
+    analyser = userAudioContext.createAnalyser();
+    dataArray = new Uint8Array(analyser.fftSize);
+    source = userAudioContext.createMediaStreamSource(stream);
+    source.connect(analyser);
+    animateUserWaveform();
+    recognition.start();
+  }).catch(err => {
+    console.error('Error accessing microphone:', err);
+    alert('Microphone access denied or unavailable.');
+  });
+}
+
+function stopRecording() {
+  if (mediaRecorder && mediaRecorder.state !== 'inactive') mediaRecorder.stop();
+  audioChunks = [];
+  if (source) source.disconnect();
+  if (analyser) analyser.disconnect();
+  if (userAudioContext) userAudioContext.close();
+  recognition.stop();
+}
+
+function commitUtterance() {
+  const messages = document.getElementById('messages');
+  const interimDiv = document.getElementById('interim');
+  if (interimDiv) interimDiv.remove();
+  if (currentUtterance.trim()) {
+    messages.innerHTML += `<div class="user">You: ${currentUtterance.trim()}</div>`;
+    scrollMessages();
+    currentUtterance = '';
   }
-  royAudioContext = new AudioContext();
-  const analyser = royAudioContext.createAnalyser();
-  const dataArray = new Uint8Array(analyser.fftSize);
-  const source = royAudioContext.createMediaElementSource(audio);
-  const gainNode = royAudioContext.createGain();
-  gainNode.gain.value = 4.5;
-  source.connect(gainNode);
-  gainNode.connect(analyser);
-  analyser.connect(royAudioContext.destination);
-  audio.onplay = () => {
-    function draw() {
-      if (audio.paused) return royAudioContext.close();
-      analyser.getByteTimeDomainData(dataArray);
-      drawWaveform(royWaveformCtx, document.getElementById('roy-waveform'), dataArray);
-      requestAnimationFrame(draw);
-    }
-    draw();
-  };
-  audio.play().catch(console.error);
 }
 
 function scrollMessages() {
   const messages = document.getElementById('messages');
   messages.scrollTop = messages.scrollHeight;
-}
-
-function initSpeechRecognition() {
-  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-  if (!SpeechRecognition) return alert('Speech recognition not supported.');
-  recognition = new SpeechRecognition();
-  recognition.continuous = true;
-  recognition.interimResults = true;
-  recognition.lang = 'en-US';
-  recognition.onresult = (event) => {
-    let interim = '', final = '';
-    for (let i = event.resultIndex; i < event.results.length; i++) {
-      const transcript = event.results[i][0].transcript;
-      event.results[i].isFinal ? final += transcript + ' ' : interim += transcript;
-    }
-    if (final.trim()) currentUtterance += final.trim() + ' ';
-    const messages = document.getElementById('messages');
-    const interimDiv = document.getElementById('interim');
-    const fullLine = currentUtterance + interim;
-    if (interimDiv) {
-      interimDiv.textContent = `You: ${fullLine.trim()}`;
-    } else {
-      messages.innerHTML += `<div id="interim" class="user">You: ${fullLine.trim()}</div>`;
-    }
-    scrollMessages();
-  };
-  recognition.onerror = (e) => console.error('Speech recognition error:', e);
-  recognition.onend = () => {
-    if (royState === 'engaged') recognition.start();
-  };
 }
 
 function showThinkingDots() {
@@ -168,17 +150,6 @@ async function sendToRoy() {
     stopThinkingDots();
     messages.innerHTML += '<div class="roy">Roy: Sorry, I’m having trouble responding right now.</div>';
     scrollMessages();
-  }
-}
-
-function commitUtterance() {
-  const messages = document.getElementById('messages');
-  const interimDiv = document.getElementById('interim');
-  if (interimDiv) interimDiv.remove();
-  if (currentUtterance.trim()) {
-    messages.innerHTML += `<div class="user">You: ${currentUtterance.trim()}</div>`;
-    scrollMessages();
-    currentUtterance = '';
   }
 }
 
