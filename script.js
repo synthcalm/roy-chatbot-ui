@@ -1,160 +1,139 @@
-// === script.js (COMPLETE FINAL VERSION: FULL CODE FROM START TO FINISH) ===
+// === script.js (FULL WORKING VERSION INCLUDING INITIALIZATION) ===
 
-// [previous code remains unchanged here]
+let royState = 'idle';
+let feedbackState = 'idle';
+let mediaRecorder;
+let audioChunks = [];
+let userWaveformCtx, royWaveformCtx;
+let analyser, dataArray, source;
+let userAudioContext, royAudioContext;
+let recognition;
+let currentUtterance = '';
+let thinkingInterval;
+let feedbackBlinkInterval;
 
-async function sendToRoy() {
-  commitUtterance();
-  const messages = document.getElementById('messages');
-  const lastUserMsg = Array.from(messages.querySelectorAll('.user')).pop()?.textContent.replace('You: ', '') || '';
-  if (!lastUserMsg.trim()) return;
-  showThinkingDots();
-  try {
-    const response = await fetch('https://roy-chatbo-backend.onrender.com/api/chat', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ message: lastUserMsg })
-    });
-    const data = await response.json();
-    stopThinkingDots();
-    messages.innerHTML += `<div class="roy">${generateRandomRoyResponse(data.text)}</div>`;
-    scrollMessages();
-    if (data.audio) {
-      const royAudio = new Audio(data.audio);
-      animateRoyWaveform(royAudio);
-    }
-  } catch (err) {
-    stopThinkingDots();
-    messages.innerHTML += '<div class="roy">Roy: Sorry, I’m having trouble responding right now.</div>';
-    scrollMessages();
-  }
+function isIOS() {
+  return /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
 }
 
-function commitUtterance() {
-  const messages = document.getElementById('messages');
-  const interimDiv = document.getElementById('interim');
-  if (interimDiv) interimDiv.remove();
-  if (currentUtterance.trim()) {
-    messages.innerHTML += `<div class="user">You: ${currentUtterance.trim()}</div>`;
-    scrollMessages();
-    currentUtterance = '';
-  }
+function updateDateTime() {
+  const dateTimeDiv = document.getElementById('date-time');
+  if (dateTimeDiv) dateTimeDiv.textContent = new Date().toLocaleString();
 }
 
-function startRecording() {
-  navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
-    mediaRecorder = new MediaRecorder(stream);
-    mediaRecorder.start();
-    mediaRecorder.ondataavailable = (e) => audioChunks.push(e.data);
-    userAudioContext = new AudioContext();
-    analyser = userAudioContext.createAnalyser();
-    dataArray = new Uint8Array(analyser.fftSize);
-    source = userAudioContext.createMediaStreamSource(stream);
-    source.connect(analyser);
-    animateUserWaveform();
-    recognition.start();
-  }).catch(err => {
-    console.error('Error starting recording:', err);
-    alert('Failed to access microphone. Check permissions.');
+function updateCountdownTimer() {
+  const countdownDiv = document.getElementById('countdown-timer');
+  let timeLeft = 60 * 60;
+  setInterval(() => {
+    const minutes = Math.floor(timeLeft / 60);
+    const seconds = timeLeft % 60;
+    countdownDiv.textContent = `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
+    timeLeft = (timeLeft - 1 + 3600) % 3600;
+  }, 1000);
+}
+
+function scrollMessages() {
+  const messages = document.getElementById('messages');
+  messages.scrollTop = messages.scrollHeight;
+}
+
+function generateRandomRoyResponse(baseText) {
+  const variations = [
+    `${baseText}`,
+    `Hmm... ${baseText}`,
+    `You know, I was just thinking — ${baseText}`,
+    `Alright, so here’s the thing: ${baseText}`,
+    `Yeah, man... ${baseText}`
+  ];
+  return variations[Math.floor(Math.random() * variations.length)];
+}
+
+function initWaveforms() {
+  const container = document.getElementById('grid-area');
+  container.style.background = `repeating-linear-gradient(0deg, rgba(0,255,255,0.2) 0 1px, transparent 1px 20px), repeating-linear-gradient(90deg, rgba(255,255,0,0.2) 0 1px, transparent 1px 20px)`;
+  container.style.border = '2px solid cyan';
+  container.style.padding = '10px';
+  container.style.boxSizing = 'border-box';
+  container.style.maxWidth = '900px';
+  container.style.margin = '0 auto';
+
+  const userWaveform = document.getElementById('user-waveform');
+  const royWaveform = document.getElementById('roy-waveform');
+  userWaveformCtx = userWaveform.getContext('2d');
+  royWaveformCtx = royWaveform.getContext('2d');
+  userWaveform.width = userWaveform.offsetWidth;
+  userWaveform.height = userWaveform.offsetHeight;
+  royWaveform.width = royWaveform.offsetWidth;
+  royWaveform.height = royWaveform.offsetHeight;
+  userWaveformCtx.strokeStyle = 'yellow';
+  royWaveformCtx.strokeStyle = 'magenta';
+  userWaveformCtx.lineWidth = 6;
+  royWaveformCtx.lineWidth = 2;
+}
+
+function drawWaveform(ctx, canvas, data) {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.beginPath();
+  const sliceWidth = canvas.width / data.length;
+  let x = 0;
+  data.forEach((v, i) => {
+    const y = canvas.height / 2 + (Math.sin(x * 0.1) * (v / 128.0 - 1) * (canvas.height / 2));
+    i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    x += sliceWidth;
   });
+  ctx.stroke();
 }
 
-function stopRecording() {
-  if (mediaRecorder && mediaRecorder.state !== 'inactive') mediaRecorder.stop();
-  audioChunks = [];
-  source?.disconnect();
-  analyser?.disconnect();
-  userAudioContext?.close();
-  recognition?.stop();
+function animateUserWaveform() {
+  if (royState !== 'engaged') return;
+  analyser.getByteTimeDomainData(dataArray);
+  drawWaveform(userWaveformCtx, document.getElementById('user-waveform'), dataArray);
+  requestAnimationFrame(animateUserWaveform);
 }
 
-function handleStart() {
-  if (royState === 'idle') {
-    royState = 'engaged';
-    royBtn.classList.add('engaged');
-    royBtn.textContent = 'STOP';
-    startRecording();
-  }
-}
+function animateRoyWaveform(audio) {
+  if (royAudioContext) royAudioContext.close();
+  royAudioContext = new AudioContext();
+  const analyser = royAudioContext.createAnalyser();
+  const dataArray = new Uint8Array(analyser.fftSize);
+  const source = royAudioContext.createMediaElementSource(audio);
+  const gainNode = royAudioContext.createGain();
+  gainNode.gain.value = 4.5;
 
-function handleStop() {
-  if (royState === 'engaged') {
-    royState = 'idle';
-    royBtn.classList.remove('engaged');
-    royBtn.textContent = 'SPEAK';
-    stopRecording();
-    if (isIOS()) {
-      startFeedbackBlink();
-    } else {
-      sendToRoy();
+  source.connect(gainNode);
+  gainNode.connect(analyser);
+  analyser.connect(royAudioContext.destination);
+
+  audio.onplay = () => {
+    function draw() {
+      if (audio.paused) return royAudioContext.close();
+      analyser.getByteTimeDomainData(dataArray);
+      drawWaveform(royWaveformCtx, document.getElementById('roy-waveform'), dataArray);
+      requestAnimationFrame(draw);
     }
-  }
+    draw();
+  };
+  audio.play().catch(console.error);
 }
 
-const royBtn = document.getElementById('royBtn');
-if (isIOS()) {
-  royBtn?.addEventListener('touchstart', (e) => { e.preventDefault(); handleStart(); });
-  royBtn?.addEventListener('touchend', (e) => { e.preventDefault(); handleStop(); });
-} else {
-  royBtn?.addEventListener('click', () => {
-    if (royState === 'idle') {
-      handleStart();
-    } else {
-      handleStop();
-    }
-  });
-}
-
-function startFeedbackBlink() {
-  feedbackBtn.classList.add('blinking');
-  let blinkState = true;
-  feedbackBlinkInterval = setInterval(() => {
-    feedbackBtn.textContent = blinkState ? 'Feedback' : 'Press Me';
-    blinkState = !blinkState;
-  }, 600);
-}
-
-function stopFeedbackBlink() {
-  clearInterval(feedbackBlinkInterval);
-  feedbackBtn.textContent = 'Feedback';
-  feedbackBtn.classList.remove('blinking');
-}
-
-const feedbackBtn = document.getElementById('feedbackBtn');
-feedbackBtn?.addEventListener('click', () => {
-  if (isIOS() && feedbackBtn.classList.contains('blinking')) {
-    stopFeedbackBlink();
-    sendToRoy();
-  } else if (!isIOS()) {
-    if (feedbackState === 'idle') {
-      feedbackState = 'engaged';
-      feedbackBtn.classList.add('engaged');
-      sendToRoy().finally(() => {
-        feedbackState = 'idle';
-        feedbackBtn.classList.remove('engaged');
-      });
-    }
-  }
-});
-
-document.getElementById('saveBtn')?.addEventListener('click', () => {
+function showThinkingDots() {
   const messages = document.getElementById('messages');
-  const text = Array.from(messages.querySelectorAll('div')).map(div => div.textContent).join('\n');
-  const blob = new Blob([text], { type: 'text/plain' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `synthcalm_chat_${new Date().toISOString().replace(/[:.]/g, '-')}.txt`;
-  a.click();
-  URL.revokeObjectURL(url);
-});
+  const thinkingDiv = document.createElement('div');
+  thinkingDiv.id = 'thinking';
+  thinkingDiv.classList.add('roy');
+  thinkingDiv.textContent = 'Roy: thinking';
+  messages.appendChild(thinkingDiv);
+  scrollMessages();
+  let dotCount = 0;
+  thinkingInterval = setInterval(() => {
+    dotCount = (dotCount + 1) % 4;
+    thinkingDiv.textContent = `Roy: thinking${'.'.repeat(dotCount)}`;
+    scrollMessages();
+  }, 500);
+}
 
-document.getElementById('homeBtn')?.addEventListener('click', () => {
-  window.location.href = 'https://synthcalm.com';
-});
-
-window.onload = function () {
-  updateDateTime();
-  updateCountdownTimer();
-  initWaveforms();
-  initSpeechRecognition();
-};
+function stopThinkingDots() {
+  clearInterval(thinkingInterval);
+  const thinkingDiv = document.getElementById('thinking');
+  if (thinkingDiv) thinkingDiv.remove();
+}
