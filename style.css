@@ -3,7 +3,7 @@ body {
   background-color: black !important;
   margin: 0;
   padding: 0;
-  color: yellow;
+  color: #CCCCCC; /* Soft gray as base text color */
   font-family: 'Courier New', monospace;
 }
 
@@ -17,7 +17,7 @@ body {
 
 #date-time, #countdown-timer {
   font-size: 16px;
-  color: yellow;
+  color: #CCCCCC; /* Matching the Braun minimalist palette */
 }
 
 /* === Waveform Grid === */
@@ -50,14 +50,13 @@ body {
   font-size: 16px;
 }
 
+/* === Braun Style Colors === */
 .user {
-  color: white;
-  margin: 5px 0;
+  color: #66CCFF; /* Soft cyan-blue for user */
 }
 
 .roy {
-  color: yellow;
-  margin: 5px 0;
+  color: #CCCCCC; /* Braun-inspired soft gray for Roy */
 }
 
 /* === Buttons === */
