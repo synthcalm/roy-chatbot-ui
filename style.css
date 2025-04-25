@@ -1,4 +1,3 @@
-/* === BASIC RESET === */
 body {
   background-color: black;
   color: cyan;
@@ -18,7 +17,6 @@ body {
   padding: 5px 0;
 }
 
-/* === WAVEFORM CANVASES === */
 canvas {
   background-color: black;
   display: block;
@@ -26,7 +24,6 @@ canvas {
   border: 1px solid cyan;
 }
 
-/* === BUTTON AREA === */
 #button-area {
   margin-top: 10px;
 }
@@ -51,7 +48,6 @@ button.blinking {
   50% { opacity: 0.3; }
 }
 
-/* === MESSAGES === */
 #messages {
   max-width: 900px;
   margin: 20px auto;
@@ -64,16 +60,15 @@ button.blinking {
 }
 
 .user {
-  color: magenta;
+  color: white;
   margin-bottom: 5px;
 }
 
 .roy {
-  color: cyan;
+  color: yellow;
   margin-bottom: 15px;
 }
 
-/* === SAVE AND HOME BUTTON SPECIAL STYLING === */
 #saveBtn, #homeBtn {
   border-color: magenta;
   color: magenta;
@@ -82,10 +77,4 @@ button.blinking {
 #saveBtn:hover, #homeBtn:hover {
   background-color: magenta;
   color: black;
-}
-
-/* === SPEAK BUTTON WHEN ACTIVE === */
-#speakBtn.active {
-  background-color: red;
-  color: white;
 }
