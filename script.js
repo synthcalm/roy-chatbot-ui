@@ -40,20 +40,20 @@ function initWaveform() {
 function drawMergedWaveform(ctx, canvas) {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   if (analyser && dataArray) {
-    analyser.getByteTimeDomainData(dataArray);
-    ctx.beginPath();
-    const sliceWidth = canvas.width / dataArray.length;
-    let x = 0;
-    for (let i = 0; i < dataArray.length; i++) {
-      const v = dataArray[i] / 128.0;
-      const y = (v * canvas.height) / 4;
-      i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
-      x += sliceWidth;
-    }
-    ctx.strokeStyle = 'yellow';
-    ctx.lineWidth = 2;
-    ctx.stroke();
+  analyser.getByteTimeDomainData(dataArray);
+  ctx.beginPath();
+  const sliceWidth = canvas.width / dataArray.length;
+  let x = 0;
+  for (let i = 0; i < dataArray.length; i++) {
+    const v = dataArray[i] / 128.0;
+    const y = (v * canvas.height) / 4;
+    i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    x += sliceWidth;
   }
+  ctx.strokeStyle = 'cyan'; // User's waveform is now cyan
+  ctx.lineWidth = 2;
+  ctx.stroke();
+}
   if (royAnalyser && royDataArray) {
     royAnalyser.getByteTimeDomainData(royDataArray);
     ctx.beginPath();
