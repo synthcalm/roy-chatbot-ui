@@ -24,7 +24,7 @@ body {
 /* === Waveform Grid === */
 #grid-area {
   height: 33vh;
-  background-color: black;
+  background-color: black !important;
   background-image: linear-gradient(rgba(255, 255, 0, 0.3) 1px, transparent 1px),
                     linear-gradient(90deg, rgba(255, 255, 0, 0.3) 1px, transparent 1px);
   background-size: 20px 20px;
@@ -34,11 +34,11 @@ body {
   align-items: center;
 }
 
-.user-waveform, .roy-waveform {
+#waveform {
   width: 100%;
-  height: 50%;
+  height: 100%;
   display: block;
-  background-color: transparent;
+  background-color: black !important;
 }
 
 /* === Messages === */
@@ -120,4 +120,17 @@ button:hover {
 #saveBtn:hover, #homeBtn:hover {
   background-color: yellow;
   color: black;
+}
+
+/* === Thinking Dots Animation === */
+.dots::after {
+  display: inline-block;
+  animation: blinkDots 1s steps(5, end) infinite;
+  content: '...';
+}
+
+@keyframes blinkDots {
+  0%, 20% { opacity: 1; }
+  50% { opacity: 0.5; }
+  100% { opacity: 1; }
 }
