@@ -73,7 +73,7 @@ body, html {
 
 button {
   font-family: 'Courier New', monospace;
-  color: cyan;
+  color: #66CCFF; /* Same as user text color */
   background-color: black;
   border: 1px solid yellow;
   padding: 10px 20px;
@@ -100,6 +100,24 @@ button:hover {
   padding: 5px;
 }
 
+/* === Animated Thinking Dots === */
+#thinking-indicator .dots::after {
+  content: '';
+  display: inline-block;
+  width: 1em;
+  text-align: left;
+  animation: dots 1.5s steps(5, end) infinite;
+}
+
+@keyframes dots {
+  0%, 20% { content: ''; }
+  40% { content: '.'; }
+  60% { content: '..'; }
+  80% { content: '...'; }
+  100% { content: ''; }
+}
+
+/* Blinking Class (if needed elsewhere) */
 .blinking {
   animation: blinking 1s infinite;
 }
