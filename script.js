@@ -1,4 +1,4 @@
-// === Roy Chatbot Script (Fixed Continuous Recording) ===
+// === Roy Chatbot Script (Fixed Continuous Recording with Thinking Indicator) ===
 
 let royState = 'idle';
 let recognition, audioContext, analyser, dataArray, source;
@@ -49,7 +49,7 @@ function drawMergedWaveform(ctx, canvas) {
     let x = 0;
     for (let i = 0; i < dataArray.length; i++) {
       const v = dataArray[i] / 128.0;
-      const y = (v * canvas.height) / 4; // Half the height for separate user waveform
+      const y = (v * canvas.height) / 4;
       i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
       x += sliceWidth;
     }
@@ -64,7 +64,7 @@ function drawMergedWaveform(ctx, canvas) {
     let x = 0;
     for (let i = 0; i < royDataArray.length; i++) {
       const v = royDataArray[i] / 128.0;
-      const y = (v * canvas.height) / 4 + canvas.height / 2; // Bottom half for Roy waveform
+      const y = (v * canvas.height) / 4 + canvas.height / 2;
       i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
       x += sliceWidth;
     }
@@ -98,6 +98,8 @@ function appendRoyMessage(message) {
 // === SEND TO ROY ===
 function sendToRoy(transcript) {
   appendUserMessage(transcript);
+  document.getElementById('thinking-indicator').style.display = 'block';
+
   fetch('https://roy-chatbo-backend.onrender.com/api/chat', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -105,6 +107,7 @@ function sendToRoy(transcript) {
   })
   .then(response => response.json())
   .then(data => {
+    document.getElementById('thinking-indicator').style.display = 'none';
     if (data.text) appendRoyMessage(data.text);
     if (data.audio) {
       const replyAudio = new Audio(data.audio);
@@ -117,6 +120,7 @@ function sendToRoy(transcript) {
     }
   })
   .catch(error => {
+    document.getElementById('thinking-indicator').style.display = 'none';
     appendRoyMessage('Error: Could not get Roy’s response.');
     console.error('Roy API Error:', error);
   });
@@ -154,7 +158,7 @@ function startTranscription(ctx, canvas) {
 
   recognition.onend = () => {
     if (isRecording) {
-      recognition.start(); // Restart automatically if still recording
+      recognition.start();
     }
   };
 
@@ -162,7 +166,7 @@ function startTranscription(ctx, canvas) {
     console.error('Recognition error:', event.error);
     if (isRecording) {
       recognition.stop();
-      recognition.start(); // Recover from errors like 'network' or 'no-speech'
+      recognition.start();
     }
   };
 }
