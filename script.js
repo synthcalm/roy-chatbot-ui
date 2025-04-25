@@ -1,4 +1,4 @@
-// === Roy Chatbot Final Working Script (Revised) ===
+// === Roy Chatbot Final Working Script (Fixed Version) ===
 
 // Global Variables
 let royState = 'idle';
@@ -35,8 +35,9 @@ function updateCountdownTimer() {
 // === WAVEFORM ===
 function initWaveform() {
   const waveform = document.getElementById('waveform');
-  waveform.width = waveform.offsetWidth;
-  waveform.height = 100;
+  const container = waveform.parentElement;
+  waveform.width = container.offsetWidth;
+  waveform.height = container.offsetHeight;
   const ctx = waveform.getContext('2d');
   return { waveform, ctx };
 }
@@ -170,14 +171,16 @@ function stopUserRecording() {
   if (userStream) {
     userStream.getTracks().forEach(track => track.stop());
   }
-  if (audioContext) audioContext.close();
+  if (audioContext && audioContext.state !== 'closed') {
+    audioContext.close();
+  }
   document.getElementById('speakBtn').innerText = 'SPEAK';
   document.getElementById('speakBtn').style.backgroundColor = 'red';
 }
 
 // === ROY WAVEFORM ===
 function setupRoyWaveform(audio) {
-  if (royAudioContext) {
+  if (royAudioContext && royAudioContext.state !== 'closed') {
     try { royAudioContext.close(); } catch (e) {}
   }
   royAudioContext = new (window.AudioContext || window.webkitAudioContext)();
