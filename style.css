@@ -1,13 +1,14 @@
-/* === Global Styles === */
+/* === Full Assembled Responsive CSS for Roy Chatbot === */
+
 body {
-  background-color: black !important;
+  background-color: black;
   margin: 0;
   padding: 0;
-  color: #CCCCCC; /* Soft gray as base text color */
+  color: #CCCCCC;
   font-family: 'Courier New', monospace;
+  overflow-x: hidden;
 }
 
-/* === Info Bar === */
 #info-bar {
   background-color: black;
   display: flex;
@@ -17,13 +18,12 @@ body {
 
 #date-time, #countdown-timer {
   font-size: 16px;
-  color: yellow; /* Keep info bar yellow */
+  color: yellow;
 }
 
-/* === Waveform Grid === */
 #grid-area {
   height: 33vh;
-  background-color: black !important;
+  background-color: black;
   background-image: linear-gradient(rgba(255, 255, 0, 0.3) 1px, transparent 1px),
                     linear-gradient(90deg, rgba(255, 255, 0, 0.3) 1px, transparent 1px);
   background-size: 20px 20px;
@@ -38,31 +38,28 @@ body {
   background-color: black !important;
 }
 
-/* === Messages === */
 #messages {
   background-color: black !important;
-  min-height: 50vh;
-  width: 80%;
-  margin: 20px auto;
-  max-height: 50vh;
+  width: 90%;
+  margin: 10px auto;
+  max-height: 45vh;
   overflow-y: auto;
   padding-top: 10px;
   font-size: 16px;
 }
 
-/* === Text Colors === */
 .user {
-  color: #66CCFF; /* Soft cyan-blue for user */
+  color: #66CCFF;
 }
 
 .roy {
-  color: #CCCCCC; /* Braun-style soft gray for Roy */
+  color: #CCCCCC;
 }
 
-/* === Buttons === */
 #button-area {
   display: flex;
   justify-content: center;
+  flex-wrap: wrap;
   padding: 10px;
   position: fixed;
   bottom: 0;
@@ -102,15 +99,23 @@ button:hover {
   border-color: red;
 }
 
-/* === Thinking Indicator Animation === */
-.dots::after {
-  display: inline-block;
-  animation: blinkDots 1s steps(5, end) infinite;
-  content: '...';
+#thinking-indicator {
+  text-align: center;
+  color: yellow;
+  padding: 5px;
 }
 
-@keyframes blinkDots {
-  0%, 20% { opacity: 1; }
-  50% { opacity: 0.5; }
-  100% { opacity: 1; }
+@media (max-width: 768px) {
+  #messages {
+    max-height: 40vh;
+  }
+
+  #grid-area {
+    height: 30vh;
+  }
+
+  #button-area {
+    position: static;
+    margin-top: 10px;
+  }
 }
