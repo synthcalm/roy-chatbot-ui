@@ -1,9 +1,8 @@
-// === Roy Chatbot Script (Fully Assembled) ===
-
 let recognition, audioContext, analyser, dataArray, source;
 let isRecording = false;
 let userStream, royAudioContext, royAnalyser, royDataArray, roySource;
 let currentTranscript = '';
+let replyAudio = new Audio(); // iOS requires global Audio instance
 
 function updateDateTime() {
   const dateTimeDiv = document.getElementById('date-time');
@@ -40,6 +39,7 @@ function initWaveform() {
 function drawMergedWaveform(ctx, canvas) {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
+  // User waveform (top)
   if (analyser && dataArray) {
     analyser.getByteTimeDomainData(dataArray);
     ctx.beginPath();
@@ -51,11 +51,12 @@ function drawMergedWaveform(ctx, canvas) {
       i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
       x += sliceWidth;
     }
-    ctx.strokeStyle = '#66CCFF';
+    ctx.strokeStyle = '#66CCFF'; // Cyan-blue (user)
     ctx.lineWidth = 2;
     ctx.stroke();
   }
 
+  // Roy waveform (bottom)
   if (royAnalyser && royDataArray) {
     royAnalyser.getByteTimeDomainData(royDataArray);
     ctx.beginPath();
@@ -67,7 +68,7 @@ function drawMergedWaveform(ctx, canvas) {
       i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
       x += sliceWidth;
     }
-    ctx.strokeStyle = '#CCCCCC';
+    ctx.strokeStyle = '#CCCCCC'; // Gray (Roy)
     ctx.lineWidth = 2;
     ctx.stroke();
   }
@@ -103,25 +104,24 @@ function sendToRoy(transcript) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ message: transcript })
   })
-  .then(response => response.json())
-  .then(data => {
-    document.getElementById('thinking-indicator').style.display = 'none';
-    if (data.text) appendRoyMessage(data.text);
-    if (data.audio) {
-      const replyAudio = new Audio(data.audio);
-      setupRoyWaveform(replyAudio);
-      replyAudio.play();
-      replyAudio.onended = () => {
-        speakBtn.classList.remove('active');
-        speakBtn.innerText = 'SPEAK';
-      };
-    }
-  })
-  .catch(error => {
-    document.getElementById('thinking-indicator').style.display = 'none';
-    appendRoyMessage('Error: Could not get Roy’s response.');
-    console.error('Roy API Error:', error);
-  });
+    .then(response => response.json())
+    .then(data => {
+      document.getElementById('thinking-indicator').style.display = 'none';
+      if (data.text) appendRoyMessage(data.text);
+      if (data.audio) {
+        replyAudio.src = data.audio; // Pre-created Audio object (iOS-compatible)
+        replyAudio.play().catch(err => console.error('Playback error:', err));
+        replyAudio.onended = () => {
+          speakBtn.classList.remove('active');
+          speakBtn.innerText = 'SPEAK';
+        };
+      }
+    })
+    .catch(error => {
+      document.getElementById('thinking-indicator').style.display = 'none';
+      appendRoyMessage('Error: Could not get Roy’s response.');
+      console.error('Roy API Error:', error);
+    });
 }
 
 function startTranscription(ctx, canvas) {
