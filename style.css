@@ -17,7 +17,7 @@ body {
 
 #date-time, #countdown-timer {
   font-size: 16px;
-  color: #CCCCCC; /* Matching the Braun minimalist palette */
+  color: yellow; /* Keep info bar yellow */
 }
 
 /* === Waveform Grid === */
@@ -38,7 +38,7 @@ body {
   background-color: black !important;
 }
 
-/* === Messages === */
+/* === Messages Area === */
 #messages {
   background-color: black !important;
   min-height: 50vh;
