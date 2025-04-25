@@ -20,10 +20,10 @@ body {
   color: yellow;
 }
 
-/* === Waveform === */
+/* === Waveform Grid === */
 #grid-area {
   height: 33vh;
-  background-color: black;
+  background-color: black !important;
   background-image: linear-gradient(rgba(255, 255, 0, 0.3) 1px, transparent 1px),
                     linear-gradient(90deg, rgba(255, 255, 0, 0.3) 1px, transparent 1px);
   background-size: 20px 20px;
@@ -40,11 +40,12 @@ body {
 
 /* === Messages === */
 #messages {
+  background-color: black !important;
+  min-height: 50vh;
   width: 80%;
   margin: 20px auto;
   max-height: 50vh;
   overflow-y: auto;
-  background-color: black !important;
   padding-top: 10px;
   font-size: 16px;
 }
@@ -102,7 +103,7 @@ button:hover {
   border-color: red;
 }
 
-/* === Thinking Animation === */
+/* === Thinking Indicator Animation === */
 .dots::after {
   display: inline-block;
   animation: blinkDots 1s steps(5, end) infinite;
