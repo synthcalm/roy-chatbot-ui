@@ -1,32 +1,25 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Roy Chatbot</title>
-  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <!-- INFO BAR -->
   <div id="info-bar">
     <div id="date-time"></div>
     <div id="countdown-timer"></div>
   </div>
 
-  <!-- WAVEFORM GRID -->
   <div id="grid-area">
     <canvas id="waveform"></canvas>
   </div>
 
-  <!-- THINKING INDICATOR -->
-  <div id="thinking-indicator" style="display: none; text-align: center; color: yellow; font-family: 'Courier New', monospace;">
-    Roy is thinking<span class="dots"></span>
-  </div>
-
-  <!-- MESSAGES -->
   <div id="messages"></div>
 
-  <!-- BUTTONS -->
+  <div id="thinking-indicator" style="display:none;">Roy is thinking<span class="dots"></span></div>
+
   <div id="button-area">
     <button id="speakBtn">SPEAK</button>
     <button id="saveBtn">SAVE LOG</button>
