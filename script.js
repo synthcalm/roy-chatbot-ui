@@ -1,18 +1,12 @@
-// === FULL WORKING Roy Chatbot SCRIPT ===
+// === Roy Chatbot script.js (Final Fixed Version) ===
 
-// GLOBAL VARIABLES
+// Global Variables
 let royState = 'idle';
 let randyState = 'idle';
-let mediaRecorder, audioChunks = [];
-let userWaveformCtx, royWaveformCtx, analyser, dataArray, source, userAudioContext, royAudioContext;
-let recognition;
+let recognition, audioContext, analyser, dataArray, source;
+let isRecording = false;
 
-// === iOS CHECK ===
-function isIOS() {
-  return /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
-}
-
-// === INFO BAR: DATE/TIME + COUNTDOWN TIMER ===
+// === INFO BAR ===
 function updateDateTime() {
   const dateTimeDiv = document.getElementById('date-time');
   if (dateTimeDiv) {
@@ -36,26 +30,13 @@ function updateCountdownTimer() {
   setInterval(updateTimer, 1000);
 }
 
-// === WAVEFORM SETUP ===
-function initWaveforms() {
-  const container = document.getElementById('grid-area');
-  container.style.background = `repeating-linear-gradient(0deg, rgba(0,255,255,0.2) 0 1px, transparent 1px 20px),
-                                repeating-linear-gradient(90deg, rgba(255,255,0,0.2) 0 1px, transparent 1px 20px)`;
-  container.style.border = '2px solid cyan';
-  container.style.padding = '10px';
-  container.style.boxSizing = 'border-box';
-  container.style.maxWidth = '900px';
-  container.style.margin = '0 auto';
-  container.style.minHeight = '150px';
-
-  const userWaveform = document.getElementById('user-waveform');
-  const royWaveform = document.getElementById('roy-waveform');
-  userWaveformCtx = userWaveform.getContext('2d');
-  royWaveformCtx = royWaveform.getContext('2d');
-  userWaveform.width = userWaveform.offsetWidth;
-  userWaveform.height = 100;
-  royWaveform.width = royWaveform.offsetWidth;
-  royWaveform.height = 100;
+// === WAVEFORM ===
+function initWaveform() {
+  const waveform = document.getElementById('waveform');
+  waveform.width = waveform.offsetWidth;
+  waveform.height = 100;
+  const ctx = waveform.getContext('2d');
+  return { waveform, ctx };
 }
 
 function drawWaveform(ctx, canvas, data) {
@@ -74,46 +55,14 @@ function drawWaveform(ctx, canvas, data) {
   ctx.stroke();
 }
 
-function animateUserWaveform() {
-  if (royState !== 'engaged' && randyState !== 'engaged') return;
-  if (analyser && dataArray) {
-    analyser.getByteTimeDomainData(dataArray);
-    drawWaveform(userWaveformCtx, document.getElementById('user-waveform'), dataArray);
-    requestAnimationFrame(animateUserWaveform);
-  }
+function animateWaveform(ctx, canvas) {
+  if (!isRecording) return;
+  analyser.getByteTimeDomainData(dataArray);
+  drawWaveform(ctx, canvas, dataArray);
+  requestAnimationFrame(() => animateWaveform(ctx, canvas));
 }
 
-function animateRoyWaveform(audio) {
-  if (royAudioContext) {
-    try { royAudioContext.close(); } catch (e) {}
-  }
-  royAudioContext = new (window.AudioContext || window.webkitAudioContext)();
-  const analyser = royAudioContext.createAnalyser();
-  analyser.fftSize = 2048;
-  const dataArray = new Uint8Array(analyser.frequencyBinCount);
-  const source = royAudioContext.createMediaElementSource(audio);
-  const gainNode = royAudioContext.createGain();
-  gainNode.gain.value = 4.5;
-
-  source.connect(gainNode);
-  gainNode.connect(analyser);
-  analyser.connect(royAudioContext.destination);
-
-  function draw() {
-    if (audio.paused || audio.ended) {
-      royAudioContext.close();
-      return;
-    }
-    analyser.getByteTimeDomainData(dataArray);
-    drawWaveform(royWaveformCtx, document.getElementById('roy-waveform'), dataArray);
-    requestAnimationFrame(draw);
-  }
-
-  audio.onplay = () => draw();
-  audio.play().catch(console.error);
-}
-
-// === MESSAGE HANDLING ===
+// === MESSAGES ===
 function scrollMessages() {
   const messages = document.getElementById('messages');
   messages.scrollTop = messages.scrollHeight;
@@ -131,24 +80,87 @@ function appendRoyMessage(message) {
   scrollMessages();
 }
 
+// === SEND TO ROY ===
+function sendToRoy(transcript) {
+  appendUserMessage(transcript);
+  fetch('https://roy-chatbo-backend.onrender.com/api/chat', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      message: transcript,
+      persona: royState === 'engaged' ? 'roy' : 'randy'
+    })
+  })
+  .then(response => response.json())
+  .then(data => {
+    if (data.text) appendRoyMessage(data.text);
+    if (data.audioUrl) {
+      const replyAudio = new Audio(data.audioUrl);
+      replyAudio.play();
+    }
+  })
+  .catch(error => {
+    appendRoyMessage('Error: Could not get Roy’s response.');
+    console.error('Roy API Error:', error);
+  });
+}
+
+// === TRANSCRIPTION ===
+function startTranscription(ctx, canvas) {
+  if (!('webkitSpeechRecognition' in window)) {
+    alert('Speech recognition not supported in this browser.');
+    return;
+  }
+  recognition = new webkitSpeechRecognition();
+  recognition.continuous = true;
+  recognition.interimResults = false;
+  recognition.lang = 'en-US';
+
+  navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
+    audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    source = audioContext.createMediaStreamSource(stream);
+    analyser = audioContext.createAnalyser();
+    analyser.fftSize = 2048;
+    dataArray = new Uint8Array(analyser.frequencyBinCount);
+    source.connect(analyser);
+    isRecording = true;
+    animateWaveform(ctx, canvas);
+
+    recognition.start();
+    recognition.onresult = event => {
+      const transcript = Array.from(event.results)
+        .map(result => result[0].transcript)
+        .join('');
+      recognition.stop();
+      isRecording = false;
+      audioContext.close();
+      sendToRoy(transcript);
+    };
+    recognition.onerror = () => {
+      appendRoyMessage('Transcription error.');
+      isRecording = false;
+      recognition.stop();
+    };
+  });
+}
+
 // === BUTTON LOGIC ===
 document.addEventListener('DOMContentLoaded', () => {
   updateDateTime();
   updateCountdownTimer();
-  initWaveforms();
+  const { waveform, ctx } = initWaveform();
 
   const royBtn = document.getElementById('royBtn');
   const randyBtn = document.getElementById('randyBtn');
   const speakBtn = document.getElementById('speakBtn');
+  const saveBtn = document.getElementById('saveBtn');
+  const homeBtn = document.getElementById('homeBtn');
+
+  appendRoyMessage("Hey, man... I'm Roy, your chill companion here to listen. Whenever you're ready, just hit the ROY button and let's talk, yeah?");
 
   function resetButtons() {
     royBtn.style.backgroundColor = '';
     randyBtn.style.backgroundColor = '';
-    speakBtn.style.backgroundColor = '';
-    speakBtn.textContent = 'SPEAK';
-    speakBtn.classList.remove('blinking');
-    royState = 'idle';
-    randyState = 'idle';
   }
 
   royBtn.addEventListener('click', () => {
@@ -157,12 +169,9 @@ document.addEventListener('DOMContentLoaded', () => {
       randyState = 'idle';
       royBtn.style.backgroundColor = 'green';
       randyBtn.style.backgroundColor = '';
-      speakBtn.style.backgroundColor = 'red';
-      speakBtn.textContent = 'STOP';
-      speakBtn.classList.add('blinking');
-      startRecording();
+      startTranscription(ctx, waveform);
     } else {
-      stopRecording();
+      royState = 'idle';
       resetButtons();
     }
   });
@@ -173,76 +182,10 @@ document.addEventListener('DOMContentLoaded', () => {
       royState = 'idle';
       randyBtn.style.backgroundColor = 'orange';
       royBtn.style.backgroundColor = '';
-      speakBtn.style.backgroundColor = 'red';
-      speakBtn.textContent = 'STOP';
-      speakBtn.classList.add('blinking');
-      startRecording();
+      startTranscription(ctx, waveform);
     } else {
-      stopRecording();
-      resetButtons();
-    }
-  });
-
-  speakBtn.addEventListener('click', () => {
-    if (mediaRecorder && mediaRecorder.state === 'recording') {
-      stopRecording();
+      randyState = 'idle';
       resetButtons();
     }
   });
 });
-
-// === RECORDING ===
-async function startRecording() {
-  userAudioContext = new (window.AudioContext || window.webkitAudioContext)();
-  const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-  source = userAudioContext.createMediaStreamSource(stream);
-  analyser = userAudioContext.createAnalyser();
-  analyser.fftSize = 2048;
-  dataArray = new Uint8Array(analyser.frequencyBinCount);
-  source.connect(analyser);
-  mediaRecorder = new MediaRecorder(stream);
-  audioChunks = [];
-  mediaRecorder.ondataavailable = event => audioChunks.push(event.data);
-  mediaRecorder.onstop = handleStop;
-  mediaRecorder.start();
-  animateUserWaveform();
-}
-
-function stopRecording() {
-  if (mediaRecorder && mediaRecorder.state === 'recording') {
-    mediaRecorder.stop();
-  }
-}
-
-// === HANDLE STOP ===
-function handleStop() {
-  const blob = new Blob(audioChunks, { type: 'audio/webm' });
-  const audioURL = URL.createObjectURL(blob);
-  const audio = new Audio(audioURL);
-  animateRoyWaveform(audio);
-  appendUserMessage('...sending your message...');
-
-  const formData = new FormData();
-  formData.append('audio', blob, 'recording.webm');
-  formData.append('persona', royState === 'engaged' ? 'roy' : 'randy');
-
-  fetch('https://roy-chatbo-backend.onrender.com/api/chat', {
-    method: 'POST',
-    body: formData
-  })
-  .then(response => response.json())
-  .then(data => {
-    if (data.text) {
-      appendRoyMessage(data.text);
-    }
-    if (data.audioUrl) {
-      const royReplyAudio = new Audio(data.audioUrl);
-      animateRoyWaveform(royReplyAudio);
-      royReplyAudio.play();
-    }
-  })
-  .catch(error => {
-    appendRoyMessage('Oops, something went wrong...');
-    console.error('Error during feedback:', error);
-  });
-}
