@@ -1,18 +1,18 @@
-// === FULL WORKING SCRIPT ===
+// === FULL WORKING Roy Chatbot SCRIPT ===
 
 // GLOBAL VARIABLES
 let royState = 'idle';
 let randyState = 'idle';
 let mediaRecorder, audioChunks = [];
 let userWaveformCtx, royWaveformCtx, analyser, dataArray, source, userAudioContext, royAudioContext;
-let recognition, thinkingInterval;
+let recognition;
 
-// iOS Check
+// === iOS CHECK ===
 function isIOS() {
   return /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
 }
 
-// DATE/TIME INFO BAR
+// === INFO BAR: DATE/TIME + COUNTDOWN TIMER ===
 function updateDateTime() {
   const dateTimeDiv = document.getElementById('date-time');
   if (dateTimeDiv) {
@@ -23,7 +23,6 @@ function updateDateTime() {
   }
 }
 
-// COUNTDOWN TIMER (60 minutes)
 function updateCountdownTimer() {
   const countdownDiv = document.getElementById('countdown-timer');
   let timeLeft = 3600;
@@ -37,7 +36,7 @@ function updateCountdownTimer() {
   setInterval(updateTimer, 1000);
 }
 
-// INITIALIZE WAVEFORMS
+// === WAVEFORM SETUP ===
 function initWaveforms() {
   const container = document.getElementById('grid-area');
   container.style.background = `repeating-linear-gradient(0deg, rgba(0,255,255,0.2) 0 1px, transparent 1px 20px),
@@ -59,7 +58,6 @@ function initWaveforms() {
   royWaveform.height = 100;
 }
 
-// DRAW WAVEFORMS
 function drawWaveform(ctx, canvas, data) {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   ctx.beginPath();
@@ -76,9 +74,8 @@ function drawWaveform(ctx, canvas, data) {
   ctx.stroke();
 }
 
-// ANIMATE USER WAVEFORM (Input)
 function animateUserWaveform() {
-  if (royState !== 'engaged') return;
+  if (royState !== 'engaged' && randyState !== 'engaged') return;
   if (analyser && dataArray) {
     analyser.getByteTimeDomainData(dataArray);
     drawWaveform(userWaveformCtx, document.getElementById('user-waveform'), dataArray);
@@ -86,7 +83,6 @@ function animateUserWaveform() {
   }
 }
 
-// ANIMATE ROY WAVEFORM (Output)
 function animateRoyWaveform(audio) {
   if (royAudioContext) {
     try { royAudioContext.close(); } catch (e) {}
@@ -117,27 +113,25 @@ function animateRoyWaveform(audio) {
   audio.play().catch(console.error);
 }
 
-// SCROLL MESSAGES
+// === MESSAGE HANDLING ===
 function scrollMessages() {
   const messages = document.getElementById('messages');
   messages.scrollTop = messages.scrollHeight;
 }
 
-// APPEND USER MESSAGE
 function appendUserMessage(message) {
   const messages = document.getElementById('messages');
   messages.innerHTML += `<div class="user">You: ${message}</div>`;
   scrollMessages();
 }
 
-// APPEND ROY MESSAGE
 function appendRoyMessage(message) {
   const messages = document.getElementById('messages');
   messages.innerHTML += `<div class="roy">Roy: ${message}</div>`;
   scrollMessages();
 }
 
-// BUTTON LOGIC
+// === BUTTON LOGIC ===
 document.addEventListener('DOMContentLoaded', () => {
   updateDateTime();
   updateCountdownTimer();
@@ -147,6 +141,16 @@ document.addEventListener('DOMContentLoaded', () => {
   const randyBtn = document.getElementById('randyBtn');
   const speakBtn = document.getElementById('speakBtn');
 
+  function resetButtons() {
+    royBtn.style.backgroundColor = '';
+    randyBtn.style.backgroundColor = '';
+    speakBtn.style.backgroundColor = '';
+    speakBtn.textContent = 'SPEAK';
+    speakBtn.classList.remove('blinking');
+    royState = 'idle';
+    randyState = 'idle';
+  }
+
   royBtn.addEventListener('click', () => {
     if (royState === 'idle') {
       royState = 'engaged';
@@ -155,13 +159,11 @@ document.addEventListener('DOMContentLoaded', () => {
       randyBtn.style.backgroundColor = '';
       speakBtn.style.backgroundColor = 'red';
       speakBtn.textContent = 'STOP';
+      speakBtn.classList.add('blinking');
       startRecording();
     } else {
-      royState = 'idle';
-      royBtn.style.backgroundColor = '';
-      speakBtn.style.backgroundColor = '';
-      speakBtn.textContent = 'SPEAK';
       stopRecording();
+      resetButtons();
     }
   });
 
@@ -173,24 +175,23 @@ document.addEventListener('DOMContentLoaded', () => {
       royBtn.style.backgroundColor = '';
       speakBtn.style.backgroundColor = 'red';
       speakBtn.textContent = 'STOP';
+      speakBtn.classList.add('blinking');
       startRecording();
     } else {
-      randyState = 'idle';
-      randyBtn.style.backgroundColor = '';
-      speakBtn.style.backgroundColor = '';
-      speakBtn.textContent = 'SPEAK';
       stopRecording();
+      resetButtons();
     }
   });
 
   speakBtn.addEventListener('click', () => {
     if (mediaRecorder && mediaRecorder.state === 'recording') {
       stopRecording();
+      resetButtons();
     }
   });
 });
 
-// RECORDING SETUP
+// === RECORDING ===
 async function startRecording() {
   userAudioContext = new (window.AudioContext || window.webkitAudioContext)();
   const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -207,19 +208,41 @@ async function startRecording() {
   animateUserWaveform();
 }
 
-// STOP RECORDING
 function stopRecording() {
   if (mediaRecorder && mediaRecorder.state === 'recording') {
     mediaRecorder.stop();
   }
 }
 
-// HANDLE STOP
+// === HANDLE STOP ===
 function handleStop() {
   const blob = new Blob(audioChunks, { type: 'audio/webm' });
   const audioURL = URL.createObjectURL(blob);
   const audio = new Audio(audioURL);
   animateRoyWaveform(audio);
   appendUserMessage('...sending your message...');
-  // Here: Add your API call to send audio to Roy and handle Roy's reply!
+
+  const formData = new FormData();
+  formData.append('audio', blob, 'recording.webm');
+  formData.append('persona', royState === 'engaged' ? 'roy' : 'randy');
+
+  fetch('https://roy-chatbo-backend.onrender.com/api/chat', {
+    method: 'POST',
+    body: formData
+  })
+  .then(response => response.json())
+  .then(data => {
+    if (data.text) {
+      appendRoyMessage(data.text);
+    }
+    if (data.audioUrl) {
+      const royReplyAudio = new Audio(data.audioUrl);
+      animateRoyWaveform(royReplyAudio);
+      royReplyAudio.play();
+    }
+  })
+  .catch(error => {
+    appendRoyMessage('Oops, something went wrong...');
+    console.error('Error during feedback:', error);
+  });
 }
