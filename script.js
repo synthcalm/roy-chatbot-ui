@@ -1,4 +1,4 @@
-// === Roy Chatbot Final Working Script ===
+// === Roy Chatbot Final Working Script (Revised) ===
 
 // Global Variables
 let royState = 'idle';
@@ -114,6 +114,10 @@ function sendToRoy(transcript) {
       const replyAudio = new Audio(data.audioUrl);
       setupRoyWaveform(replyAudio);
       replyAudio.play();
+      replyAudio.onended = () => {
+        document.getElementById('speakBtn').style.backgroundColor = 'red';
+        document.getElementById('speakBtn').innerText = 'SPEAK';
+      };
     }
   })
   .catch(error => {
@@ -143,16 +147,16 @@ function startTranscription(ctx, canvas) {
     source.connect(analyser);
     isRecording = true;
     drawMergedWaveform(ctx, canvas);
-
     recognition.start();
+
     recognition.onresult = event => {
       const transcript = Array.from(event.results)
         .map(result => result[0].transcript)
         .join('');
-      recognition.stop();
       stopUserRecording();
       sendToRoy(transcript);
     };
+
     recognition.onerror = () => {
       appendRoyMessage('Transcription error.');
       stopUserRecording();
@@ -167,6 +171,8 @@ function stopUserRecording() {
     userStream.getTracks().forEach(track => track.stop());
   }
   if (audioContext) audioContext.close();
+  document.getElementById('speakBtn').innerText = 'SPEAK';
+  document.getElementById('speakBtn').style.backgroundColor = 'red';
 }
 
 // === ROY WAVEFORM ===
@@ -192,12 +198,27 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const royBtn = document.getElementById('royBtn');
   const randyBtn = document.getElementById('randyBtn');
+  const speakBtn = document.getElementById('speakBtn');
 
   appendRoyMessage("Hey, man... I'm Roy, your chill companion here to listen. Whenever you're ready, just hit the ROY button and let's talk, yeah?");
 
   function resetButtons() {
     royBtn.style.backgroundColor = '';
     randyBtn.style.backgroundColor = '';
+    speakBtn.style.backgroundColor = '';
+    speakBtn.innerText = 'SPEAK';
+  }
+
+  function toggleSpeakButton(blinking) {
+    if (blinking) {
+      speakBtn.innerText = 'STOP';
+      speakBtn.style.backgroundColor = 'red';
+      speakBtn.classList.add('blinking');
+    } else {
+      speakBtn.classList.remove('blinking');
+      speakBtn.innerText = 'SPEAK';
+      speakBtn.style.backgroundColor = 'red';
+    }
   }
 
   royBtn.addEventListener('click', () => {
@@ -206,6 +227,7 @@ document.addEventListener('DOMContentLoaded', () => {
       randyState = 'idle';
       royBtn.style.backgroundColor = 'green';
       randyBtn.style.backgroundColor = '';
+      toggleSpeakButton(true);
       startTranscription(ctx, waveform);
     } else {
       royState = 'idle';
@@ -220,11 +242,19 @@ document.addEventListener('DOMContentLoaded', () => {
       royState = 'idle';
       randyBtn.style.backgroundColor = 'orange';
       royBtn.style.backgroundColor = '';
+      toggleSpeakButton(true);
       startTranscription(ctx, waveform);
     } else {
       randyState = 'idle';
       stopUserRecording();
       resetButtons();
+    }
+  });
+
+  speakBtn.addEventListener('click', () => {
+    if (isRecording) {
+      stopUserRecording();
+      toggleSpeakButton(false);
     }
   });
 });
