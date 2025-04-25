@@ -1,31 +1,36 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>SynthCalm</title>
-  <link rel="icon" type="image/x-icon" href="/favicon.ico">
-  <link rel="stylesheet" href="style.css">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Roy Chatbot</title>
+  <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <div id="date-time"></div>
-  <div id="countdown-timer"></div>
+  <!-- INFO BAR -->
+  <div id="info-bar">
+    <div id="date-time"></div>
+    <div id="countdown-timer"></div>
+  </div>
+
+  <!-- WAVEFORM GRID AREA -->
   <div id="grid-area">
     <canvas id="user-waveform"></canvas>
     <canvas id="roy-waveform"></canvas>
   </div>
-  <div id="content-area">
-    <div id="buttons">
-      <button id="royBtn">ROY</button>
-      <button id="randyBtn">RANDY</button>
-      <button id="feedbackBtn">FEEDBACK</button>
-      <button id="saveBtn">SAVE LOG</button>
-      <button id="homeBtn">SYNTHCALM HOME</button>
-    </div>
-    <div id="messages">
-      <div class="roy">Roy: Hey, man... I'm Roy, your chill companion here to listen. Whenever you're ready, just hit the ROY button and let's talk, yeah?</div>
-    </div>
+
+  <!-- BUTTONS -->
+  <div id="button-area">
+    <button id="royBtn">ROY</button>
+    <button id="randyBtn">RANDY</button>
+    <button id="speakBtn">SPEAK</button>
+    <button id="saveBtn">SAVE LOG</button>
+    <button id="homeBtn">SYNTHCALM HOME</button>
   </div>
+
+  <!-- MESSAGES -->
+  <div id="messages"></div>
+
   <script src="script.js"></script>
 </body>
 </html>
