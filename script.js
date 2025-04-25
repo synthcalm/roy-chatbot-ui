@@ -1,12 +1,10 @@
-// === Roy Chatbot Script (Fixed Continuous Recording with Thinking Indicator) ===
+// === Roy Chatbot Script (Single Speak/Stop Button) ===
 
-let royState = 'idle';
 let recognition, audioContext, analyser, dataArray, source;
 let isRecording = false;
 let userStream, royAudioContext, royAnalyser, royDataArray, roySource;
 let currentTranscript = '';
 
-// === INFO BAR ===
 function updateDateTime() {
   const dateTimeDiv = document.getElementById('date-time');
   if (dateTimeDiv) {
@@ -30,7 +28,6 @@ function updateCountdownTimer() {
   setInterval(updateTimer, 1000);
 }
 
-// === WAVEFORM ===
 function initWaveform() {
   const waveform = document.getElementById('waveform');
   const container = waveform.parentElement;
@@ -77,7 +74,6 @@ function drawMergedWaveform(ctx, canvas) {
   }
 }
 
-// === MESSAGES ===
 function scrollMessages() {
   const messages = document.getElementById('messages');
   messages.scrollTop = messages.scrollHeight;
@@ -95,7 +91,6 @@ function appendRoyMessage(message) {
   scrollMessages();
 }
 
-// === SEND TO ROY ===
 function sendToRoy(transcript) {
   appendUserMessage(transcript);
   document.getElementById('thinking-indicator').style.display = 'block';
@@ -114,8 +109,8 @@ function sendToRoy(transcript) {
       setupRoyWaveform(replyAudio);
       replyAudio.play();
       replyAudio.onended = () => {
-        document.getElementById('speakBtn').classList.remove('active');
-        document.getElementById('speakBtn').innerText = 'SPEAK';
+        speakBtn.classList.remove('active');
+        speakBtn.innerText = 'SPEAK';
       };
     }
   })
@@ -126,7 +121,6 @@ function sendToRoy(transcript) {
   });
 }
 
-// === TRANSCRIPTION (Continuous Fix) ===
 function startTranscription(ctx, canvas) {
   if (!('webkitSpeechRecognition' in window)) {
     alert('Speech recognition not supported in this browser.');
@@ -176,15 +170,14 @@ function stopUserRecording() {
   if (recognition) recognition.stop();
   if (userStream) userStream.getTracks().forEach(track => track.stop());
   if (audioContext && audioContext.state !== 'closed') audioContext.close();
-  document.getElementById('speakBtn').classList.remove('active');
-  document.getElementById('speakBtn').innerText = 'SPEAK';
+  speakBtn.classList.remove('active');
+  speakBtn.innerText = 'SPEAK';
   if (currentTranscript.trim() !== '') {
     sendToRoy(currentTranscript);
   }
   currentTranscript = '';
 }
 
-// === ROY WAVEFORM ===
 function setupRoyWaveform(audio) {
   if (royAudioContext && royAudioContext.state !== 'closed') {
     try { royAudioContext.close(); } catch (e) {}
@@ -199,42 +192,22 @@ function setupRoyWaveform(audio) {
   drawMergedWaveform(document.getElementById('waveform').getContext('2d'), document.getElementById('waveform'));
 }
 
-// === BUTTON LOGIC ===
 document.addEventListener('DOMContentLoaded', () => {
   updateDateTime();
   updateCountdownTimer();
   const { waveform, ctx } = initWaveform();
-
-  const royBtn = document.getElementById('royBtn');
   const speakBtn = document.getElementById('speakBtn');
 
-  appendRoyMessage("Hey, man... I'm Roy, your chill companion here to listen. Whenever you're ready, just hit the ROY button and let's talk, yeah?");
+  appendRoyMessage("Hey, man... I'm Roy, your chill companion here to listen. Whenever you're ready, just hit SPEAK and let's talk, yeah?");
 
-  function resetButtons() {
-    royBtn.classList.remove('active');
-    speakBtn.classList.remove('active');
-    speakBtn.innerText = 'SPEAK';
-  }
-
-  royBtn.addEventListener('click', () => {
-    if (royState === 'idle') {
-      royState = 'engaged';
-      royBtn.classList.add('active');
+  speakBtn.addEventListener('click', () => {
+    if (!isRecording) {
+      isRecording = true;
       speakBtn.classList.add('active');
       speakBtn.innerText = 'STOP';
       startTranscription(ctx, waveform);
     } else {
-      royState = 'idle';
       stopUserRecording();
-      resetButtons();
-    }
-  });
-
-  speakBtn.addEventListener('click', () => {
-    if (isRecording) {
-      stopUserRecording();
-      speakBtn.classList.remove('active');
-      speakBtn.innerText = 'SPEAK';
     }
   });
 });
