@@ -38,7 +38,7 @@ body {
   background-color: black !important;
 }
 
-/* === Messages Area === */
+/* === Messages === */
 #messages {
   background-color: black !important;
   min-height: 50vh;
@@ -50,13 +50,13 @@ body {
   font-size: 16px;
 }
 
-/* === Braun Style Colors === */
+/* === User and Roy Colors === */
 .user {
   color: #66CCFF; /* Soft cyan-blue for user */
 }
 
 .roy {
-  color: #CCCCCC; /* Braun-inspired soft gray for Roy */
+  color: #CCCCCC; /* Braun-style soft gray for Roy */
 }
 
 /* === Buttons === */
