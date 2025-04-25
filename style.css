@@ -68,13 +68,3 @@ button.blinking {
   color: yellow;
   margin-bottom: 15px;
 }
-
-#saveBtn, #homeBtn {
-  border-color: magenta;
-  color: magenta;
-}
-
-#saveBtn:hover, #homeBtn:hover {
-  background-color: magenta;
-  color: black;
-}
