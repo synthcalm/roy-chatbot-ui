@@ -1,12 +1,10 @@
-// === Roy Chatbot Final Working Script (Fixed Version) ===
+// === Roy Chatbot Script ===
 
 // Global Variables
 let royState = 'idle';
-let randyState = 'idle';
 let recognition, audioContext, analyser, dataArray, source;
 let isRecording = false;
 let userStream, royAudioContext, royAnalyser, royDataArray, roySource;
-let currentTranscript = '';
 
 // === INFO BAR ===
 function updateDateTime() {
@@ -55,7 +53,7 @@ function drawMergedWaveform(ctx, canvas) {
       i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
       x += sliceWidth;
     }
-    ctx.strokeStyle = 'yellow'; // User voice
+    ctx.strokeStyle = 'yellow';
     ctx.lineWidth = 2;
     ctx.stroke();
   }
@@ -70,7 +68,7 @@ function drawMergedWaveform(ctx, canvas) {
       i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
       x += sliceWidth;
     }
-    ctx.strokeStyle = 'magenta'; // Roy reply voice
+    ctx.strokeStyle = 'magenta';
     ctx.lineWidth = 2;
     ctx.stroke();
   }
@@ -103,20 +101,17 @@ function sendToRoy(transcript) {
   fetch('https://roy-chatbo-backend.onrender.com/api/chat', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      message: transcript,
-      persona: royState === 'engaged' ? 'roy' : 'randy'
-    })
+    body: JSON.stringify({ message: transcript })
   })
   .then(response => response.json())
   .then(data => {
     if (data.text) appendRoyMessage(data.text);
-    if (data.audioUrl) {
-      const replyAudio = new Audio(data.audioUrl);
+    if (data.audio) {
+      const replyAudio = new Audio(data.audio);
       setupRoyWaveform(replyAudio);
       replyAudio.play();
       replyAudio.onended = () => {
-        document.getElementById('speakBtn').style.backgroundColor = 'red';
+        document.getElementById('speakBtn').classList.remove('active');
         document.getElementById('speakBtn').innerText = 'SPEAK';
       };
     }
@@ -127,7 +122,7 @@ function sendToRoy(transcript) {
   });
 }
 
-// === TRANSCRIPTION (Tap-to-Talk) ===
+// === TRANSCRIPTION ===
 function startTranscription(ctx, canvas) {
   if (!('webkitSpeechRecognition' in window)) {
     alert('Speech recognition not supported in this browser.');
@@ -168,14 +163,10 @@ function startTranscription(ctx, canvas) {
 function stopUserRecording() {
   isRecording = false;
   if (recognition) recognition.stop();
-  if (userStream) {
-    userStream.getTracks().forEach(track => track.stop());
-  }
-  if (audioContext && audioContext.state !== 'closed') {
-    audioContext.close();
-  }
+  if (userStream) userStream.getTracks().forEach(track => track.stop());
+  if (audioContext && audioContext.state !== 'closed') audioContext.close();
+  document.getElementById('speakBtn').classList.remove('active');
   document.getElementById('speakBtn').innerText = 'SPEAK';
-  document.getElementById('speakBtn').style.backgroundColor = 'red';
 }
 
 // === ROY WAVEFORM ===
@@ -200,55 +191,25 @@ document.addEventListener('DOMContentLoaded', () => {
   const { waveform, ctx } = initWaveform();
 
   const royBtn = document.getElementById('royBtn');
-  const randyBtn = document.getElementById('randyBtn');
   const speakBtn = document.getElementById('speakBtn');
 
   appendRoyMessage("Hey, man... I'm Roy, your chill companion here to listen. Whenever you're ready, just hit the ROY button and let's talk, yeah?");
 
   function resetButtons() {
-    royBtn.style.backgroundColor = '';
-    randyBtn.style.backgroundColor = '';
-    speakBtn.style.backgroundColor = '';
+    royBtn.classList.remove('active');
+    speakBtn.classList.remove('active');
     speakBtn.innerText = 'SPEAK';
-  }
-
-  function toggleSpeakButton(blinking) {
-    if (blinking) {
-      speakBtn.innerText = 'STOP';
-      speakBtn.style.backgroundColor = 'red';
-      speakBtn.classList.add('blinking');
-    } else {
-      speakBtn.classList.remove('blinking');
-      speakBtn.innerText = 'SPEAK';
-      speakBtn.style.backgroundColor = 'red';
-    }
   }
 
   royBtn.addEventListener('click', () => {
     if (royState === 'idle') {
       royState = 'engaged';
-      randyState = 'idle';
-      royBtn.style.backgroundColor = 'green';
-      randyBtn.style.backgroundColor = '';
-      toggleSpeakButton(true);
+      royBtn.classList.add('active');
+      speakBtn.classList.add('active');
+      speakBtn.innerText = 'STOP';
       startTranscription(ctx, waveform);
     } else {
       royState = 'idle';
-      stopUserRecording();
-      resetButtons();
-    }
-  });
-
-  randyBtn.addEventListener('click', () => {
-    if (randyState === 'idle') {
-      randyState = 'engaged';
-      royState = 'idle';
-      randyBtn.style.backgroundColor = 'orange';
-      royBtn.style.backgroundColor = '';
-      toggleSpeakButton(true);
-      startTranscription(ctx, waveform);
-    } else {
-      randyState = 'idle';
       stopUserRecording();
       resetButtons();
     }
@@ -257,7 +218,8 @@ document.addEventListener('DOMContentLoaded', () => {
   speakBtn.addEventListener('click', () => {
     if (isRecording) {
       stopUserRecording();
-      toggleSpeakButton(false);
+      speakBtn.classList.remove('active');
+      speakBtn.innerText = 'SPEAK';
     }
   });
 });
