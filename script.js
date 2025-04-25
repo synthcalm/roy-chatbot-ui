@@ -1,10 +1,12 @@
-// === Roy Chatbot script.js (Final Fixed Version) ===
+// === Roy Chatbot Final Working Script ===
 
 // Global Variables
 let royState = 'idle';
 let randyState = 'idle';
 let recognition, audioContext, analyser, dataArray, source;
 let isRecording = false;
+let userStream, royAudioContext, royAnalyser, royDataArray, roySource;
+let currentTranscript = '';
 
 // === INFO BAR ===
 function updateDateTime() {
@@ -39,27 +41,41 @@ function initWaveform() {
   return { waveform, ctx };
 }
 
-function drawWaveform(ctx, canvas, data) {
+function drawMergedWaveform(ctx, canvas) {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
-  ctx.beginPath();
-  const sliceWidth = canvas.width / data.length;
-  let x = 0;
-  for (let i = 0; i < data.length; i++) {
-    const v = data[i] / 128.0;
-    const y = (v * canvas.height) / 2;
-    i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
-    x += sliceWidth;
+  if (analyser && dataArray) {
+    analyser.getByteTimeDomainData(dataArray);
+    ctx.beginPath();
+    const sliceWidth = canvas.width / dataArray.length;
+    let x = 0;
+    for (let i = 0; i < dataArray.length; i++) {
+      const v = dataArray[i] / 128.0;
+      const y = (v * canvas.height) / 2;
+      i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+      x += sliceWidth;
+    }
+    ctx.strokeStyle = 'yellow'; // User voice
+    ctx.lineWidth = 2;
+    ctx.stroke();
   }
-  ctx.strokeStyle = 'yellow';
-  ctx.lineWidth = 2;
-  ctx.stroke();
-}
-
-function animateWaveform(ctx, canvas) {
-  if (!isRecording) return;
-  analyser.getByteTimeDomainData(dataArray);
-  drawWaveform(ctx, canvas, dataArray);
-  requestAnimationFrame(() => animateWaveform(ctx, canvas));
+  if (royAnalyser && royDataArray) {
+    royAnalyser.getByteTimeDomainData(royDataArray);
+    ctx.beginPath();
+    const sliceWidth = canvas.width / royDataArray.length;
+    let x = 0;
+    for (let i = 0; i < royDataArray.length; i++) {
+      const v = royDataArray[i] / 128.0;
+      const y = (v * canvas.height) / 2;
+      i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+      x += sliceWidth;
+    }
+    ctx.strokeStyle = 'magenta'; // Roy reply voice
+    ctx.lineWidth = 2;
+    ctx.stroke();
+  }
+  if (isRecording || royAnalyser) {
+    requestAnimationFrame(() => drawMergedWaveform(ctx, canvas));
+  }
 }
 
 // === MESSAGES ===
@@ -96,6 +112,7 @@ function sendToRoy(transcript) {
     if (data.text) appendRoyMessage(data.text);
     if (data.audioUrl) {
       const replyAudio = new Audio(data.audioUrl);
+      setupRoyWaveform(replyAudio);
       replyAudio.play();
     }
   })
@@ -105,7 +122,7 @@ function sendToRoy(transcript) {
   });
 }
 
-// === TRANSCRIPTION ===
+// === TRANSCRIPTION (Tap-to-Talk) ===
 function startTranscription(ctx, canvas) {
   if (!('webkitSpeechRecognition' in window)) {
     alert('Speech recognition not supported in this browser.');
@@ -117,6 +134,7 @@ function startTranscription(ctx, canvas) {
   recognition.lang = 'en-US';
 
   navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
+    userStream = stream;
     audioContext = new (window.AudioContext || window.webkitAudioContext)();
     source = audioContext.createMediaStreamSource(stream);
     analyser = audioContext.createAnalyser();
@@ -124,7 +142,7 @@ function startTranscription(ctx, canvas) {
     dataArray = new Uint8Array(analyser.frequencyBinCount);
     source.connect(analyser);
     isRecording = true;
-    animateWaveform(ctx, canvas);
+    drawMergedWaveform(ctx, canvas);
 
     recognition.start();
     recognition.onresult = event => {
@@ -132,16 +150,38 @@ function startTranscription(ctx, canvas) {
         .map(result => result[0].transcript)
         .join('');
       recognition.stop();
-      isRecording = false;
-      audioContext.close();
+      stopUserRecording();
       sendToRoy(transcript);
     };
     recognition.onerror = () => {
       appendRoyMessage('Transcription error.');
-      isRecording = false;
-      recognition.stop();
+      stopUserRecording();
     };
   });
+}
+
+function stopUserRecording() {
+  isRecording = false;
+  if (recognition) recognition.stop();
+  if (userStream) {
+    userStream.getTracks().forEach(track => track.stop());
+  }
+  if (audioContext) audioContext.close();
+}
+
+// === ROY WAVEFORM ===
+function setupRoyWaveform(audio) {
+  if (royAudioContext) {
+    try { royAudioContext.close(); } catch (e) {}
+  }
+  royAudioContext = new (window.AudioContext || window.webkitAudioContext)();
+  royAnalyser = royAudioContext.createAnalyser();
+  royAnalyser.fftSize = 2048;
+  royDataArray = new Uint8Array(royAnalyser.frequencyBinCount);
+  roySource = royAudioContext.createMediaElementSource(audio);
+  roySource.connect(royAnalyser);
+  royAnalyser.connect(royAudioContext.destination);
+  drawMergedWaveform(document.getElementById('waveform').getContext('2d'), document.getElementById('waveform'));
 }
 
 // === BUTTON LOGIC ===
@@ -152,9 +192,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const royBtn = document.getElementById('royBtn');
   const randyBtn = document.getElementById('randyBtn');
-  const speakBtn = document.getElementById('speakBtn');
-  const saveBtn = document.getElementById('saveBtn');
-  const homeBtn = document.getElementById('homeBtn');
 
   appendRoyMessage("Hey, man... I'm Roy, your chill companion here to listen. Whenever you're ready, just hit the ROY button and let's talk, yeah?");
 
@@ -172,6 +209,7 @@ document.addEventListener('DOMContentLoaded', () => {
       startTranscription(ctx, waveform);
     } else {
       royState = 'idle';
+      stopUserRecording();
       resetButtons();
     }
   });
@@ -185,6 +223,7 @@ document.addEventListener('DOMContentLoaded', () => {
       startTranscription(ctx, waveform);
     } else {
       randyState = 'idle';
+      stopUserRecording();
       resetButtons();
     }
   });
