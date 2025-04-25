@@ -1,10 +1,10 @@
-// === Roy Chatbot Script ===
+// === Roy Chatbot Script (Fixed Continuous Recording) ===
 
-// Global Variables
 let royState = 'idle';
 let recognition, audioContext, analyser, dataArray, source;
 let isRecording = false;
 let userStream, royAudioContext, royAnalyser, royDataArray, roySource;
+let currentTranscript = '';
 
 // === INFO BAR ===
 function updateDateTime() {
@@ -49,7 +49,7 @@ function drawMergedWaveform(ctx, canvas) {
     let x = 0;
     for (let i = 0; i < dataArray.length; i++) {
       const v = dataArray[i] / 128.0;
-      const y = (v * canvas.height) / 2;
+      const y = (v * canvas.height) / 4; // Half the height for separate user waveform
       i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
       x += sliceWidth;
     }
@@ -64,7 +64,7 @@ function drawMergedWaveform(ctx, canvas) {
     let x = 0;
     for (let i = 0; i < royDataArray.length; i++) {
       const v = royDataArray[i] / 128.0;
-      const y = (v * canvas.height) / 2;
+      const y = (v * canvas.height) / 4 + canvas.height / 2; // Bottom half for Roy waveform
       i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
       x += sliceWidth;
     }
@@ -122,7 +122,7 @@ function sendToRoy(transcript) {
   });
 }
 
-// === TRANSCRIPTION ===
+// === TRANSCRIPTION (Continuous Fix) ===
 function startTranscription(ctx, canvas) {
   if (!('webkitSpeechRecognition' in window)) {
     alert('Speech recognition not supported in this browser.');
@@ -130,7 +130,7 @@ function startTranscription(ctx, canvas) {
   }
   recognition = new webkitSpeechRecognition();
   recognition.continuous = true;
-  recognition.interimResults = false;
+  recognition.interimResults = true;
   recognition.lang = 'en-US';
 
   navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
@@ -144,20 +144,27 @@ function startTranscription(ctx, canvas) {
     isRecording = true;
     drawMergedWaveform(ctx, canvas);
     recognition.start();
-
-    recognition.onresult = event => {
-      const transcript = Array.from(event.results)
-        .map(result => result[0].transcript)
-        .join('');
-      stopUserRecording();
-      sendToRoy(transcript);
-    };
-
-    recognition.onerror = () => {
-      appendRoyMessage('Transcription error.');
-      stopUserRecording();
-    };
   });
+
+  recognition.onresult = event => {
+    currentTranscript = Array.from(event.results)
+      .map(result => result[0].transcript)
+      .join('');
+  };
+
+  recognition.onend = () => {
+    if (isRecording) {
+      recognition.start(); // Restart automatically if still recording
+    }
+  };
+
+  recognition.onerror = event => {
+    console.error('Recognition error:', event.error);
+    if (isRecording) {
+      recognition.stop();
+      recognition.start(); // Recover from errors like 'network' or 'no-speech'
+    }
+  };
 }
 
 function stopUserRecording() {
@@ -167,6 +174,10 @@ function stopUserRecording() {
   if (audioContext && audioContext.state !== 'closed') audioContext.close();
   document.getElementById('speakBtn').classList.remove('active');
   document.getElementById('speakBtn').innerText = 'SPEAK';
+  if (currentTranscript.trim() !== '') {
+    sendToRoy(currentTranscript);
+  }
+  currentTranscript = '';
 }
 
 // === ROY WAVEFORM ===
