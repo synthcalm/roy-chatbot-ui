@@ -1,6 +1,8 @@
+// === FULLY REVISED SCRIPT.JS FOR BULLETPROOF AUDIO ON IOS ===
+
 let recognition, audioContext, analyser, dataArray, source;
 let isRecording = false;
-let userStream, royAudioContext, royAnalyser, royDataArray, roySource;
+let userStream;
 let currentTranscript = '';
 let speakBtn;
 
@@ -53,22 +55,7 @@ function drawMergedWaveform(ctx, canvas) {
     ctx.lineWidth = 2;
     ctx.stroke();
   }
-  if (royAnalyser && royDataArray) {
-    royAnalyser.getByteTimeDomainData(royDataArray);
-    ctx.beginPath();
-    const sliceWidth = canvas.width / royDataArray.length;
-    let x = 0;
-    for (let i = 0; i < royDataArray.length; i++) {
-      const v = royDataArray[i] / 128.0;
-      const y = (v * canvas.height) / 4 + canvas.height / 2;
-      i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
-      x += sliceWidth;
-    }
-    ctx.strokeStyle = '#CCCCCC';
-    ctx.lineWidth = 2;
-    ctx.stroke();
-  }
-  if (isRecording || royAnalyser) {
+  if (isRecording) {
     requestAnimationFrame(() => drawMergedWaveform(ctx, canvas));
   }
 }
@@ -102,7 +89,6 @@ function hideThinkingIndicator() {
 
 function sendToRoy(transcript) {
   if (!transcript || transcript.trim() === '') {
-    console.warn('Transcript is empty, not sending to backend.');
     appendRoyMessage("Hmm... didn't catch that. Try saying something?");
     return;
   }
@@ -123,12 +109,12 @@ function sendToRoy(transcript) {
       if (data.audio) {
         const replyAudio = new Audio(data.audio);
         replyAudio.setAttribute('playsinline', 'true');
+        replyAudio.load();
         replyAudio.addEventListener('ended', () => {
           speakBtn.classList.remove('active');
           speakBtn.innerText = 'SPEAK';
         });
         replyAudio.play().catch(err => console.error('Playback error:', err));
-        setupRoyWaveform(replyAudio);
       }
     })
     .catch(error => {
@@ -195,20 +181,6 @@ function stopUserRecording() {
     appendRoyMessage("Hmm... didn't catch that. Try saying something?");
   }
   currentTranscript = '';
-}
-
-function setupRoyWaveform(audio) {
-  if (royAudioContext && royAudioContext.state !== 'closed') {
-    try { royAudioContext.close(); } catch (e) {}
-  }
-  royAudioContext = new (window.AudioContext || window.webkitAudioContext)();
-  royAnalyser = royAudioContext.createAnalyser();
-  royAnalyser.fftSize = 2048;
-  royDataArray = new Uint8Array(royAnalyser.frequencyBinCount);
-  roySource = royAudioContext.createMediaElementSource(audio);
-  roySource.connect(royAnalyser);
-  royAnalyser.connect(royAudioContext.destination);
-  drawMergedWaveform(document.getElementById('waveform').getContext('2d'), document.getElementById('waveform'));
 }
 
 document.addEventListener('DOMContentLoaded', () => {
