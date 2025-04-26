@@ -73,3 +73,36 @@ function stopUserRecording() {
   }
   currentTranscript = '';
 }
+
+// === RESTORED DOMContentLoaded SECTION ===
+
+document.addEventListener('DOMContentLoaded', () => {
+  updateDateTime();
+  updateCountdownTimer();
+  const { waveform, ctx } = initWaveform();
+  speakBtn = document.getElementById('speakBtn');
+
+  appendRoyMessage("Hey, man... I'm Roy, your chill companion here to listen. Whenever you're ready, just hit SPEAK and let's talk, yeah?");
+
+  speakBtn.addEventListener('click', () => {
+    if (!isRecording) {
+      isRecording = true;
+      speakBtn.classList.add('active');
+      speakBtn.innerText = 'STOP';
+      startTranscription(ctx, waveform);
+    } else {
+      stopUserRecording();
+    }
+  });
+
+  const allButtons = document.querySelectorAll('button');
+  allButtons.forEach(button => button.style.color = '#66CCFF');
+
+  // Add blinking thinking indicator logic
+  const thinkingDots = document.querySelector('.dots');
+  if (thinkingDots) {
+    setInterval(() => {
+      thinkingDots.textContent = thinkingDots.textContent.length < 3 ? thinkingDots.textContent + '.' : '';
+    }, 500);
+  }
+});
