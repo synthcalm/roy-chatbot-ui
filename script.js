@@ -132,12 +132,90 @@ function playAudioBuffer(audioData) {
   };
 }
 
+function startTranscription(ctx, canvas) {
+  if (!('webkitSpeechRecognition' in window)) {
+    alert('Speech recognition not supported in this browser.');
+    return;
+  }
+  recognition = new webkitSpeechRecognition();
+  recognition.continuous = true;
+  recognition.interimResults = true;
+  recognition.lang = 'en-US';
+
+  navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
+    userStream = stream;
+    audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    if (audioContext.state === 'suspended') {
+      audioContext.resume().then(() => console.log('AudioContext resumed successfully for iOS.'));
+    }
+    source = audioContext.createMediaStreamSource(stream);
+    analyser = audioContext.createAnalyser();
+    analyser.fftSize = 2048;
+    dataArray = new Uint8Array(analyser.frequencyBinCount);
+    source.connect(analyser);
+    isRecording = true;
+    drawMergedWaveform(ctx, canvas);
+    recognition.start();
+  });
+
+  recognition.onresult = event => {
+    currentTranscript = Array.from(event.results).map(result => result[0].transcript).join('');
+  };
+
+  recognition.onend = () => {
+    if (isRecording) recognition.start();
+  };
+
+  recognition.onerror = event => {
+    console.error('Recognition error:', event.error);
+    if (isRecording) {
+      recognition.stop();
+      recognition.start();
+    }
+  };
+}
+
+function stopUserRecording() {
+  isRecording = false;
+  if (recognition) recognition.stop();
+  if (userStream) userStream.getTracks().forEach(track => track.stop());
+  if (audioContext && audioContext.state !== 'closed') audioContext.close();
+  speakBtn.classList.remove('active');
+  speakBtn.innerText = 'SPEAK';
+  if (currentTranscript.trim() !== '') {
+    sendToRoy(currentTranscript);
+  } else {
+    appendRoyMessage("Hmm... didn't catch that. Try saying something?");
+  }
+  currentTranscript = '';
+}
+
+function sendToRoy(transcript) {
+  appendUserMessage(transcript);
+  showThinkingIndicator();
+  fetch('https://roy-chatbo-backend.onrender.com/api/chat', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ message: transcript })
+  })
+    .then(response => response.json())
+    .then(data => {
+      hideThinkingIndicator();
+      if (data.text) appendRoyMessage(data.text);
+      if (data.audio) playAudioBuffer(data.audio);
+    })
+    .catch(error => {
+      hideThinkingIndicator();
+      appendRoyMessage('Error: Could not get Roy’s response.');
+      console.error('Roy API Error:', error);
+    });
+}
+
 document.addEventListener('DOMContentLoaded', () => {
   updateDateTime();
   updateCountdownTimer();
   const { waveform, ctx } = initWaveform();
   speakBtn = document.getElementById('speakBtn');
-
   appendRoyMessage("Hey, man... I'm Roy, your chill companion here to listen. Whenever you're ready, just hit SPEAK and let's talk, yeah?");
 
   speakBtn.addEventListener('click', () => {
