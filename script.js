@@ -1,16 +1,130 @@
-// === FULLY REVISED SCRIPT.JS WITH RELIABLE AUDIO PLAYBACK, INPUT, DUAL WAVEFORM, INFO BAR, AND GREETING ===
-
 let recognition, audioContext, analyser, dataArray, source;
 let outputAudioContext, outputAnalyser, outputDataArray, outputSource;
 let isRecording = false;
 let userStream;
 let currentTranscript = '';
-let lastTranscript = ''; // NEW: To prevent duplicates
+let lastTranscript = '';
 let speakBtn;
 
-// Existing functions remain unchanged above...
+function updateDateTime() {
+  const dateTimeDiv = document.getElementById('date-time');
+  if (dateTimeDiv) {
+    dateTimeDiv.textContent = new Date().toLocaleString();
+    setInterval(() => {
+      dateTimeDiv.textContent = new Date().toLocaleString();
+    }, 1000);
+  }
+}
 
-// NEW: Start Transcription (Microphone Input and Waveform Drawing)
+function updateCountdownTimer() {
+  const countdownDiv = document.getElementById('countdown-timer');
+  let timeLeft = 3600;
+  const updateTimer = () => {
+    const minutes = Math.floor(timeLeft / 60);
+    const seconds = timeLeft % 60;
+    countdownDiv.textContent = `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
+    timeLeft = (timeLeft - 1 + 3600) % 3600;
+  };
+  updateTimer();
+  setInterval(updateTimer, 1000);
+}
+
+function initWaveform() {
+  const waveform = document.getElementById('waveform');
+  const container = waveform.parentElement;
+  waveform.width = container.offsetWidth;
+  waveform.height = container.offsetHeight;
+  const ctx = waveform.getContext('2d');
+  return { waveform, ctx };
+}
+
+function drawMergedWaveform(ctx, canvas) {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  if (analyser && dataArray) {
+    analyser.getByteTimeDomainData(dataArray);
+    ctx.beginPath();
+    const sliceWidth = canvas.width / dataArray.length;
+    let x = 0;
+    for (let i = 0; i < dataArray.length; i++) {
+      const v = dataArray[i] / 128.0;
+      const y = (v * canvas.height) / 4;
+      i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+      x += sliceWidth;
+    }
+    ctx.strokeStyle = '#66CCFF'; // Cyan for user input
+    ctx.lineWidth = 2;
+    ctx.stroke();
+  }
+  if (outputAnalyser && outputDataArray) {
+    outputAnalyser.getByteTimeDomainData(outputDataArray);
+    ctx.beginPath();
+    const sliceWidth = canvas.width / outputDataArray.length;
+    let x = 0;
+    for (let i = 0; i < outputDataArray.length; i++) {
+      const v = outputDataArray[i] / 128.0;
+      const y = (v * canvas.height) / 4 + canvas.height / 2;
+      i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+      x += sliceWidth;
+    }
+    ctx.strokeStyle = '#CCCCCC'; // Braun soft gray for Roy
+    ctx.lineWidth = 2;
+    ctx.stroke();
+  }
+  if (isRecording || outputAnalyser) {
+    requestAnimationFrame(() => drawMergedWaveform(ctx, canvas));
+  }
+}
+
+function scrollMessages() {
+  const messages = document.getElementById('messages');
+  messages.scrollTop = messages.scrollHeight;
+}
+
+function appendUserMessage(message) {
+  const messages = document.getElementById('messages');
+  messages.innerHTML += `<div class="user">You: ${message}</div>`;
+  scrollMessages();
+}
+
+function appendRoyMessage(message) {
+  const messages = document.getElementById('messages');
+  messages.innerHTML += `<div class="roy">Roy: ${message}</div>`;
+  scrollMessages();
+}
+
+function sendToRoy(transcript) {
+  appendUserMessage(transcript);
+  document.getElementById('thinking-indicator').style.display = 'block';
+
+  fetch('https://roy-chatbo-backend.onrender.com/api/chat', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ message: transcript })
+  })
+    .then(response => response.json())
+    .then(data => {
+      document.getElementById('thinking-indicator').style.display = 'none';
+      if (data.text) appendRoyMessage(data.text);
+      if (data.audio) {
+        if (outputAudioContext && outputAudioContext.state !== 'closed') {
+          try { outputAudioContext.close(); } catch (e) {}
+        }
+        const replyAudio = new Audio(data.audio);
+        replyAudio.play().catch(err => console.error('Playback error:', err));
+        setupRoyWaveform(replyAudio);
+        replyAudio.onended = () => {
+          speakBtn.classList.remove('active');
+          speakBtn.innerText = 'SPEAK';
+        };
+      }
+    })
+    .catch(error => {
+      document.getElementById('thinking-indicator').style.display = 'none';
+      appendRoyMessage('Error: Could not get Roy’s response.');
+      console.error('Roy API Error:', error);
+    });
+}
+
 function startTranscription(ctx, canvas) {
   if (!('webkitSpeechRecognition' in window)) {
     alert('Speech recognition not supported in this browser.');
@@ -24,9 +138,6 @@ function startTranscription(ctx, canvas) {
   navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
     userStream = stream;
     audioContext = new (window.AudioContext || window.webkitAudioContext)();
-    if (audioContext.state === 'suspended') {
-      audioContext.resume().then(() => console.log('AudioContext resumed successfully.'));
-    }
     source = audioContext.createMediaStreamSource(stream);
     analyser = audioContext.createAnalyser();
     analyser.fftSize = 2048;
@@ -38,11 +149,9 @@ function startTranscription(ctx, canvas) {
   });
 
   recognition.onresult = event => {
-    let tempTranscript = Array.from(event.results).map(result => result[0].transcript).join('').trim();
-    if (tempTranscript && tempTranscript !== lastTranscript) {
-      currentTranscript = tempTranscript;
-      lastTranscript = tempTranscript;
-    }
+    currentTranscript = Array.from(event.results)
+      .map(result => result[0].transcript)
+      .join('');
   };
 
   recognition.onend = () => {
@@ -58,7 +167,6 @@ function startTranscription(ctx, canvas) {
   };
 }
 
-// NEW: Stop User Recording Function
 function stopUserRecording() {
   isRecording = false;
   if (recognition) recognition.stop();
@@ -68,14 +176,25 @@ function stopUserRecording() {
   speakBtn.innerText = 'SPEAK';
   if (currentTranscript.trim() !== '') {
     sendToRoy(currentTranscript);
-  } else {
-    appendRoyMessage("Hmm... didn't catch that. Try saying something?");
   }
   currentTranscript = '';
 }
 
-// === RESTORED DOMContentLoaded SECTION ===
+function setupRoyWaveform(audio) {
+  if (outputAudioContext && outputAudioContext.state !== 'closed') {
+    try { outputAudioContext.close(); } catch (e) {}
+  }
+  outputAudioContext = new (window.AudioContext || window.webkitAudioContext)();
+  outputAnalyser = outputAudioContext.createAnalyser();
+  outputAnalyser.fftSize = 2048;
+  outputDataArray = new Uint8Array(outputAnalyser.frequencyBinCount);
+  outputSource = outputAudioContext.createMediaElementSource(audio);
+  outputSource.connect(outputAnalyser);
+  outputAnalyser.connect(outputAudioContext.destination);
+  drawMergedWaveform(document.getElementById('waveform').getContext('2d'), document.getElementById('waveform'));
+}
 
+// === DOM READY ===
 document.addEventListener('DOMContentLoaded', () => {
   updateDateTime();
   updateCountdownTimer();
@@ -94,15 +213,4 @@ document.addEventListener('DOMContentLoaded', () => {
       stopUserRecording();
     }
   });
-
-  const allButtons = document.querySelectorAll('button');
-  allButtons.forEach(button => button.style.color = '#66CCFF');
-
-  // Add blinking thinking indicator logic
-  const thinkingDots = document.querySelector('.dots');
-  if (thinkingDots) {
-    setInterval(() => {
-      thinkingDots.textContent = thinkingDots.textContent.length < 3 ? thinkingDots.textContent + '.' : '';
-    }, 500);
-  }
 });
