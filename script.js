@@ -1,14 +1,9 @@
-// === script.js (Fully Assembled with AssemblyAI WebSocket and Roy GPT Integration) ===
+// === Full Assembled script.js for Roy Chatbot ===
 
-let socket;
+let recognition, audioContext, analyser, dataArray, source;
 let isRecording = false;
-let speakBtn = document.getElementById('speakBtn');
+let userStream, royAudioContext, royAnalyser, royDataArray, roySource;
 let currentTranscript = '';
-let lastTranscript = '';
-
-// === Waveform Setup ===
-let audioContext, analyser, dataArray, source;
-let royAudioContext, royAnalyser, royDataArray, roySource;
 
 function updateDateTime() {
   const dateTimeDiv = document.getElementById('date-time');
@@ -31,6 +26,15 @@ function updateCountdownTimer() {
   };
   updateTimer();
   setInterval(updateTimer, 1000);
+}
+
+function initWaveform() {
+  const waveform = document.getElementById('waveform');
+  const container = waveform.parentElement;
+  waveform.width = container.offsetWidth;
+  waveform.height = container.offsetHeight;
+  const ctx = waveform.getContext('2d');
+  return { waveform, ctx };
 }
 
 function drawMergedWaveform(ctx, canvas) {
@@ -70,97 +74,34 @@ function drawMergedWaveform(ctx, canvas) {
   }
 }
 
-function initWaveform() {
-  const waveform = document.getElementById('waveform');
-  const container = waveform.parentElement;
-  waveform.width = container.offsetWidth;
-  waveform.height = container.offsetHeight;
-  const ctx = waveform.getContext('2d');
-  return { waveform, ctx };
+function scrollMessages() {
+  const messages = document.getElementById('messages');
+  messages.scrollTop = messages.scrollHeight;
 }
 
 function appendUserMessage(message) {
   const messages = document.getElementById('messages');
   messages.innerHTML += `<div class="user">You: ${message}</div>`;
-  messages.scrollTop = messages.scrollHeight;
+  scrollMessages();
 }
 
 function appendRoyMessage(message) {
   const messages = document.getElementById('messages');
   messages.innerHTML += `<div class="roy">Roy: ${message}</div>`;
-  messages.scrollTop = messages.scrollHeight;
+  scrollMessages();
 }
 
-// === Secure Token Fetch ===
-async function getAssemblyToken() {
-  const res = await fetch('/api/get-assembly-token', { method: 'POST' });
-  const data = await res.json();
-  return data.token;
-}
-
-// === Setup WebSocket and Transcription ===
-async function startWebSocketTranscription() {
-  const token = await getAssemblyToken();
-  socket = new WebSocket(`wss://api.assemblyai.com/v2/realtime/ws?token=${token}`);
-
-  socket.onopen = () => {
-    console.log('WebSocket connected');
-    navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
-      audioContext = new (window.AudioContext || window.webkitAudioContext)();
-      source = audioContext.createMediaStreamSource(stream);
-      analyser = audioContext.createAnalyser();
-      analyser.fftSize = 2048;
-      dataArray = new Uint8Array(analyser.frequencyBinCount);
-      source.connect(analyser);
-      isRecording = true;
-      const { waveform, ctx } = initWaveform();
-      drawMergedWaveform(ctx, waveform);
-
-      const processor = audioContext.createScriptProcessor(4096, 1, 1);
-      source.connect(processor);
-      processor.connect(audioContext.destination);
-
-      processor.onaudioprocess = e => {
-        const inputData = e.inputBuffer.getChannelData(0);
-        const int16Array = convertFloat32ToInt16(inputData);
-        socket.send(int16Array);
-      };
-    });
-  };
-
-  socket.onmessage = msg => {
-    const res = JSON.parse(msg.data);
-    if (res.text && res.text !== lastTranscript) {
-      currentTranscript = res.text;
-      lastTranscript = res.text;
-    }
-  };
-
-  socket.onerror = err => console.error('WebSocket Error:', err);
-}
-
-function convertFloat32ToInt16(buffer) {
-  let l = buffer.length;
-  const buf = new Int16Array(l);
-  while (l--) buf[l] = Math.min(1, buffer[l]) * 0x7FFF;
-  return buf;
-}
-
-// === Stop Recording ===
-function stopRecording() {
-  isRecording = false;
-  if (socket) socket.close();
-  speakBtn.classList.remove('active');
-  speakBtn.innerText = 'SPEAK';
-  if (currentTranscript.trim() !== '') sendToRoy(currentTranscript);
-  currentTranscript = '';
-}
-
-// === Send to Roy Backend ===
 function sendToRoy(transcript) {
+  if (!transcript || transcript.trim() === '') {
+    console.warn('Transcript is empty, not sending to backend.');
+    appendRoyMessage("Hmm... didn't catch that. Try saying something?");
+    return;
+  }
+
   appendUserMessage(transcript);
   document.getElementById('thinking-indicator').style.display = 'block';
-  fetch('/api/chat', {
+
+  fetch('https://roy-chatbo-backend.onrender.com/api/chat', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ message: transcript })
@@ -169,21 +110,90 @@ function sendToRoy(transcript) {
     .then(data => {
       document.getElementById('thinking-indicator').style.display = 'none';
       if (data.text) appendRoyMessage(data.text);
-      if (data.audio) playRoyAudio(data.audio);
+
+      if (data.audio) {
+        if (royAudioContext && royAudioContext.state !== 'closed') {
+          try { royAudioContext.close(); } catch (e) {}
+        }
+        const replyAudio = new Audio(data.audio);
+        replyAudio.play().catch(err => console.error('Playback error:', err));
+        setupRoyWaveform(replyAudio);
+        replyAudio.onended = () => {
+          speakBtn.classList.remove('active');
+          speakBtn.innerText = 'SPEAK';
+        };
+      }
     })
-    .catch(err => {
+    .catch(error => {
       document.getElementById('thinking-indicator').style.display = 'none';
       appendRoyMessage('Error: Could not get Roy’s response.');
-      console.error('Roy API Error:', err);
+      console.error('Roy API Error:', error);
     });
 }
 
-// === Roy Audio Playback ===
-function playRoyAudio(audioData) {
+function startTranscription(ctx, canvas) {
+  if (!('webkitSpeechRecognition' in window)) {
+    alert('Speech recognition not supported in this browser.');
+    return;
+  }
+  recognition = new webkitSpeechRecognition();
+  recognition.continuous = true;
+  recognition.interimResults = true;
+  recognition.lang = 'en-US';
+
+  navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
+    userStream = stream;
+    audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    source = audioContext.createMediaStreamSource(stream);
+    analyser = audioContext.createAnalyser();
+    analyser.fftSize = 2048;
+    dataArray = new Uint8Array(analyser.frequencyBinCount);
+    source.connect(analyser);
+    isRecording = true;
+    drawMergedWaveform(ctx, canvas);
+    recognition.start();
+  });
+
+  recognition.onresult = event => {
+    currentTranscript = Array.from(event.results)
+      .map(result => result[0].transcript)
+      .join('');
+  };
+
+  recognition.onend = () => {
+    if (isRecording) {
+      recognition.start();
+    }
+  };
+
+  recognition.onerror = event => {
+    console.error('Recognition error:', event.error);
+    if (isRecording) {
+      recognition.stop();
+      recognition.start();
+    }
+  };
+}
+
+function stopUserRecording() {
+  isRecording = false;
+  if (recognition) recognition.stop();
+  if (userStream) userStream.getTracks().forEach(track => track.stop());
+  if (audioContext && audioContext.state !== 'closed') audioContext.close();
+  speakBtn.classList.remove('active');
+  speakBtn.innerText = 'SPEAK';
+  if (currentTranscript.trim() !== '') {
+    sendToRoy(currentTranscript);
+  } else {
+    appendRoyMessage("Hmm... didn't catch that. Try saying something?");
+  }
+  currentTranscript = '';
+}
+
+function setupRoyWaveform(audio) {
   if (royAudioContext && royAudioContext.state !== 'closed') {
     try { royAudioContext.close(); } catch (e) {}
   }
-  const audio = new Audio(audioData);
   royAudioContext = new (window.AudioContext || window.webkitAudioContext)();
   royAnalyser = royAudioContext.createAnalyser();
   royAnalyser.fftSize = 2048;
@@ -191,16 +201,14 @@ function playRoyAudio(audioData) {
   roySource = royAudioContext.createMediaElementSource(audio);
   roySource.connect(royAnalyser);
   royAnalyser.connect(royAudioContext.destination);
-  const { waveform, ctx } = initWaveform();
-  drawMergedWaveform(ctx, waveform);
-  audio.play().catch(err => console.error('Audio playback error:', err));
+  drawMergedWaveform(document.getElementById('waveform').getContext('2d'), document.getElementById('waveform'));
 }
 
-// === DOM Ready ===
 document.addEventListener('DOMContentLoaded', () => {
   updateDateTime();
   updateCountdownTimer();
-  speakBtn = document.getElementById('speakBtn');
+  const { waveform, ctx } = initWaveform();
+  const speakBtn = document.getElementById('speakBtn');
 
   appendRoyMessage("Hey, man... I'm Roy, your chill companion here to listen. Whenever you're ready, just hit SPEAK and let's talk, yeah?");
 
@@ -209,9 +217,9 @@ document.addEventListener('DOMContentLoaded', () => {
       isRecording = true;
       speakBtn.classList.add('active');
       speakBtn.innerText = 'STOP';
-      startWebSocketTranscription();
+      startTranscription(ctx, waveform);
     } else {
-      stopRecording();
+      stopUserRecording();
     }
   });
 });
