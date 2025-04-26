@@ -1,4 +1,4 @@
-// === FULLY REVISED SCRIPT.JS WITH RELIABLE AUDIO PLAYBACK, INPUT, AND DUAL WAVEFORM (INPUT + OUTPUT) ===
+// === FULLY REVISED SCRIPT.JS WITH RELIABLE AUDIO PLAYBACK, INPUT, DUAL WAVEFORM, INFO BAR, AND GREETING ===
 
 let recognition, audioContext, analyser, dataArray, source;
 let outputAudioContext, outputAnalyser, outputDataArray, outputSource;
@@ -76,6 +76,33 @@ function drawMergedWaveform(ctx, canvas) {
   }
 }
 
+function appendUserMessage(message) {
+  const messages = document.getElementById('messages');
+  messages.innerHTML += `<div class="user">You: ${message}</div>`;
+  scrollMessages();
+}
+
+function appendRoyMessage(message) {
+  const messages = document.getElementById('messages');
+  messages.innerHTML += `<div class="roy">Roy: ${message}</div>`;
+  scrollMessages();
+}
+
+function scrollMessages() {
+  const messages = document.getElementById('messages');
+  messages.scrollTop = messages.scrollHeight;
+}
+
+function showThinkingIndicator() {
+  const indicator = document.getElementById('thinking-indicator');
+  indicator.innerHTML = 'Roy is thinking<span class="dots"></span>';
+  indicator.style.display = 'block';
+}
+
+function hideThinkingIndicator() {
+  document.getElementById('thinking-indicator').style.display = 'none';
+}
+
 function playAudioBuffer(audioData) {
   const audio = new Audio(audioData);
   audio.setAttribute('playsinline', 'true');
@@ -105,4 +132,25 @@ function playAudioBuffer(audioData) {
   };
 }
 
-// (Rest of your unchanged functions like appendUserMessage, appendRoyMessage, showThinkingIndicator, hideThinkingIndicator remain as is)
+document.addEventListener('DOMContentLoaded', () => {
+  updateDateTime();
+  updateCountdownTimer();
+  const { waveform, ctx } = initWaveform();
+  speakBtn = document.getElementById('speakBtn');
+
+  appendRoyMessage("Hey, man... I'm Roy, your chill companion here to listen. Whenever you're ready, just hit SPEAK and let's talk, yeah?");
+
+  speakBtn.addEventListener('click', () => {
+    if (!isRecording) {
+      isRecording = true;
+      speakBtn.classList.add('active');
+      speakBtn.innerText = 'STOP';
+      startTranscription(ctx, waveform);
+    } else {
+      stopUserRecording();
+    }
+  });
+
+  const allButtons = document.querySelectorAll('button');
+  allButtons.forEach(button => button.style.color = '#66CCFF');
+});
