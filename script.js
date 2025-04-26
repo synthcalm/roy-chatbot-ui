@@ -1,4 +1,4 @@
-// === FULLY REVISED SCRIPT.JS WITH RELIABLE AUDIO PLAYBACK FOR IOS AND CROSS-PLATFORM ===
+// === FULLY REVISED SCRIPT.JS WITH RELIABLE AUDIO PLAYBACK AND INPUT FOR IOS AND CROSS-PLATFORM ===
 
 let recognition, audioContext, analyser, dataArray, source;
 let isRecording = false;
@@ -89,7 +89,7 @@ function hideThinkingIndicator() {
 
 function playAudioBuffer(audioData) {
   const audio = new Audio(audioData);
-  audio.setAttribute('playsinline', 'true'); // Required on iOS
+  audio.setAttribute('playsinline', 'true');
   audio.load();
   audio.play().catch(err => console.error('Audio playback error:', err));
   audio.onended = () => {
@@ -116,7 +116,6 @@ function sendToRoy(transcript) {
     .then(data => {
       hideThinkingIndicator();
       if (data.text) appendRoyMessage(data.text);
-
       if (data.audio) {
         playAudioBuffer(data.audio);
       }
@@ -141,6 +140,13 @@ function startTranscription(ctx, canvas) {
   navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
     userStream = stream;
     audioContext = new (window.AudioContext || window.webkitAudioContext)();
+
+    if (audioContext.state === 'suspended') {
+      audioContext.resume().then(() => {
+        console.log('AudioContext resumed successfully for iOS.');
+      });
+    }
+
     source = audioContext.createMediaStreamSource(stream);
     analyser = audioContext.createAnalyser();
     analyser.fftSize = 2048;
