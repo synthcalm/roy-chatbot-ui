@@ -1,4 +1,4 @@
-/* === Full Assembled Responsive CSS for Roy Chatbot === */
+/* === style.css (Roy Chatbot Styling) === */
 
 body, html {
   background-color: black;
@@ -9,7 +9,6 @@ body, html {
   overflow-x: hidden;
 }
 
-/* Info Bar */
 #info-bar {
   background-color: black;
   display: flex;
@@ -22,7 +21,6 @@ body, html {
   color: yellow;
 }
 
-/* Waveform Grid Area */
 #grid-area {
   height: 33vh;
   background-color: black;
@@ -40,7 +38,6 @@ body, html {
   background-color: black !important;
 }
 
-/* Messages Area */
 #messages {
   background-color: black !important;
   width: 90%;
@@ -59,7 +56,6 @@ body, html {
   color: #CCCCCC; /* Braun-style soft gray for Roy */
 }
 
-/* Buttons Area */
 #button-area {
   display: flex;
   justify-content: center;
@@ -73,7 +69,7 @@ body, html {
 
 button {
   font-family: 'Courier New', monospace;
-  color: #66CCFF; /* Same as user text color */
+  color: #66CCFF;
   background-color: black;
   border: 1px solid yellow;
   padding: 10px 20px;
@@ -93,31 +89,12 @@ button:hover {
   border-color: red;
 }
 
-/* Thinking Indicator */
 #thinking-indicator {
   text-align: center;
   color: yellow;
   padding: 5px;
 }
 
-/* === Animated Thinking Dots === */
-#thinking-indicator .dots::after {
-  content: '';
-  display: inline-block;
-  width: 1em;
-  text-align: left;
-  animation: dots 1.5s steps(5, end) infinite;
-}
-
-@keyframes dots {
-  0%, 20% { content: ''; }
-  40% { content: '.'; }
-  60% { content: '..'; }
-  80% { content: '...'; }
-  100% { content: ''; }
-}
-
-/* Blinking Class (if needed elsewhere) */
 .blinking {
   animation: blinking 1s infinite;
 }
@@ -128,7 +105,6 @@ button:hover {
   100% { opacity: 1; }
 }
 
-/* Mobile Responsive Adjustments */
 @media (max-width: 768px) {
   #messages {
     max-height: 40vh;
