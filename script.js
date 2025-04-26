@@ -1,4 +1,4 @@
-// === FULLY REVISED SCRIPT.JS WITH BULLETPROOF AUDIO FOR IOS AND CROSS-PLATFORM ===
+// === FULLY REVISED SCRIPT.JS WITH RELIABLE AUDIO PLAYBACK FOR IOS AND CROSS-PLATFORM ===
 
 let recognition, audioContext, analyser, dataArray, source;
 let isRecording = false;
@@ -87,15 +87,12 @@ function hideThinkingIndicator() {
   document.getElementById('thinking-indicator').style.display = 'none';
 }
 
-async function playAudioBuffer(audioData) {
-  const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-  const arrayBuffer = await (await fetch(audioData)).arrayBuffer();
-  const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
-  const source = audioCtx.createBufferSource();
-  source.buffer = audioBuffer;
-  source.connect(audioCtx.destination);
-  source.start(0);
-  source.onended = () => {
+function playAudioBuffer(audioData) {
+  const audio = new Audio(audioData);
+  audio.setAttribute('playsinline', 'true'); // Required on iOS
+  audio.load();
+  audio.play().catch(err => console.error('Audio playback error:', err));
+  audio.onended = () => {
     speakBtn.classList.remove('active');
     speakBtn.innerText = 'SPEAK';
   };
@@ -121,7 +118,7 @@ function sendToRoy(transcript) {
       if (data.text) appendRoyMessage(data.text);
 
       if (data.audio) {
-        playAudioBuffer(data.audio).catch(err => console.error('Playback error:', err));
+        playAudioBuffer(data.audio);
       }
     })
     .catch(error => {
