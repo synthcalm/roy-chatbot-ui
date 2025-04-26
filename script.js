@@ -1,4 +1,4 @@
-// === FULLY REVISED SCRIPT.JS FOR BULLETPROOF AUDIO ON IOS ===
+// === FULLY REVISED SCRIPT.JS WITH BULLETPROOF AUDIO FOR IOS AND CROSS-PLATFORM ===
 
 let recognition, audioContext, analyser, dataArray, source;
 let isRecording = false;
@@ -87,6 +87,20 @@ function hideThinkingIndicator() {
   document.getElementById('thinking-indicator').style.display = 'none';
 }
 
+async function playAudioBuffer(audioData) {
+  const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  const arrayBuffer = await (await fetch(audioData)).arrayBuffer();
+  const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+  const source = audioCtx.createBufferSource();
+  source.buffer = audioBuffer;
+  source.connect(audioCtx.destination);
+  source.start(0);
+  source.onended = () => {
+    speakBtn.classList.remove('active');
+    speakBtn.innerText = 'SPEAK';
+  };
+}
+
 function sendToRoy(transcript) {
   if (!transcript || transcript.trim() === '') {
     appendRoyMessage("Hmm... didn't catch that. Try saying something?");
@@ -107,14 +121,7 @@ function sendToRoy(transcript) {
       if (data.text) appendRoyMessage(data.text);
 
       if (data.audio) {
-        const replyAudio = new Audio(data.audio);
-        replyAudio.setAttribute('playsinline', 'true');
-        replyAudio.load();
-        replyAudio.addEventListener('ended', () => {
-          speakBtn.classList.remove('active');
-          speakBtn.innerText = 'SPEAK';
-        });
-        replyAudio.play().catch(err => console.error('Playback error:', err));
+        playAudioBuffer(data.audio).catch(err => console.error('Playback error:', err));
       }
     })
     .catch(error => {
